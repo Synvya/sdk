@@ -6,6 +6,7 @@ build-backend = "setuptools.build_meta"  # Backend used for the build process
 name = "agentstr"
 version = "0.0.1"
 description = "A library for collaborative AI agents"
+requires-python = ">=3.6"
 readme = "README.md"
 license = { text = "MIT" }
 authors = [
@@ -24,7 +25,7 @@ dependencies = [
 [project.urls]
 Homepage = "https://github.com/synvya/agentstr"
 Documentation = "https://github.com/synvya/agentstr#readme"
-Bug Tracker = "https://github.com/synvya/agentstr/issues"
+BugTracker = "https://github.com/synvya/agentstr/issues"
 
 [tool.setuptools.packages.find]
 where = ["agentstr"]
