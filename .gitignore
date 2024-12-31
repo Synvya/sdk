@@ -1,0 +1,8 @@
+# Ignore Python build artifacts
+*.egg-info/
+build/
+dist/
+*.egg
+dependency_links.txt
+PKG-INFO
+top_level.txt
