@@ -10,7 +10,7 @@ requires-python = ">=3.6"
 readme = "README.md"
 license = { text = "MIT" }
 authors = [
-    { name = "Alejandro Gil", email = "alejandro@alejandrogil.net" }
+    { name = "Alejandro Gil", email = "info@synvya.com" }
 ]
 keywords = ["AI", "agents", "collaboration", "library"]
 classifiers = [
