@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"  # Backend used for the build process
 
 [project]
 name = "agentstr"
-version = "0.0.1"
+version = "0.0.4"
 description = "A library for collaborative AI agents"
 requires-python = ">=3.6"
 readme = "README.md"
@@ -18,9 +18,7 @@ classifiers = [
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent"
 ]
-dependencies = [
-    # List dependencies here, e.g., "numpy >= 1.21"
-]
+dependencies = []
 
 [project.urls]
 Homepage = "https://github.com/synvya/agentstr"
