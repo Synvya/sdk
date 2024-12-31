@@ -9,35 +9,45 @@
 name: Upload Python Package
 
 on:
-  release:
-    types: [published]
-
+  push:
+    tags:
+      - 'v*.*.*'  # Trigger on version tags
+    
 permissions:
   contents: read
 
 jobs:
-  release-build:
+  publish:
     runs-on: ubuntu-latest
 
     steps:
+      - name: Checkout code
       - uses: actions/checkout@v4
+      
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.x'
+          
       - name: Install dependencies
-        run: python -m pip install --upgrade pip setuptools wheel
+        run: |
+          python -m pip install --upgrade pip
+          pip install setuptools wheel twine
 
       - name: Build release distributions
         run: |
           python -m pip install build
           python -m build
-      - name: Test with pytest
+          
+      - name: Test
         run: |
           pip install pytest 
           export PYTHONPATH=$(pwd):$PYTHONPATH
           pytest 
 
+      - name: Build package
+        run: python setup.py sdist bdist_wheel
+      
       - name: Upload distributions
         uses: actions/upload-artifact@v4
         with:
