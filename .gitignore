@@ -7,3 +7,4 @@ dependency_links.txt
 PKG-INFO
 top_level.txt
 .DS_Store
+.env
