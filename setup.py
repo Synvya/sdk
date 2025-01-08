@@ -9,7 +9,9 @@ setup(
     long_description_content_type="text/markdown",
     url="https://github.com/synvya/agentstr",
     packages=find_packages(where="."),
-    install_requires=[],
+    install_requires=[
+        "phi>=2.7.0"
+    ],
     classifiers=[
         "Programming Language :: Python :: 3",
         "License :: OSI Approved :: MIT License",
