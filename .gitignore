@@ -8,3 +8,4 @@ PKG-INFO
 top_level.txt
 .DS_Store
 .env
+__pycache__/
