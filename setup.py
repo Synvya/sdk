@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="agentstr",
-    version="0.0.5",
+    version="0.0.6",
     author="Alejandro Gil",
     description="A library for collaborative AI agents",
     long_description=open("README.md").read(),
