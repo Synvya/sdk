@@ -1,6 +1,6 @@
 AgentStr
 ========
-AgentStr is an extension of phidata AI agents that allows for agents to communicate with other agents in separate computers using the Nostr communication protocol.
+AgentStr is an extension of [Phidata](https://www.phidata.com) AI agents that allows for agents to communicate with other agents in separate computers using the Nostr communication protocol.
 
 The goal is for Agent A operated by Company A to be able to work with Agent B operated by Company B to achieve a common goal. For example: Company A wants to buy a product sold by Company B so Agent A and Agent B can coordinate and execute the transaction. 
 
