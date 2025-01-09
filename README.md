@@ -31,13 +31,14 @@ Here is an example on how to use the library:
 1. Create a new python environment for your app
     ```
     cd ~/
-    python3 -m venv mysampleapp
-    source mysampleapp/bin/acticate
+    python3 -m venv ~/.venvs/aienv
+    source ~/.venvs/aienv/bin/acticate
     ```
 2. Install the agentstr library
     ```
-    cd ~/mysampleapp
     pip install agentstr
+    mkdir ~/mysampleapp
+    cd ~/mysampleapp
     ```
 3. Create a new python file
     ```
@@ -58,7 +59,7 @@ Here is an example on how to use the library:
     ```
 5. Run the code
     ```
-    ~/mysampleapp/bin/python main.py
+    python main.py
     ```
 
 # Contributing
