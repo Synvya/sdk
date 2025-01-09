@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"  # Backend used for the build process
 
 [project]
 name = "agentstr"
-version = "0.0.6"
+version = "0.0.7"
 description = "A library for collaborative AI agents"
 requires-python = ">=3.6"
 readme = "README.md"
@@ -19,7 +19,7 @@ classifiers = [
     "Operating System :: OS Independent"
 ]
 dependencies = [
-    "phi>=2.7.0"  
+    "phi>=2.7.0", "openai>=1.50.0"  
 ]
 
 [project.urls]
