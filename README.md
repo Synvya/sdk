@@ -36,7 +36,8 @@ Here is an example on how to use the library:
     ```
 2. Install the agentstr library
     ```
-    pip install agentstr
+    pip install --upgrade pip
+    pip install agentstr packaging
     mkdir ~/mysampleapp
     cd ~/mysampleapp
     ```
@@ -55,10 +56,11 @@ Here is an example on how to use the library:
     print(f"Company: {agent.get_company()}\nRole: {agent.get_role()}")
 
     # Test phidata inherited capabilities
-    agent.print_response("Write two sentence poem for  the love between the sun and the moon.") 
+    agent.print_response("Tell me a dad joke") 
     ```
-5. Run the code
+5. Export your OpenAI key and run the code
     ```
+    export OPENAI_API_KEY="sk-***"
     python main.py
     ```
 
@@ -66,4 +68,4 @@ Here is an example on how to use the library:
 Refer to [CONTRIBUTING.md](CONTRIBUTING.md) for specific instructions on installation instructions for developers and how to contribute.
 
 # Acknowledgments
-- [Phidata](https://www.phidata.com/.com/) - For building robust AI agents.
+- [Phidata](https://www.phidata.com) - For building robust AI agents.
