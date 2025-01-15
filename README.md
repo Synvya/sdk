@@ -14,11 +14,13 @@ Done:
 - Workflow to package and distribute the library
 - Create AgentStr as an extension of Phidata Agent
 - Test the addition of new properties and capabilities for the AgentStr class
+- Incorporate Nostr capabilities
+- Create unique public / private key identifiers for agent
+- Send messages via Nostr
 
 To be done:
-- Incorporate Nostr capabilities
-- Create unique public / private key identifiers for agent instances
-- Send and retreive messages via Nostr
+ instances
+- Retreive messages via Nostr
 - Expose capabilities via Nostr
 - Agent B retrieves capabilities exposed by Agent A
 - Agent B coordinates transaction with Agent A
@@ -32,12 +34,12 @@ Here is an example on how to use the library:
     ```
     cd ~/
     python3 -m venv ~/.venvs/aienv
-    source ~/.venvs/aienv/bin/acticate
+    source ~/.venvs/aienv/bin/activate
     ```
 2. Install the agentstr library
     ```
     pip install --upgrade pip
-    pip install agentstr packaging
+    pip install agentstr
     mkdir ~/mysampleapp
     cd ~/mysampleapp
     ```

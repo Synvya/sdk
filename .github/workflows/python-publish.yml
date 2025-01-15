@@ -27,12 +27,12 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.x'
+          python-version: '>=3.9, <3.13'
           
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install setuptools wheel twine phidata openai
+          pip install setuptools wheel twine phidata openai packaging nostr-sdk pytest-asyncio
 
       - name: Build release distributions
         run: |
