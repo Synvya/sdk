@@ -40,6 +40,8 @@ jobs:
           python -m build
           
       - name: Test
+        env:
+          NSEC_KEY: ${{ secrets.NSEC_KEY }}
         run: |
           pip install pytest 
           export PYTHONPATH=$(pwd):$PYTHONPATH
