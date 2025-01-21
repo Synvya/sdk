@@ -1,13 +1,14 @@
 import pytest, pytest_asyncio, asyncio
-
-from agentstr.core import add, AgentStr, create_keys
-from phi.model.openai import OpenAIChat
-from nostr_sdk import Keys, Client, SendEventOutput
-from agentstr.nostr import NostrClient
-from agentstr.marketplace import MerchantProfile, Merchant
 import logging
 from dotenv import load_dotenv
 from os import getenv
+
+from phi.model.openai import OpenAIChat
+from nostr_sdk import Keys, Client, SendEventOutput
+
+from agentstr.nostr import NostrClient
+from agentstr.marketplace import MerchantProfile, Merchant
+
 
 # Clear existing handlers and set up logging again
 for handler in logging.root.handlers[:]:
