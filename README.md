@@ -48,22 +48,39 @@ Here is an example on how to use the library:
     ```
 4. Copy paste this code to the main.py file
     ```
-    from agentstr.core import AgentStr
-    # Create the agent
-    agent = AgentStr("Synvya Inc", "Seller")
+    from dotenv import load_dotenv
+    from os import getenv
+    from phi.agent import Agent 
+    from phi.model.openai import OpenAIChat
+    from agentstr.marketplace import MerchantProfile, Merchant
 
-    # Test AgentStr new capabilities
-    print(f"Public key: {agent.get_public_key()}\nPrivate key: {agent.get_private_key()}")
-    print(f"Company: {agent.get_company()}\nRole: {agent.get_role()}")
 
-    # Test phidata inherited capabilities
-    agent.print_response("Tell me a dad joke") 
+    profile = MerchantProfile(
+        "Synvya",
+        "Testing stuff",
+        "https://i.nostr.build/ocjZ5GlAKwrvgRhx.png",
+        getenv("NSEC_KEY")
+    )
+
+    agent = Agent(
+        name="Merchant Assistant",
+        model=OpenAIChat(id="gpt-4o"),
+        tools=[Merchant(merchant_profile=profile, relay="wss://relay.damus.io")],
+        show_tool_calls=True,
+        markdown=True,
+        debug_mode=True
+    )
+    
+    agent.print_response("Publish the merchant information and tell me the event id used")
     ```
-5. Export your OpenAI key and run the code
+5. Export your OpenAI key and optionally a Nostr private key before running the code
     ```
     export OPENAI_API_KEY="sk-***"
+    export NSEC_KEY="nsec***"
     python main.py
     ```
+
+This example will attempt to load a Nostr private key defined as NSEC_KEY in bech32 format. If a private key is not provided, the `MerchantProfile` class initializer will assign it a new one. 
 
 # Contributing
 Refer to [CONTRIBUTING.md](CONTRIBUTING.md) for specific instructions on installation instructions for developers and how to contribute.
