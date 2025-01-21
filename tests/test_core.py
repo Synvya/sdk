@@ -3,50 +3,76 @@ import pytest, pytest_asyncio, asyncio
 from agentstr.core import add, AgentStr, create_keys
 from phi.model.openai import OpenAIChat
 from nostr_sdk import Keys, Client, SendEventOutput
+from agentstr.nostr import NostrClient
+from agentstr.marketplace import MerchantProfile, Merchant
+import logging
 from dotenv import load_dotenv
+from os import getenv
+
+# Clear existing handlers and set up logging again
+for handler in logging.root.handlers[:]:
+    logging.root.removeHandler(handler)
+
+logging.basicConfig(
+    level=logging.INFO,  # Adjust to the desired level (e.g., INFO, DEBUG)
+    format="%(asctime)s - %(levelname)s - %(message)s",  # Log format
+)
 
 load_dotenv()
 
-def test_create_keys():
-    keys = create_keys()
-    assert isinstance(keys, Keys), "The result should be a Key"
+def test_create_merchant_profile():
+    nsec = getenv("NSEC_KEY")
 
-def test_get_keys():
-    keys = create_keys()
-    agent = AgentStr(keys, company="Synvya AI", role="Seller", relay="wss://relay.damus.io")
-    test_keys = agent.get_keys()
-    print(f"Keys: {test_keys}")
-    #assert isinstance(test_keys, Keys), "The result should be a set of Keys"
-    assert keys == test_keys
-
-def test_get_client():
-    keys = create_keys()
-    agent = AgentStr(keys, company="Synvya AI", role="Seller", relay="wss://relay.damus.io")
-    client = agent.get_client()
-    print(f"Client: {client}")
-    assert isinstance(client, Client), "The result should be a set of Keys"
-
-
-@pytest.mark.asyncio
-async def test_connect_to_relay():
-    keys = create_keys()
-    agent = AgentStr(keys, company="Synvya AI", role="Seller", relay="wss://relay.damus.io")
-    connected = await agent.connect_to_relay()
-    assert connected is True, "Agent should connect to the relay successfully"
-
-@pytest.mark.asyncio
-async def test_publish_note():
-    keys = create_keys()
-    agent = AgentStr(keys, company="Synvya AI", role="Seller", relay="wss://relay.damus.io")
-    connected = await agent.connect_to_relay()
-    if connected:
-        output = await agent.publish_note("Testing AgentStr")
-        print(f"Note published with public key: {keys.public_key().to_bech32()}")
-        assert output.success, "The success field should not be empty"
+    if nsec:
+        merchant_profile = MerchantProfile("Synvya Inc",
+                                           "Agentic communications",
+                                           "https://i.nostr.build/ocjZ5GlAKwrvgRhx.png",
+                                           nsec)
+        merchant_profile.merchant_profile_to_str()
+        assert isinstance(merchant_profile, MerchantProfile)
+        del merchant_profile
     else:
-        assert connected is True, "should fail"
+        logging.error("NSEC_KEY environment variable not set")
+        assert False
+        del merchant_profile
 
-     
-def test_add():
-    assert add(2, 3) == 5
+def test_publish_merchant_profile():
+    nsec = getenv("NSEC_KEY")
 
+    if nsec:
+        merchant_profile = MerchantProfile(
+            "Synvya Inc",
+            "Agentic communications",
+            "https://i.nostr.build/ocjZ5GlAKwrvgRhx.png",
+            nsec
+        )
+        merchant = Merchant(merchant_profile, "wss://relay.damus.io")
+        eventid = merchant.publish_merchant_profile()
+        assert isinstance(eventid, str)
+        logging.info(f"Merchant profile published with event id: " + eventid)
+        del merchant_profile
+    else:
+        logging.error("NSEC_KEY environment variable not set")
+        assert False
+        del merchant_profile
+
+@pytest.mark.asyncio
+async def test_async_publish_merchant_profile():
+    nsec = getenv("NSEC_KEY")
+
+    if nsec:
+        merchant_profile = MerchantProfile(
+            "Synvya Inc",
+            "Agentic communications",
+            "https://i.nostr.build/ocjZ5GlAKwrvgRhx.png",
+            nsec
+        )
+        merchant = Merchant(merchant_profile, "wss://relay.damus.io")
+        eventid = await merchant._async_publish_merchant_profile()
+        assert isinstance(eventid, str)
+        logging.info(f"Merchant profile published with event id: " + eventid)
+        del merchant_profile
+    else:
+        logging.error("NSEC_KEY environment variable not set")
+        assert False
+        del merchant_profile
