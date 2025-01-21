@@ -4,9 +4,9 @@ build-backend = "setuptools.build_meta"  # Backend used for the build process
 
 [project]
 name = "agentstr"
-version = "0.0.10"
+version = "0.1.6"
 description = "A library for collaborative AI agents"
-requires-python = ">=3.9, <3.13"
+requires-python = "3.12"
 readme = "README.md"
 license = { text = "MIT" }
 authors = [

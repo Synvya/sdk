@@ -71,7 +71,7 @@ Here is an example on how to use the library:
         debug_mode=True
     )
     
-    agent.print_response("Publish the merchant information and tell me the event id used")
+    agent.print_response("Publish the merchant information and tell me full URL where I can find it")
     ```
 5. Export your OpenAI key and optionally a Nostr private key before running the code
     ```
