@@ -4,6 +4,8 @@ AgentStr is an extension of [Phidata](https://www.phidata.com) AI agents that al
 
 The goal is for Agent A operated by Company A to be able to work with Agent B operated by Company B to achieve a common goal. For example: Company A wants to buy a product sold by Company B so Agent A and Agent B can coordinate and execute the transaction. 
 
+As a first example, AgentStr implements the [NIP-15](https://github.com/nostr-protocol/nips/blob/master/15.md) Nostr Marketplace with `merchant` and `customer` profiles implemented each as a Phidata Toolkit available to Phidata agents. 
+
 # License
 This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
 
@@ -12,18 +14,13 @@ The library is in its infancy.
 
 Done:
 - Workflow to package and distribute the library
-- Create AgentStr as an extension of Phidata Agent
-- Test the addition of new properties and capabilities for the AgentStr class
-- Incorporate Nostr capabilities
-- Create unique public / private key identifiers for agent
-- Send messages via Nostr
+- Users can create a Merchant profile and create an agent with the `merchant` toolkit that acts on behalf of the Merchant profile
+
 
 To be done:
- instances
-- Retreive messages via Nostr
-- Expose capabilities via Nostr
-- Agent B retrieves capabilities exposed by Agent A
-- Agent B coordinates transaction with Agent A
+- Create a `marketplace` with `stalls`
+- Merchants to define `products`
+- Create a `customer` Toolkit
 
 # Installation
 AgentStr is offered as a python library available at https://pypi.org/project/agentstr/. 
