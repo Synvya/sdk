@@ -84,6 +84,8 @@ class MerchantProfile():
 
 
 class Merchant(Toolkit):
+
+    WEB_URL: str = "http://njump.me/"
     
     def __init__(
         self,
@@ -102,6 +104,7 @@ class Merchant(Toolkit):
 
         # Register all methods
         self.register(self.publish_merchant_profile)
+        self.register(self.get_merchant_url)
     
     def publish_merchant_profile(
         self
@@ -110,7 +113,7 @@ class Merchant(Toolkit):
         Publishes the merchant profile on Nostr
 
         Returns:
-            str: id of the event publishing the profile
+            str: with event id and other details if successful or "error" string if unsuccesful
         """
         # Run the async pubilshing function synchronously
         return asyncio.run(self._async_publish_merchant_profile())
@@ -122,15 +125,39 @@ class Merchant(Toolkit):
         Asynchronous method to publish the merchant profile on Nostr
 
         Returns:
-            str: id of the event publishing the profile
+            str: with event id and other details if successful or "error" string if unsuccesful
         """
         
         nostr_client = nostr.NostrClient(self.relay, self.merchant_profile.get_private_key())
-        await nostr_client.connect()
-        eventid = await nostr_client.publish_profile(
-            self.merchant_profile.get_name(),
-            self.merchant_profile.get_about(),
-            self.merchant_profile.get_picture()
-        )
-        return eventid
         
+        # Connect to the relay
+        outcome = await nostr_client.connect()
+
+        # Check if the operation resulted in an error
+        if outcome == nostr.NostrClient.ERROR:
+            return nostr.NostrClient.ERROR
+        else:
+            eventid = await nostr_client.publish_profile(
+                self.merchant_profile.get_name(),
+                self.merchant_profile.get_about(),
+                self.merchant_profile.get_picture()
+            )
+
+            # Check if the operation resulted in an error
+            if eventid == nostr.NostrClient.ERROR:
+                return nostr.NostrClient.ERROR
+        
+            # Return the event ID and merchant profile details
+            return eventid + self.merchant_profile.merchant_profile_to_str()
+    
+    def get_merchant_url(
+        self
+    ) -> str:
+        """
+        Returns URL with merchant profile
+
+        Returns:
+            str: valid URL with merchant profile
+        """
+
+        return self.WEB_URL + self.merchant_profile.get_public_key()

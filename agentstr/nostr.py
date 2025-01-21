@@ -15,6 +15,8 @@ except ImportError:
 class NostrClient():
    
     logger = logging.getLogger("NostrClient")
+    ERROR: str = "ERROR"
+    SUCCESS: str = "SUCCESS"
     
     def __init__(
         self,
@@ -43,19 +45,22 @@ class NostrClient():
 
     async def connect(
         self
-    ) -> bool:
+    ) -> str:
         
         """Add relay to the NostrClient instance and connect to it.
+
+        Returns:
+            str: NostrClient.SUCCESS or NostrClient.ERROR
         """
         try:
             await self.client.add_relay(self.relay)
             NostrClient.logger.info(f"Relay {self.relay} succesfully added.")
             await self.client.connect()
             NostrClient.logger.info("Connected to relay.")
-            return True
+            return NostrClient.SUCCESS
         except Exception as e:
             NostrClient.logger.error(f"Unable to connect to relay {self.relay}. Exception: {e}.")
-            return False
+            return NostrClient.ERROR
         
     async def publish_text_note(
         self,
@@ -78,7 +83,7 @@ class NostrClient():
             return output.id.to_bech32()
         except Exception as e:
             NostrClient.logger.error(f"Unable to publish text note to relay {self.relay}. Exception: {e}.")
-            return "error"
+            return NostrClient.ERROR
 
     async def publish_event(
         self,
@@ -88,7 +93,7 @@ class NostrClient():
         """Publish generic Nostr event to the relay
 
         Returns:
-            str: event id if successful and "error" string if unsuccesful
+            str: event id if successful or "error" string if unsuccesful
         """
         try:
             output = await self.client.send_event_builder(builder)
@@ -96,7 +101,7 @@ class NostrClient():
             return output.id.to_bech32()
         except Exception as e:
             NostrClient.logger.error(f"Unable to publish event to relay {self.relay}. Exception: {e}.")
-            return "error"
+            return NostrClient.ERROR
     
     async def publish_profile(self, name: str, about: str, picture: str) -> str:
         """Publish a Nostr profile.
@@ -107,7 +112,7 @@ class NostrClient():
             picture: url to a png file with a picture for the profile
         
         Returns:
-            str: event id if successful and "error" string if unsuccesful
+            str: event id if successful or "error" string if unsuccesful
         """
         metadata_content = Metadata().set_name(name)
         metadata_content = metadata_content.set_about(about)
@@ -120,7 +125,7 @@ class NostrClient():
             return output.id.to_bech32()
         except Exception as e:
             NostrClient.logger.error(f"Unable to publish profile to relay {self.relay}. Exception: {e}.")
-            return "error"
+            return NostrClient.ERROR
 
     @classmethod
     def set_logging_level(cls, logging_level: int):
