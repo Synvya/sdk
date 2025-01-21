@@ -4,7 +4,9 @@ AgentStr is an extension of [Phidata](https://www.phidata.com) AI agents that al
 
 The goal is for Agent A operated by Company A to be able to work with Agent B operated by Company B to achieve a common goal. For example: Company A wants to buy a product sold by Company B so Agent A and Agent B can coordinate and execute the transaction. 
 
-As a first example, AgentStr implements the [NIP-15](https://github.com/nostr-protocol/nips/blob/master/15.md) Nostr Marketplace with `merchant` and `customer` profiles implemented each as a Phidata Toolkit available to Phidata agents. 
+The basic communication tools are implemented in `agentstr/nostr.py`. 
+
+As a first example, AgentStr provides the tools to create and operate a marketplace using the [NIP-15](https://github.com/nostr-protocol/nips/blob/master/15.md) Nostr Marketplace as its foundation. The file `agentstr/marketplace.py` includes NIP-15 `merchant` and `customer` profiles implemented each as a Phidata Toolkit. 
 
 # License
 This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
@@ -68,3 +70,4 @@ Refer to [CONTRIBUTING.md](CONTRIBUTING.md) for specific instructions on install
 
 # Acknowledgments
 - [Phidata](https://www.phidata.com) - For building robust AI agents.
+- [Rust-Nostr](https://rust-nostr.org/index.html) - For providing a python based Nostr SDK.
