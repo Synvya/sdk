@@ -74,7 +74,7 @@ class NostrClient():
         """
         event_builder = EventBuilder.delete(ids=[event_id], reason=reason)
         # Run the async publishing function synchronously
-        return asyncio.run(self._async_publish_event2(event_builder))
+        return asyncio.run(self._async_publish_event(event_builder))
         
     def publish_event(
         self,
@@ -90,13 +90,12 @@ class NostrClient():
             RuntimeError: if the product can't be published   
         """
         # Run the async publishing function synchronously
-        return asyncio.run(self._async_publish_event2(event_builder))
+        return asyncio.run(self._async_publish_event(event_builder))
     
     def publish_note(
         self,
         text: str
     ) -> EventId:
-        
         """Publish note with event kind 1 
 
         Args:
@@ -108,9 +107,8 @@ class NostrClient():
         Raises:
             RuntimeError: if the product can't be published
         """
-
         # Run the async publishing function synchronously
-        return asyncio.run(self._async_publish_note2(text))
+        return asyncio.run(self._async_publish_note(text))
        
     def publish_product(
         self,
@@ -130,7 +128,7 @@ class NostrClient():
         """
         # Run the async publishing function synchronously
         return asyncio.run(
-            self._async_publish_product2(product)
+            self._async_publish_product(product)
         )
 
     def publish_profile(
@@ -155,36 +153,33 @@ class NostrClient():
         """
         # Run the async publishing function synchronously
         return asyncio.run(
-            self._async_publish_profile2(
+            self._async_publish_profile(
                 name, 
                 about,
                 picture
             )
         )
-    
+
     def publish_stall(
-        self, 
+        self,
         stall: StallData
     ) -> EventId:
-        """
-        Create or update a NIP-15 Marketplace stall with event kind 30017
-
+        """Publish a stall to nostr
+        
         Args:
             stall: stall to be published
 
         Returns:
-            EventId: event id if successful
-        
-        Raises:
-            RuntimeError: if the stall can't be published
+            EventId: event id if successful or NostrClient.ERROR if unsuccesful
         """
-        # Run the async publishing function synchronously
-        return asyncio.run(
-            self._async_publish_stall2(stall)
-        )
-
+        try:
+            return asyncio.run(
+                self._async_publish_stall(stall)
+            )
+        except Exception as e:
+            self.logger.error(f"Failed to publish stall: {e}")
+            return NostrClient.ERROR
     
-            
     @classmethod
     def set_logging_level(
         cls,
@@ -228,26 +223,6 @@ class NostrClient():
     async def _async_publish_event(
         self,
         event_builder: EventBuilder
-    ) -> str:
-        
-        """
-        Publish generic Nostr event to the relay
-
-        Returns:
-            str: event id if successful or NostrClient.ERROR if unsuccesful
-        """
-        try:
-            await self._async_connect()
-            output = await self.client.send_event_builder(event_builder)
-            NostrClient.logger.info(f"Event published with event id: {output.id.to_bech32()}")
-            return output.id.to_bech32()
-        except Exception as e:
-            NostrClient.logger.error(f"Unable to publish event to relay {self.relay}. Exception: {e}.")
-            return NostrClient.ERROR
-    
-    async def _async_publish_event2(
-        self,
-        event_builder: EventBuilder
     ) -> EventId:
         """
         Publish generic Nostr event to the relay
@@ -277,23 +252,6 @@ class NostrClient():
     async def _async_publish_note(
         self,
         text: str
-    ) -> str:
-        
-        """Asynchronous funcion to publish kind 1 event (text note) to the relay 
-
-        Args:
-            text: text to be published as kind 1 event
-
-        Returns:
-            str: event id if successful or NostrClient.ERROR if unsuccesful
-        """
-        event_builder = EventBuilder.text_note(text)
-
-        return await self._async_publish_event(event_builder)
-
-    async def _async_publish_note2(
-        self,
-        text: str
     ) -> EventId:
         """
         Asynchronous funcion to publish kind 1 event (text note) to the relay 
@@ -308,39 +266,9 @@ class NostrClient():
             RuntimeError: if the event can't be published
         """
         event_builder = EventBuilder.text_note(text)
-
-        return await self._async_publish_event2(event_builder)
-
+        return await self._async_publish_event(event_builder)
 
     async def _async_publish_product(
-        self,
-        product: ProductData
-    ) -> str:
-        """
-        Asynchronous function to create or update a NIP-15 Marketplace product with event kind 30018
-        
-        Args:
-            product: product to publish
-
-        Returns:
-            str: event id if successful or NostrClient.ERROR if unsuccesfull
-        """
-        coordinate_tag = Coordinate(Kind(30017), self.keys.public_key(), product.stall_id)
-                
-        # EventBuilder.product_data() has a bug with tag handling.
-        # We use the function to create the content field and discard the eventbuilder 
-        bad_event_builder = EventBuilder.product_data(product)
-
-        # create an event from bad_event_builder to extract the content - not broadcasted
-        bad_event = await self.client.sign_event_builder(bad_event_builder)
-        content = bad_event.content()
-    
-        # build a new event with the right tags and the content
-        good_event_builder = EventBuilder(Kind(30018), content).tags([Tag.identifier(product.id), Tag.coordinate(coordinate_tag)])
-        self.logger.info("Product event: " + str(good_event_builder))
-        return await self._async_publish_event(good_event_builder)
-    
-    async def _async_publish_product2(
         self,
         product: ProductData
     ) -> EventId:
@@ -369,33 +297,9 @@ class NostrClient():
         # build a new event with the right tags and the content
         good_event_builder = EventBuilder(Kind(30018), content).tags([Tag.identifier(product.id), Tag.coordinate(coordinate_tag)])
         self.logger.info("Product event: " + str(good_event_builder))
-        return await self._async_publish_event2(good_event_builder)
+        return await self._async_publish_event(good_event_builder)
           
     async def _async_publish_profile(
-        self,
-        name: str,
-        about: str,
-        picture: str
-    ) -> str:
-        """Asynchronous function to publish a Nostr profile with event kind 0
-
-        Args:
-            name: name of the Nostr profile
-            about: brief description about the profile
-            picture: url to a png file with a picture for the profile
-        
-        Returns:
-            str: event id if successful or NostrClient.ERROR if unsuccesful
-        """
-        metadata_content = Metadata().set_name(name)
-        metadata_content = metadata_content.set_about(about)
-        metadata_content = metadata_content.set_picture(picture)
-
-        event_builder = EventBuilder.metadata(metadata_content)
-        # Refactor by replacing with 
-        return await self._async_publish_event(event_builder)
-
-    async def _async_publish_profile2(
         self,
         name: str,
         about: str,
@@ -420,27 +324,9 @@ class NostrClient():
         metadata_content = metadata_content.set_picture(picture)
 
         event_builder = EventBuilder.metadata(metadata_content)
-        return await self._async_publish_event2(event_builder)
-    
-
-    async def _async_publish_stall(
-        self,
-        stall: StallData
-    ) -> str:
-        """
-        Asynchronous function to create or update a NIP-15 Marketplace stall with event kind 30017
-
-        Args:
-            stall: stall to be published
-
-        Returns:
-            str: event id if successful or NostrClient.ERROR if unsuccesfull
-        """
-        self.logger.info(f"Stall: {stall}")
-        event_builder = EventBuilder.stall_data(stall)
         return await self._async_publish_event(event_builder)
     
-    async def _async_publish_stall2(
+    async def _async_publish_stall(
         self,
         stall: StallData
     ) -> EventId:
@@ -459,4 +345,4 @@ class NostrClient():
 
         self.logger.info(f"Stall: {stall}")
         event_builder = EventBuilder.stall_data(stall)
-        return await self._async_publish_event2(event_builder)
+        return await self._async_publish_event(event_builder)

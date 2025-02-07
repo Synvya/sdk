@@ -1,6 +1,6 @@
 import logging
 import json, ast, re
-from typing import Optional, List, Tuple
+from typing import Optional, List, Tuple, Dict, Any, Union
 from agentstr.nostr import Keys, NostrClient, ProductData, StallData, EventId, ShippingMethod, ShippingCost
 
 try:
@@ -8,6 +8,7 @@ try:
 except ImportError:
     raise ImportError("`phidata` not installed. Please install using `pip install phidata`")
 
+from pydantic import ConfigDict, BaseModel, Field, validate_call
 
 
 class Profile():
@@ -141,22 +142,108 @@ class Profile():
         return self.url
 
     
+class MerchantProduct(BaseModel):
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+    
+    id: str
+    stall_id: str
+    name: str
+    description: str
+    images: List[str]
+    currency: str
+    price: float
+    quantity: int
+    shipping: List[ShippingCost]
+    categories: Optional[List[str]] = []
+    specs: Optional[List[List[str]]] = []
+
+    @classmethod
+    def from_product_data(cls, product: ProductData) -> "MerchantProduct":
+        return cls(
+            id=product.id,
+            stall_id=product.stall_id,
+            name=product.name,
+            description=product.description,
+            images=product.images,
+            currency=product.currency,
+            price=product.price,
+            quantity=product.quantity,
+            shipping=product.shipping,
+            categories=product.categories if product.categories is not None else [],
+            specs=product.specs if product.specs is not None else []
+        )
+
+    def to_product_data(self) -> ProductData:
+        return ProductData(
+            id=self.id,
+            stall_id=self.stall_id,
+            name=self.name,
+            description=self.description,
+            images=self.images,
+            currency=self.currency,
+            price=self.price,
+            quantity=self.quantity,
+            shipping=self.shipping,  
+            categories=self.categories,
+            specs=self.specs
+        )
+
+class MerchantStall(BaseModel):
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+    
+    id: str
+    name: str
+    description: str
+    currency: str
+    shipping: List[ShippingMethod]
+
+    @classmethod
+    def from_stall_data(cls, stall: StallData) -> "MerchantStall":
+        return cls(
+            id=stall.id(),
+            name=stall.name(),
+            description=stall.description(),
+            currency=stall.currency(),
+            shipping=stall.shipping()
+        )
+
+    def to_stall_data(self) -> StallData:
+        return StallData(
+            self.id,
+            self.name,
+            self.description,
+            self.currency,
+            self.shipping  # No conversion needed
+        )
+
 class Merchant(Toolkit):
 
-    nostr_client: NostrClient = None
-    # Product DB
-    product_db = List[Tuple [ProductData, EventId | None]]
+    """
+    Merchant is a toolkit that allows a merchant to publish products and stalls to Nostr.
 
-    # Stall DB
-    stall_db = List[Tuple[StallData, EventId | None]]
+    TBD:
+    - Change all interactions with phidata agents to use MerchantProduct and MerchantStall
+    - Internal functions should use ProductData and StallData
+    """
+
+    from pydantic import ConfigDict
+    model_config = ConfigDict(
+        arbitrary_types_allowed=True,
+        extra='allow',
+        validate_assignment=True
+    )
+
+    nostr_client: Optional[NostrClient] = None
+    product_db: List[Tuple[MerchantProduct, Optional[EventId]]] = []
+    stall_db: List[Tuple[StallData, Optional[EventId]]] = []
+    
    
     def __init__(
         self,
         merchant_profile: Profile,
         relay: str,
         stalls: List[StallData],
-        products: List[ProductData]
-
+        products: List[MerchantProduct]
     ):
         """Initialize the Merchant toolkit.
 
@@ -172,21 +259,17 @@ class Merchant(Toolkit):
         self.nostr_client = NostrClient(self.relay, self.merchant_profile.get_private_key())
 
         # initialize the Product DB with no event id
-        self.product_db = []
-        for product in products:
-            self.product_db.append((product, None))
+        self.product_db = [(product, None) for product in products]
     
         # initialize the Stall DB with no event id
-        self.stall_db = []
-        for stall in stalls:
-            self.stall_db.append((stall, None))
+        self.stall_db = [(stall, None) for stall in stalls]
 
-        # Register all methods
-        self.register(self.get_merchant_profile)
-        self.register(self.get_merchant_relay)
+        # Register wrapped versions of the methods
+        self.register(self.get_profile)
+        self.register(self.get_relay)
         self.register(self.get_products)
         self.register(self.get_stalls)
-        self.register(self.publish_all_products)  
+        self.register(self.publish_all_products)
         self.register(self.publish_all_stalls)
         self.register(self.publish_product)
         self.register(self.publish_product_by_name)
@@ -195,7 +278,7 @@ class Merchant(Toolkit):
         self.register(self.publish_stall)
         self.register(self.publish_stall_by_name)
     
-    def get_merchant_profile(
+    def get_profile(
         self
     ) -> str:
         """
@@ -206,39 +289,28 @@ class Merchant(Toolkit):
         """
         return json.dumps(self.merchant_profile.to_dict())
     
-    def get_merchant_relay(self) -> str:
+    def get_relay(self) -> str:
         return self.relay
     
-    def get_products(
-        self
-    ) -> str:
+    def get_products(self) -> List[MerchantProduct]:
         """
-        Retrieves all the merchant products in JSON format
-
+        Retrieves all the merchant products
+        
         Returns:
-            str: JSON array with all products
+            List[MerchantProduct]: List of MerchantProducts
         """
-        products: List[ProductData] = [product for product, _ in self.product_db]
-        dict_list: List[dict] = []
-        for product in products:
-            dict_list.append(self._product_to_dict(product))
-        return json.dumps(dict_list)
+        return [product for product, _ in self.product_db]
     
-    def get_stalls(
-        self
-    ) -> str:
+    def get_stalls(self) -> str:
         """
         Retrieves all the merchant stalls in JSON format
-
-        Returns:
-            str: JSON array with all stalls
-        """
-        output: List[str] = []
-        for stall, _ in self.stall_db:
-            output.append(stall.as_json())
-
-        return json.dumps(output)
         
+        Returns:
+            str: JSON string containing all stalls
+        """
+        stalls = [MerchantStall.from_stall_data(s) for s, _ in self.stall_db]
+        return json.dumps([s.dict() for s in stalls])
+    
     def publish_all_products(
         self,
     ) -> str:
@@ -246,24 +318,31 @@ class Merchant(Toolkit):
         Publishes or updates all products sold by the merchant and adds the corresponding EventId to the Product DB
 
         Returns:
-            str: JSON array with products that could NOT get published
+            str: JSON array with status of all product publishing operations
         """
-
-        #error_list: List[ProductData] = []
-        error_list: List[dict] = []
+        results = []
 
         for i, (product, _) in enumerate(self.product_db):
             try:
-                event_id = self.nostr_client.publish_product(product)
+                # Convert MerchantProduct to ProductData for nostr_client
+                product_data = product.to_product_data()
+                # Publish using the SDK's synchronous method
+                event_id = self.nostr_client.publish_product(product_data)
                 self.product_db[i] = (product, event_id)
+                results.append({
+                    "status": "success",
+                    "event_id": str(event_id),
+                    "product_name": product.name
+                })
             except Exception as e:
-                # add product to list of products not published
                 Profile.logger.error(f"Unable to publish product {product}. Error {e}")
-                error_list.append(self._product_to_dict(product))
-                # error_list.append(product)
+                results.append({
+                    "status": "error",
+                    "message": str(e),
+                    "product_name": product.name
+                })
 
-        #return error_list
-        return json.dumps(error_list)
+        return json.dumps(results)
     
     def publish_all_stalls(
         self,
@@ -272,56 +351,56 @@ class Merchant(Toolkit):
         Publishes or updates all stalls managed by the merchant and adds the corresponding EventId to the Stall DB
 
         Returns:
-            str: JSON array with stalls that could NOT get published
+            str: JSON array with status of all stall publishing operations
         """
-
-        # error_list: List[StallData] = []
-        output: List[str] = []
+        results = []
 
         for i, (stall, _) in enumerate(self.stall_db):
             try:
                 event_id = self.nostr_client.publish_stall(stall)
                 self.stall_db[i] = (stall, event_id)
+                results.append({
+                    "status": "success",
+                    "event_id": str(event_id),
+                    "stall_name": stall.name()
+                })
             except Exception as e:
-                # add stall to list of stalls not published
                 Profile.logger.error(f"Unable to publish stall {stall}. Error {e}")
-                # error_list.append(stall)
-                output.append(stall.as_json())
+                results.append({
+                    "status": "error",
+                    "message": str(e),
+                    "stall_name": stall.name()
+                })
 
-        #return error_list
-        return json.dumps(output)
+        return json.dumps(results)
 
-    def publish_product(
-        self,
-        product: ProductData
-    ) -> str:
-        """
-        Publishes or updates a specific product sold by the merchant and updates the Product DB
-
+    def publish_product(self, product: MerchantProduct) -> str:
+        """Publish a product to nostr
+        
         Args:
-            product: product 
-
-        Returns:
-            str: JSON array with published product or empty array if could not publish the product
-        """
-
-        dict_list: List[dict] = []
-
-        try:
-            event_id = self.nostr_client.publish_product(product)
-            # find the product in the Product DB and update the EventId
-            for i, product_tuple in enumerate(self.product_db):
-                product_entry, _ = product_tuple
-                if product_entry == product:
-                    self.product_db[i] = (product_entry, event_id)
+            product: MerchantProduct to be published
             
-            # return JSON of the product
-            dict_list.append(self._product_to_dict(product))
-            return json.dumps(dict_list)
+        Returns:
+            str: JSON string with status of the operation
+        """
+        try:
+            # Convert MerchantProduct to ProductData for nostr_client
+            product_data = product.to_product_data()
+            # Publish using the SDK's synchronous method
+            print(f"DEBUG: made it past the conversion from MerchantProduct to ProductData")
+            event_id = self.nostr_client.publish_product(product_data)
+            return json.dumps({
+                "status": "success",
+                "event_id": str(event_id),
+                "product_name": product.name
+            })
         except Exception as e:
-            Profile.logger.error(f"Unable to publish product {product}. Error {e}")
-            return json.dumps(dict_list)
-    
+            return json.dumps({
+                "status": "error",
+                "message": str(e),
+                "product_name": product.name
+            })
+
     def publish_product_by_name(
         self,
         name: str
@@ -332,17 +411,19 @@ class Merchant(Toolkit):
             name: product name
 
         Returns:
-            str: JSON array with published product or empty array if could not publish the product
+            str: JSON string with status of the operation
         """
-        error_dict_list: List[dict] = []
-
         # iterate through all products searching for the right name
         for product, _ in self.product_db:
             if product.name == name:
                 return self.publish_product(product)
         
         # If we are here, then we didn't find a match
-        return json.dumps(error_dict_list)
+        return json.dumps({
+            "status": "error",
+            "message": f"Product '{name}' not found in database",
+            "product_name": name
+        })
     
     def publish_products_by_stall(
         self,
@@ -351,35 +432,53 @@ class Merchant(Toolkit):
         """
         Publishes or updates all products sold by the merchant in a given stall
 
-        Returns:
-            str: JSON array with products that could NOT get published
-        
-        Raises:
-            ValueError: if no product is found for the given stall name
-        """
+        Args:
+            stall_name: name of the stall containing the products
 
-        error_list: List[dict] = []
+        Returns:
+            str: JSON array with status of all product publishing operations
+        """
+        results = []
         stall_id = None
 
         # iterate through all stalls searching for the right name
         for stall, _ in self.stall_db:
             if stall.name() == stall_name:
                 stall_id = stall.id()
+                break
         
         # if stall_id is empty, then we found no match
         if stall_id is None:
-            raise ValueError(f"There are no products associated with stall name {stall_name}")
+            return json.dumps([{
+                "status": "error",
+                "message": f"Stall '{stall_name}' not found in database",
+                "stall_name": stall_name
+            }])
         
         # iterate through all the products and publish those belonging to this stall_id
         for product, _ in self.product_db:
             if product.stall_id == stall_id:
-                output = self.publish_product(product)
-                json_output = json.loads(output)
-                # if there was an error publishing the product then add it to the error list
-                if len(json_output) == 0:
-                    error_list.append(self._product_to_dict(product))
+                try:
+                    result = json.loads(self.publish_product(product))
+                    result["stall_name"] = stall_name
+                    results.append(result)
+                except Exception as e:
+                    Profile.logger.error(f"Unable to publish product {product}. Error {e}")
+                    results.append({
+                        "status": "error",
+                        "message": str(e),
+                        "product_name": product.name,
+                        "stall_name": stall_name
+                    })
+        
+        if not results:
+            return json.dumps([{
+                "status": "error",
+                "message": f"No products found in stall '{stall_name}'",
+                "stall_name": stall_name
+            }])
             
-        return json.dumps(error_list)
+        return json.dumps(results)
     
     def publish_profile(
         self
@@ -403,78 +502,65 @@ class Merchant(Toolkit):
         except Exception as e:
             raise RuntimeError(f"Unable to publish the profile: {e}")
     
-    def publish_stall(
-        self,
-        stall: StallData
-    ) -> str:
-        """
-        Publishes or updates a specific stall managed by the merchant and updates the Stall DB
-
+    def publish_stall(self, stall: MerchantStall) -> str:
+        """Publish a stall to nostr
+        
         Args:
-            product: product 
-
-        Returns:
-            str: JSON array with the published stall
-        """
-        output: List[str] = []
-
-        try:
-            event_id = self.nostr_client.publish_stall(stall)
-            # find the product in the Product DB and update the EventId
-            for i, stall_tuple in enumerate(self.stall_db):
-                stall_entry, _ = stall_tuple
-                if stall_entry == stall:
-                    self.stall_db[i] = (stall_entry, event_id)
+            stall: MerchantStall to be published
             
-            # add stall to output array
-            output.append(stall.as_json())
-        except Exception as e:
-            Profile.logger.error(f"Unable to publish stall {stall}. Error {e}")
-    
-        return json.dumps(output)
-        
-
-    def publish_stall_by_name(
-        self,
-        name: str
-    ) -> bool:
-        """
-        Publishes or updates the stall with a given name managed by the merchant
-
-        Args:
-            name: stall name
-
         Returns:
-            bool: True if stall was published and False otherwise
+            str: JSON string with status of the operation
         """
+        try:
+            # Convert the MerchantStall to SDK type
+            stall_data = stall.to_stall_data()
+            # Publish using the SDK's synchronous method
+            event_id = self.nostr_client.publish_stall(stall_data)
+            return json.dumps({
+                "status": "success",
+                "event_id": str(event_id),
+                "stall_name": stall.name
+            })
+        except Exception as e:
+            return json.dumps({
+                "status": "error",
+                "message": str(e),
+                "stall_name": stall.name
+            })
 
-        # iterate through all stalls searching for the right name
-        for stall, _ in self.stall_db:
-            if stall.name == name:
-                return self.publish_stall(stall)
+    def publish_stall_by_name(self, arguments: str) -> str:
+        """Publish a stall by name
         
-        # If we are here, then we didn't find a match
-        return False
-    
-
-    def _product_to_dict(
-        self,
-        product: ProductData
-    ) -> dict:
-        product_dict = {
-            "id": product.id,
-            "stall_id": product.stall_id,
-            "name": product.name,
-            "description": product.description,
-            "images": product.images,
-            "currency": product.currency,
-            "price": product.price,
-            "quantity": product.quantity,
-            "specs": product.specs,
-            "shipping": [{"id": shipping.id, "cost": shipping.cost} for shipping in product.shipping],
-            "categories": product.categories
-        }
-        return product_dict
+        Args:
+            arguments: JSON string that may contain {"name": "stall_name"} or just "stall_name"
+            
+        Returns:
+            str: JSON string with status of the operation
+        """
+        try:
+            # Try to parse as JSON first
+            import json
+            if isinstance(arguments, dict):
+                parsed = arguments
+            else:
+                parsed = json.loads(arguments)
+            stall_name = parsed.get("name", parsed)  # Get name if exists, otherwise use whole value
+        except json.JSONDecodeError:
+            # If not JSON, use the raw string
+            stall_name = arguments
+        
+        # Find the stall in stall_db
+        for stall, _ in self.stall_db:
+            if stall.name() == stall_name:
+                # Convert SDK StallData to our MerchantStall
+                merchant_stall = MerchantStall.from_stall_data(stall)
+                # Publish the stall
+                return self.publish_stall(merchant_stall)
+        
+        return json.dumps({
+            "status": "error", 
+            "message": f"Stall '{stall_name}' not found in database"
+        })
 
     
 
