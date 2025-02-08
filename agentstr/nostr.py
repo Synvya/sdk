@@ -1,5 +1,5 @@
 import logging 
-
+from typing import Optional
 try: 
     import asyncio
 except ImportError:
@@ -57,7 +57,7 @@ class NostrClient():
     def delete_event(
         self,
         event_id: EventId,
-        reason: str
+        reason: Optional[str] = None
     ) -> EventId:
         """
         Requests the relay to delete an event. Relays may or may not honor the request.
