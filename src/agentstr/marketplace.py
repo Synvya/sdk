@@ -540,44 +540,40 @@ class Merchant(Toolkit):
             raise ValueError("NostrClient not initialized")
 
         try:
-            # Parse arguments
+            # Parse arguments to get stall_name
+            stall_name: str
             if isinstance(arguments, str):
                 try:
                     parsed = json.loads(arguments)
+                    if isinstance(parsed, dict):
+                        raw_name: Optional[Any] = parsed.get("name")
+                        stall_name = str(raw_name) if raw_name is not None else ""
+                    else:
+                        stall_name = arguments
                 except json.JSONDecodeError:
                     stall_name = arguments
-                else:
-                    if "arguments" in parsed:
-                        nested = json.loads(parsed["arguments"])
-                        if isinstance(nested, dict):
-                            stall_name = nested.get("name")
-                        else:
-                            stall_name = nested
-                    else:
-                        name_raw: Optional[Any] = parsed.get("name", parsed)
-                        stall_name: str = str(name_raw) if name_raw is not None else ""
             else:
-                parsed = arguments
-                if "arguments" in parsed:
-                    nested = json.loads(parsed["arguments"])
+                if "arguments" in arguments:
+                    nested = json.loads(arguments["arguments"])
                     if isinstance(nested, dict):
-                        stall_name = nested.get("name")
+                        raw_name = nested.get("name")
+                        stall_name = str(raw_name) if raw_name is not None else ""
                     else:
-                        stall_name = nested
+                        raw_name = nested
+                        stall_name = str(raw_name) if raw_name is not None else ""
                 else:
-                    name_raw: Optional[Any] = parsed.get("name", parsed)
-                    stall_name: str = str(name_raw) if name_raw is not None else ""
+                    raw_name = arguments.get("name", arguments)
+                    stall_name = str(raw_name) if raw_name is not None else ""
 
             results = []
             stall_id = None
 
-            # iterate through all stalls searching for the right name
+            # Find stall ID
             for stall, _ in self.stall_db:
                 if stall.name == stall_name:
                     stall_id = stall.id
                     break
             
-            # if stall_id is empty, then we found no match
             if stall_id is None:
                 return json.dumps([{
                     "status": "error",
@@ -585,15 +581,12 @@ class Merchant(Toolkit):
                     "stall_name": stall_name
                 }])
             
-            # iterate through all the products and publish those belonging to this stall_id
+            # Publish products
             for i, (product, _) in enumerate(self.product_db):
                 if product.stall_id == stall_id:
                     try:
-                        # Convert MerchantProduct to ProductData for nostr_client
                         product_data = product.to_product_data()
-                        # Publish using the SDK's synchronous method
                         event_id = self._nostr_client.publish_product(product_data)
-                        # Update the product_db with the new event_id
                         self.product_db[i] = (product, event_id)
                         results.append({
                             "status": "success",
@@ -602,7 +595,6 @@ class Merchant(Toolkit):
                             "stall_name": stall_name
                         })
                     except Exception as e:
-                        Profile.logger.error(f"Unable to publish product {product}. Error {e}")
                         results.append({
                             "status": "error",
                             "message": str(e),
@@ -622,7 +614,7 @@ class Merchant(Toolkit):
         except Exception as e:
             return json.dumps([{
                 "status": "error",
-                "message": f"Error parsing arguments: {str(e)}",
+                "message": str(e),
                 "arguments": str(arguments)
             }])
     
@@ -688,14 +680,15 @@ class Merchant(Toolkit):
             raise ValueError("NostrClient not initialized")
         
         try:
-            # Parse arguments
+            # Parse arguments to get stall_name
+            stall_name: str
             if isinstance(arguments, str):
                 try:
                     # Try to parse as JSON first
                     parsed = json.loads(arguments)
                     if isinstance(parsed, dict):
-                        name_raw: Optional[Any] = parsed.get("name")
-                        stall_name: str = str(name_raw) if name_raw is not None else ""
+                        raw_name: Optional[Any] = parsed.get("name")
+                        stall_name = str(raw_name) if raw_name is not None else ""
                     else:
                         stall_name = arguments
                 except json.JSONDecodeError:
@@ -706,14 +699,14 @@ class Merchant(Toolkit):
                 if "arguments" in arguments:
                     nested = json.loads(arguments["arguments"])
                     if isinstance(nested, dict):
-                        name_raw: Optional[Any] = nested.get("name")
-                        stall_name: str = str(name_raw) if name_raw is not None else ""
+                        raw_name = nested.get("name")
+                        stall_name = str(raw_name) if raw_name is not None else ""
                     else:
-                        name_raw: Optional[Any] = nested
-                        stall_name: str = str(name_raw) if name_raw is not None else ""
+                        raw_name = nested
+                        stall_name = str(raw_name) if raw_name is not None else ""
                 else:
-                    name_raw: Optional[Any] = arguments.get("name", arguments)
-                    stall_name: str = str(name_raw) if name_raw is not None else ""
+                    raw_name = arguments.get("name", arguments)
+                    stall_name = str(raw_name) if raw_name is not None else ""
             
             # Find and publish stall
             for i, (stall, _) in enumerate(self.stall_db):
@@ -943,125 +936,127 @@ class Merchant(Toolkit):
         """
         
         try:
-            # Handle string input
+            # Parse arguments to get stall_name
+            stall_name: str
             if isinstance(arguments, str):
                 try:
                     parsed = json.loads(arguments)
+                    if isinstance(parsed, dict):
+                        raw_name: Optional[Any] = parsed.get("name")
+                        stall_name = str(raw_name) if raw_name is not None else ""
+                    else:
+                        stall_name = arguments
                 except json.JSONDecodeError:
-                    name_raw: Optional[Any] = arguments
-                    stall_name: str = str(name_raw) if name_raw is not None else ""
-                    return self._remove_stall_by_name(stall_name)
+                    stall_name = arguments
             else:
-                parsed = arguments
-
-            # Handle nested JSON if coming from agent
-            if "arguments" in parsed:
-                nested = json.loads(parsed["arguments"])
-                if isinstance(nested, dict):
-                    name_raw: Optional[Any] = nested.get("name")
-                    stall_name: str = str(name_raw) if name_raw is not None else ""
+                if "arguments" in arguments:
+                    nested = json.loads(arguments["arguments"])
+                    if isinstance(nested, dict):
+                        raw_name = nested.get("name")
+                        stall_name = str(raw_name) if raw_name is not None else ""
+                    else:
+                        raw_name = nested
+                        stall_name = str(raw_name) if raw_name is not None else ""
                 else:
-                    name_raw: Optional[Any] = nested
-                    stall_name: str = str(name_raw) if name_raw is not None else ""
-            else:
-                name_raw: Optional[Any] = parsed.get("name", parsed)
-                stall_name: str = str(name_raw) if name_raw is not None else ""
+                    raw_name = arguments.get("name", arguments)
+                    stall_name = str(raw_name) if raw_name is not None else ""
 
-            return self._remove_stall_by_name(stall_name)
+            results = []
+            stall_index = None
+            stall_id = None
+
+            # Find the stall and its event_id in the stall_db
+            for i, (stall, event_id) in enumerate(self.stall_db):
+                if stall.name == stall_name:
+                    stall_index = i
+                    stall_id = stall.id
+                    break
+            
+            # If stall_id is empty, then we found no match
+            if stall_id is None:
+                return json.dumps([{
+                    "status": "error",
+                    "message": f"Stall '{stall_name}' not found in database",
+                    "stall_name": stall_name
+                }])
+            
+            # First remove all products in this stall
+            for i, (product, event_id) in enumerate(self.product_db):
+                if product.stall_id == stall_id:
+                    if event_id is None:
+                        results.append({
+                            "status": "skipped",
+                            "message": f"Product '{product.name}' has not been published yet",
+                            "product_name": product.name,
+                            "stall_name": stall_name
+                        })
+                        continue
+
+                    try:
+                        self._nostr_client.delete_event(event_id, reason=f"Stall for '{product.name}' removed")
+                        self.product_db[i] = (product, None)
+                        results.append({
+                            "status": "success",
+                            "message": f"Product '{product.name}' removed",
+                            "product_name": product.name,
+                            "stall_name": stall_name,
+                            "event_id": str(event_id)
+                        })
+                    except Exception as e:
+                        results.append({
+                            "status": "error",
+                            "message": str(e),
+                            "product_name": product.name,
+                            "stall_name": stall_name
+                        })
+
+            # Now remove the stall itself
+            if stall_index is not None:
+                _, stall_event_id = self.stall_db[stall_index]
+                if stall_event_id is None:
+                    results.append({
+                        "status": "skipped",
+                        "message": f"Stall '{stall_name}' has not been published yet",
+                        "stall_name": stall_name
+                    })
+                else:
+                    try:
+                        self._nostr_client.delete_event(stall_event_id, reason=f"Stall '{stall_name}' removed")
+                        self.stall_db[stall_index] = (self.stall_db[stall_index][0], None)
+                        results.append({
+                            "status": "success",
+                            "message": f"Stall '{stall_name}' removed",
+                            "stall_name": stall_name,
+                            "event_id": str(stall_event_id)
+                        })
+                    except Exception as e:
+                        results.append({
+                            "status": "error",
+                            "message": str(e),
+                            "stall_name": stall_name
+                        })
+
+            return json.dumps(results)
 
         except Exception as e:
             return json.dumps([{
                 "status": "error",
-                "message": f"Error parsing arguments: {str(e)}",
-                "arguments": str(arguments)
+                "message": str(e),
+                "stall_name": "unknown"
             }])
-
-    def _remove_stall_by_name(self, stall_name: str) -> str:
-        """Internal method to handle the actual stall removal logic"""
-        if self._nostr_client is None:
-            raise ValueError("NostrClient not initialized")
-
-        results = []
-        stall_index = None
-        stall_id = None
-
-        # Find the stall and its event_id in the stall_db
-        for i, (stall, event_id) in enumerate(self.stall_db):
-            if stall.name == stall_name:
-                stall_index = i
-                stall_id = stall.id
-                break
-        
-        # If stall_id is empty, then we found no match
-        if stall_id is None:
-            return json.dumps([{
-                "status": "error",
-                "message": f"Stall '{stall_name}' not found in database",
-                "stall_name": stall_name
-            }])
-        
-        # First remove all products in this stall
-        for i, (product, event_id) in enumerate(self.product_db):
-            if product.stall_id == stall_id:
-                if event_id is None:
-                    results.append({
-                        "status": "skipped",
-                        "message": f"Product '{product.name}' has not been published yet",
-                        "product_name": product.name,
-                        "stall_name": stall_name
-                    })
-                    continue
-
-                try:
-                    self._nostr_client.delete_event(event_id, reason=f"Stall for '{product.name}' removed")
-                    self.product_db[i] = (product, None)
-                    results.append({
-                        "status": "success",
-                        "message": f"Product '{product.name}' removed",
-                        "product_name": product.name,
-                        "stall_name": stall_name,
-                        "event_id": str(event_id)
-                    })
-                except Exception as e:
-                    results.append({
-                        "status": "error",
-                        "message": str(e),
-                        "product_name": product.name,
-                        "stall_name": stall_name
-                    })
-
-        # Now remove the stall itself
-        if stall_index is not None:
-            _, stall_event_id = self.stall_db[stall_index]
-            if stall_event_id is None:
-                results.append({
-                    "status": "skipped",
-                    "message": f"Stall '{stall_name}' has not been published yet",
-                    "stall_name": stall_name
-                })
-            else:
-                try:
-                    self._nostr_client.delete_event(stall_event_id, reason=f"Stall '{stall_name}' removed")
-                    self.stall_db[stall_index] = (self.stall_db[stall_index][0], None)
-                    results.append({
-                        "status": "success",
-                        "message": f"Stall '{stall_name}' removed",
-                        "stall_name": stall_name,
-                        "event_id": str(stall_event_id)
-                    })
-                except Exception as e:
-                    results.append({
-                        "status": "error",
-                        "message": str(e),
-                        "stall_name": stall_name
-                    })
-
-        return json.dumps(results)
 
     def get_event_id(self, response: Any) -> str:
+        """Convert any response to a string event ID.
+        
+        Args:
+            response: Response that might contain an event ID
+            
+        Returns:
+            str: String representation of event ID or empty string if None
+        """
         if response is None:
             return ""
-        return str(response)  # Explicitly convert to str
+        return str(response)
 
     
 
