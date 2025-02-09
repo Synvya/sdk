@@ -1,7 +1,7 @@
-# AgentSTR Documentation
+# AgentStr Documentation
 
 ## Overview
-AgentSTR is a Python library that provides tools for interacting with Nostr marketplaces. The main components are the `Merchant` class and supporting data structures for managing stalls and products.
+AgentStr is a Python library that provides tools for interacting with Nostr marketplaces. The main components are the `Merchant` class and supporting data structures for managing stalls and products.
 
 ## Core Components
 
@@ -147,4 +147,4 @@ merchant.publish_product_by_name("My Product")
 merchant.remove_product_by_name("My Product")
 ```
 
-For more examples, check the `examples/` directory in the repository.
+For more examples, check the `src/agentstr/examples/` directory in the repository.
