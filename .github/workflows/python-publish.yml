@@ -12,6 +12,8 @@ on:
   push:
     tags:
       - 'v*.*.*'  # Trigger on version tags
+  # Add workflow_dispatch to enable manual triggers
+  workflow_dispatch: 
     
 permissions:
   contents: read
