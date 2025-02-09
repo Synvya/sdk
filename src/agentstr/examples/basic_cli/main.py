@@ -4,8 +4,8 @@ from typing import List, Tuple
 
 import httpx
 from dotenv import load_dotenv
-from phi.agent import Agent
-from phi.model.openai import OpenAIChat
+from phi.agent import Agent  # type: ignore
+from phi.model.openai import OpenAIChat  # type: ignore
 
 from agentstr.marketplace import (
     Merchant,
@@ -170,7 +170,7 @@ else:
 test_merchant = Profile(MERCHANT_NAME, MERCHANT_DESCRIPTION, MERCHANT_PICTURE, nsec)
 
 
-agent = Agent(
+agent = Agent(  # type: ignore[call-arg]
     name="Merchant Assistant",
     model=OpenAIChat(id="gpt-4o"),
     tools=[

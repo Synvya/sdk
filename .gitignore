@@ -33,6 +33,8 @@ ENV/
 .vscode/
 *.swp
 *.swo
+.cursor/
+.mypy_cache/
 
 # Environment variables
 .env
@@ -48,3 +50,4 @@ build/
 
 # OS folders
 .DS_Store
+
