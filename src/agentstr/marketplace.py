@@ -1,92 +1,105 @@
 import logging
 import json, ast, re
 from typing import Optional, List, Tuple, Dict, Any, Union, cast
-from agentstr.nostr import Keys, NostrClient, ProductData, StallData, EventId, ShippingMethod, ShippingCost
+from agentstr.nostr import (
+    Keys,
+    NostrClient,
+    ProductData,
+    StallData,
+    EventId,
+    ShippingMethod,
+    ShippingCost,
+)
 
 try:
     from phi.tools import Toolkit
 except ImportError:
-    raise ImportError("`phidata` not installed. Please install using `pip install phidata`")
+    raise ImportError(
+        "`phidata` not installed. Please install using `pip install phidata`"
+    )
 
 from pydantic import ConfigDict, BaseModel, Field, validate_call
 
 
-class Profile():
+class Profile:
 
     logger = logging.getLogger("Profile")
     WEB_URL: str = "https://primal.net/p/"
-    
-    
-    def __init__(
-        self,
-        name: str,
-        about: str,
-        picture: str,
-        nsec: Optional[str] = None
-    ):
+
+    def __init__(self, name: str, about: str, picture: str, nsec: Optional[str] = None):
         """Initialize the profile.
 
         Args:
             name: Name for the merchant
             about: brief description about the merchant
             picture: url to a png file with a picture for the merchant
-            nsec: optional private key to be used by this Merchant 
+            nsec: optional private key to be used by this Merchant
         """
 
         # Set log handling for MerchantProfile
         if not Profile.logger.hasHandlers():
             console_handler = logging.StreamHandler()
             console_handler.setLevel(logging.INFO)
-            formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+            formatter = logging.Formatter(
+                "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+            )
             console_handler.setFormatter(formatter)
             Profile.logger.addHandler(console_handler)
-        
+
         self.name = name
         self.about = about
         self.picture = picture
-               
+
         if nsec:
             self.private_key = nsec
             keys = Keys.parse(self.private_key)
             self.public_key = keys.public_key().to_bech32()
-            Profile.logger.info(f"Pre-defined private key reused for {self.name}: {self.private_key}")
-            Profile.logger.info(f"Pre-defined public key reused for {self.name}: {self.public_key}")
+            Profile.logger.info(
+                f"Pre-defined private key reused for {self.name}: {self.private_key}"
+            )
+            Profile.logger.info(
+                f"Pre-defined public key reused for {self.name}: {self.public_key}"
+            )
         else:
             keys = Keys.generate()
             self.private_key = keys.secret_key().to_bech32()
             self.public_key = keys.public_key().to_bech32()
-            Profile.logger.info(f"New private key created for {self.name}: {self.private_key}")
-            Profile.logger.info(f"New public key created for {self.name}: {self.public_key}")
-        
-        self.url = self.WEB_URL + self.public_key
+            Profile.logger.info(
+                f"New private key created for {self.name}: {self.private_key}"
+            )
+            Profile.logger.info(
+                f"New public key created for {self.name}: {self.public_key}"
+            )
 
-        
+        self.url = self.WEB_URL + self.public_key
 
     def __str__(self):
         return (
-            "Merchant Profile:\n" 
+            "Merchant Profile:\n"
             "Name = {}\n"
             "Description = {}\n"
             "Picture = {}\n"
             "URL = {}\n"
             "Private key = {}\n"
             "Public key = {}".format(
-                self.name, self.about, self.picture,
-                self.url, self.private_key, self.public_key
+                self.name,
+                self.about,
+                self.picture,
+                self.url,
+                self.private_key,
+                self.public_key,
             )
         )
-    
-    def to_dict(
-        self
-    ):
+
+    def to_dict(self):
         return {
-            'name': self.name,
-            'description': self.about,
-            'picture': self.picture,
-            'public key': self.public_key,
-            'private key': self.private_key
+            "name": self.name,
+            "description": self.about,
+            "picture": self.picture,
+            "public key": self.public_key,
+            "private key": self.private_key,
         }
-   
+
     def get_about(self) -> str:
         """
         Returns a description of the Merchant
@@ -95,7 +108,7 @@ class Profile():
             str: description of the Merchant
         """
         return self.about
-    
+
     def get_name(self) -> str:
         """
         Returns the Merchant's name
@@ -103,7 +116,7 @@ class Profile():
         Returns:
             str: Merchant's name
         """
-        return self.name    
+        return self.name
 
     def get_picture(self) -> str:
         """
@@ -113,7 +126,7 @@ class Profile():
             str: URL to the picture associated with the Merchant
         """
         return self.picture
-    
+
     def get_private_key(self) -> str:
         """
         Returns the private key.
@@ -122,7 +135,7 @@ class Profile():
             str: private key in bech32 format
         """
         return self.private_key
-    
+
     def get_public_key(self) -> str:
         """
         Returns the public key.
@@ -131,14 +144,14 @@ class Profile():
             str: public key in bech32 format
         """
         return self.public_key
-    
+
     def get_url(self) -> str:
         return self.url
 
-    
+
 class MerchantProduct(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True)
-    
+
     id: str
     stall_id: str
     name: str
@@ -164,7 +177,7 @@ class MerchantProduct(BaseModel):
             quantity=product.quantity,
             shipping=product.shipping,
             categories=product.categories if product.categories is not None else [],
-            specs=product.specs if product.specs is not None else []
+            specs=product.specs if product.specs is not None else [],
         )
 
     def to_product_data(self) -> ProductData:
@@ -177,9 +190,9 @@ class MerchantProduct(BaseModel):
             currency=self.currency,
             price=self.price,
             quantity=self.quantity,
-            shipping=self.shipping,  
+            shipping=self.shipping,
             categories=self.categories,
-            specs=self.specs
+            specs=self.specs,
         )
 
     def to_dict(self) -> dict:
@@ -192,10 +205,7 @@ class MerchantProduct(BaseModel):
         """
         shipping_dicts = []
         for shipping in self.shipping:
-            shipping_dicts.append({
-                "id": shipping.id,
-                "cost": shipping.cost
-            })
+            shipping_dicts.append({"id": shipping.id, "cost": shipping.cost})
 
         return {
             "id": self.id,
@@ -208,12 +218,13 @@ class MerchantProduct(BaseModel):
             "quantity": self.quantity,
             "shipping": shipping_dicts,
             "categories": self.categories,
-            "specs": self.specs
+            "specs": self.specs,
         }
+
 
 class MerchantStall(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True)
-    
+
     id: str
     name: str
     description: str
@@ -227,7 +238,7 @@ class MerchantStall(BaseModel):
             name=stall.name(),
             description=stall.description(),
             currency=stall.currency(),
-            shipping=stall.shipping()
+            shipping=stall.shipping(),
         )
 
     def to_stall_data(self) -> StallData:
@@ -236,7 +247,7 @@ class MerchantStall(BaseModel):
             self.name,
             self.description,
             self.currency,
-            self.shipping  # No conversion needed
+            self.shipping,  # No conversion needed
         )
 
     def to_dict(self) -> dict:
@@ -250,47 +261,47 @@ class MerchantStall(BaseModel):
         """
         shipping_dicts = []
         for shipping in self.shipping:
-            shipping_dicts.append({
-                "cost": shipping.get_shipping_cost().cost,
-                "id": shipping.get_shipping_cost().id   
-            })
+            shipping_dicts.append(
+                {
+                    "cost": shipping.get_shipping_cost().cost,
+                    "id": shipping.get_shipping_cost().id,
+                }
+            )
 
         return {
             "id": self.id,
             "name": self.name,
             "description": self.description,
             "currency": self.currency,
-            "shipping zones": [shipping_dicts]
+            "shipping zones": [shipping_dicts],
         }
 
-class Merchant(Toolkit):
 
+class Merchant(Toolkit):
     """
     Merchant is a toolkit that allows a merchant to publish products and stalls to Nostr.
 
     TBD:
     - Better differentiation between products and stalls in the database and products and stalls published.
-    
+
     """
 
     from pydantic import ConfigDict
+
     model_config = ConfigDict(
-        arbitrary_types_allowed=True,
-        extra='allow',
-        validate_assignment=True
+        arbitrary_types_allowed=True, extra="allow", validate_assignment=True
     )
 
     _nostr_client: Optional[NostrClient] = None
     product_db: List[Tuple[MerchantProduct, Optional[EventId]]] = []
     stall_db: List[Tuple[MerchantStall, Optional[EventId]]] = []
-    
-   
+
     def __init__(
         self,
         merchant_profile: Profile,
         relay: str,
         stalls: List[MerchantStall],
-        products: List[MerchantProduct]
+        products: List[MerchantProduct],
     ):
         """Initialize the Merchant toolkit.
 
@@ -303,11 +314,13 @@ class Merchant(Toolkit):
         super().__init__(name="merchant")
         self.relay = relay
         self.merchant_profile = merchant_profile
-        self._nostr_client = NostrClient(self.relay, self.merchant_profile.get_private_key())
+        self._nostr_client = NostrClient(
+            self.relay, self.merchant_profile.get_private_key()
+        )
 
         # initialize the Product DB with no event id
         self.product_db = [(product, None) for product in products]
-    
+
         # initialize the Stall DB with no event id
         self.stall_db = [(stall, None) for stall in stalls]
 
@@ -328,11 +341,8 @@ class Merchant(Toolkit):
         self.register(self.remove_all_stalls)
         self.register(self.remove_product_by_name)
         self.register(self.remove_stall_by_name)
-    
-    
-    def get_profile(
-        self
-    ) -> str:
+
+    def get_profile(self) -> str:
         """
         Retrieves merchant profile in JSON format
 
@@ -340,28 +350,28 @@ class Merchant(Toolkit):
             str: merchant profile in JSON format
         """
         return json.dumps(self.merchant_profile.to_dict())
-    
+
     def get_relay(self) -> str:
         return self.relay
-    
+
     def get_products(self) -> str:
         """
         Retrieves all the merchant products
-        
+
         Returns:
             str: JSON string containing all products
         """
         return json.dumps([p.to_dict() for p, _ in self.product_db])
-    
+
     def get_stalls(self) -> str:
         """
         Retrieves all the merchant stalls in JSON format
-        
+
         Returns:
             str: JSON string containing all stalls
         """
         return json.dumps([s.to_dict() for s, _ in self.stall_db])
-    
+
     def publish_all_products(
         self,
     ) -> str:
@@ -384,21 +394,21 @@ class Merchant(Toolkit):
                 # Publish using the SDK's synchronous method
                 event_id = self._nostr_client.publish_product(product_data)
                 self.product_db[i] = (product, event_id)
-                results.append({
-                    "status": "success",
-                    "event_id": str(event_id),
-                    "product_name": product.name
-                })
+                results.append(
+                    {
+                        "status": "success",
+                        "event_id": str(event_id),
+                        "product_name": product.name,
+                    }
+                )
             except Exception as e:
                 Profile.logger.error(f"Unable to publish product {product}. Error {e}")
-                results.append({
-                    "status": "error",
-                    "message": str(e),
-                    "product_name": product.name
-                })
+                results.append(
+                    {"status": "error", "message": str(e), "product_name": product.name}
+                )
 
         return json.dumps(results)
-    
+
     def publish_all_stalls(
         self,
     ) -> str:
@@ -418,28 +428,28 @@ class Merchant(Toolkit):
                 stall_data = stall.to_stall_data()
                 event_id = self._nostr_client.publish_stall(stall_data)
                 self.stall_db[i] = (stall, event_id)
-                results.append({
-                    "status": "success",
-                    "event_id": str(event_id),
-                    "stall_name": stall.name
-                })
+                results.append(
+                    {
+                        "status": "success",
+                        "event_id": str(event_id),
+                        "stall_name": stall.name,
+                    }
+                )
             except Exception as e:
                 Profile.logger.error(f"Unable to publish stall {stall}. Error {e}")
-                results.append({
-                    "status": "error",
-                    "message": str(e),
-                    "stall_name": stall.name
-                })
+                results.append(
+                    {"status": "error", "message": str(e), "stall_name": stall.name}
+                )
 
         return json.dumps(results)
 
     def publish_new_product(self, product: MerchantProduct) -> str:
         """
         Publishes a new product that is not currently in the Merchant's Product DB and adds it to the Product DB
-        
+
         Args:
             product: MerchantProduct to be published
-            
+
         Returns:
             str: JSON string with status of the operation
         """
@@ -453,24 +463,21 @@ class Merchant(Toolkit):
             event_id = self._nostr_client.publish_product(product_data)
             # we need to add the product event id to the product db
             self.product_db.append((product, event_id))
-            return json.dumps({
-                "status": "success",
-                "event_id": str(event_id),
-                "product_name": product.name
-            })
+            return json.dumps(
+                {
+                    "status": "success",
+                    "event_id": str(event_id),
+                    "product_name": product.name,
+                }
+            )
         except Exception as e:
-            return json.dumps({
-                "status": "error",
-                "message": str(e),
-                "product_name": product.name
-            })
+            return json.dumps(
+                {"status": "error", "message": str(e), "product_name": product.name}
+            )
 
-    def publish_product_by_name(
-        self,
-        arguments: str
-    ) -> str:
+    def publish_product_by_name(self, arguments: str) -> str:
         """
-        Publishes or updates a given product from the Merchant's Product DB 
+        Publishes or updates a given product from the Merchant's Product DB
         Args:
             arguments: JSON string that may contain {"name": "product_name"} or just "product_name"
 
@@ -486,11 +493,13 @@ class Merchant(Toolkit):
                 parsed = arguments
             else:
                 parsed = json.loads(arguments)
-            name = parsed.get("name", parsed)  # Get name if exists, otherwise use whole value
+            name = parsed.get(
+                "name", parsed
+            )  # Get name if exists, otherwise use whole value
         except json.JSONDecodeError:
             # If not JSON, use the raw string
             name = arguments
-        
+
         # iterate through all products searching for the right name
         for i, (product, _) in enumerate(self.product_db):
             if product.name == name:
@@ -501,29 +510,32 @@ class Merchant(Toolkit):
                     event_id = self._nostr_client.publish_product(product_data)
                     # Update the product_db with the new event_id
                     self.product_db[i] = (product, event_id)
-                    return json.dumps({
-                        "status": "success",
-                        "event_id": str(event_id),
-                        "product_name": product.name
-                    })
+                    return json.dumps(
+                        {
+                            "status": "success",
+                            "event_id": str(event_id),
+                            "product_name": product.name,
+                        }
+                    )
                 except Exception as e:
-                    return json.dumps({
-                        "status": "error",
-                        "message": str(e),
-                        "product_name": product.name
-                    })
-        
+                    return json.dumps(
+                        {
+                            "status": "error",
+                            "message": str(e),
+                            "product_name": product.name,
+                        }
+                    )
+
         # If we are here, then we didn't find a match
-        return json.dumps({
-            "status": "error",
-            "message": f"Product '{name}' not found in database",
-            "product_name": name
-        })
-    
-    def publish_products_by_stall_name(
-        self,
-        arguments: Union[str, dict]
-    ) -> str:
+        return json.dumps(
+            {
+                "status": "error",
+                "message": f"Product '{name}' not found in database",
+                "product_name": name,
+            }
+        )
+
+    def publish_products_by_stall_name(self, arguments: Union[str, dict]) -> str:
         """
         Publishes or updates all products sold by the merchant in a given stall
 
@@ -573,14 +585,18 @@ class Merchant(Toolkit):
                 if stall.name == stall_name:
                     stall_id = stall.id
                     break
-            
+
             if stall_id is None:
-                return json.dumps([{
-                    "status": "error",
-                    "message": f"Stall '{stall_name}' not found in database",
-                    "stall_name": stall_name
-                }])
-            
+                return json.dumps(
+                    [
+                        {
+                            "status": "error",
+                            "message": f"Stall '{stall_name}' not found in database",
+                            "stall_name": stall_name,
+                        }
+                    ]
+                )
+
             # Publish products
             for i, (product, _) in enumerate(self.product_db):
                 if product.stall_id == stall_id:
@@ -588,45 +604,49 @@ class Merchant(Toolkit):
                         product_data = product.to_product_data()
                         event_id = self._nostr_client.publish_product(product_data)
                         self.product_db[i] = (product, event_id)
-                        results.append({
-                            "status": "success",
-                            "event_id": str(event_id),
-                            "product_name": product.name,
-                            "stall_name": stall_name
-                        })
+                        results.append(
+                            {
+                                "status": "success",
+                                "event_id": str(event_id),
+                                "product_name": product.name,
+                                "stall_name": stall_name,
+                            }
+                        )
                     except Exception as e:
-                        results.append({
-                            "status": "error",
-                            "message": str(e),
-                            "product_name": product.name,
-                            "stall_name": stall_name
-                        })
-            
+                        results.append(
+                            {
+                                "status": "error",
+                                "message": str(e),
+                                "product_name": product.name,
+                                "stall_name": stall_name,
+                            }
+                        )
+
             if not results:
-                return json.dumps([{
-                    "status": "error",
-                    "message": f"No products found in stall '{stall_name}'",
-                    "stall_name": stall_name
-                }])
-            
+                return json.dumps(
+                    [
+                        {
+                            "status": "error",
+                            "message": f"No products found in stall '{stall_name}'",
+                            "stall_name": stall_name,
+                        }
+                    ]
+                )
+
             return json.dumps(results)
 
         except Exception as e:
-            return json.dumps([{
-                "status": "error",
-                "message": str(e),
-                "arguments": str(arguments)
-            }])
-    
-    def publish_profile(
-        self
-    ) -> str:
+            return json.dumps(
+                [{"status": "error", "message": str(e), "arguments": str(arguments)}]
+            )
+
+    def publish_profile(self) -> str:
         """
         Publishes the profile on Nostr
 
         Returns:
             str: JSON of the event that published the profile
-        
+
         Raises:
             RuntimeError: if it can't publish the event
         """
@@ -637,19 +657,19 @@ class Merchant(Toolkit):
             event_id = self._nostr_client.publish_profile(
                 self.merchant_profile.get_name(),
                 self.merchant_profile.get_about(),
-                self.merchant_profile.get_picture()
+                self.merchant_profile.get_picture(),
             )
             return json.dumps(event_id.__dict__)
         except Exception as e:
             raise RuntimeError(f"Unable to publish the profile: {e}")
-    
+
     def publish_new_stall(self, stall: MerchantStall) -> str:
         """
         Publishes a new stall that is not currently in the Merchant's Stall DB and adds it to the Stall DB
-        
+
         Args:
             stall: MerchantStall to be published
-            
+
         Returns:
             str: JSON string with status of the operation
         """
@@ -663,22 +683,22 @@ class Merchant(Toolkit):
             event_id = self._nostr_client.publish_stall(stall_data)
             # we need to add the stall event id to the stall db
             self.stall_db.append((stall, event_id))
-            return json.dumps({
-                "status": "success",
-                "event_id": str(event_id),
-                "stall_name": stall.name
-            })
+            return json.dumps(
+                {
+                    "status": "success",
+                    "event_id": str(event_id),
+                    "stall_name": stall.name,
+                }
+            )
         except Exception as e:
-            return json.dumps({
-                "status": "error",
-                "message": str(e),
-                "stall_name": stall.name
-            })
+            return json.dumps(
+                {"status": "error", "message": str(e), "stall_name": stall.name}
+            )
 
     def publish_stall_by_name(self, arguments: Union[str, dict]) -> str:
         if self._nostr_client is None:
             raise ValueError("NostrClient not initialized")
-        
+
         try:
             # Parse arguments to get stall_name
             stall_name: str
@@ -707,7 +727,7 @@ class Merchant(Toolkit):
                 else:
                     raw_name = arguments.get("name", arguments)
                     stall_name = str(raw_name) if raw_name is not None else ""
-            
+
             # Find and publish stall
             for i, (stall, _) in enumerate(self.stall_db):
                 if stall.name == stall_name:
@@ -715,35 +735,41 @@ class Merchant(Toolkit):
                         stall_data = stall.to_stall_data()
                         event_id = self._nostr_client.publish_stall(stall_data)
                         self.stall_db[i] = (stall, event_id)
-                        return json.dumps({
-                            "status": "success",
-                            "event_id": str(event_id),
-                            "stall_name": stall.name
-                        })
+                        return json.dumps(
+                            {
+                                "status": "success",
+                                "event_id": str(event_id),
+                                "stall_name": stall.name,
+                            }
+                        )
                     except Exception as e:
-                        return json.dumps([{
-                            "status": "error",
-                            "message": str(e),
-                            "stall_name": stall.name
-                        }])
-            
+                        return json.dumps(
+                            [
+                                {
+                                    "status": "error",
+                                    "message": str(e),
+                                    "stall_name": stall.name,
+                                }
+                            ]
+                        )
+
             # Stall not found
-            return json.dumps([{
-                "status": "error",
-                "message": f"Stall '{stall_name}' not found in database",
-                "stall_name": stall_name
-            }])
+            return json.dumps(
+                [
+                    {
+                        "status": "error",
+                        "message": f"Stall '{stall_name}' not found in database",
+                        "stall_name": stall_name,
+                    }
+                ]
+            )
 
         except Exception as e:
-            return json.dumps([{
-                "status": "error",
-                "message": str(e),
-                "stall_name": "unknown"
-            }])
-    
-    def remove_all_products(
-        self
-    ) -> str:
+            return json.dumps(
+                [{"status": "error", "message": str(e), "stall_name": "unknown"}]
+            )
+
+    def remove_all_products(self) -> str:
         """
         Removes all published products from Nostr
 
@@ -757,36 +783,38 @@ class Merchant(Toolkit):
 
         for i, (product, event_id) in enumerate(self.product_db):
             if event_id is None:
-                results.append({
-                    "status": "skipped",
-                    "message": f"Product '{product.name}' has not been published yet",
-                    "product_name": product.name
-                })
+                results.append(
+                    {
+                        "status": "skipped",
+                        "message": f"Product '{product.name}' has not been published yet",
+                        "product_name": product.name,
+                    }
+                )
                 continue
 
             try:
                 # Delete the event using the SDK's method
-                self._nostr_client.delete_event(event_id, reason=f"Product '{product.name}' removed")
+                self._nostr_client.delete_event(
+                    event_id, reason=f"Product '{product.name}' removed"
+                )
                 # Remove the event_id, keeping the product in the database
                 self.product_db[i] = (product, None)
-                results.append({
-                    "status": "success",
-                    "message": f"Product '{product.name}' removed",
-                    "product_name": product.name,
-                    "event_id": str(event_id)
-                })
+                results.append(
+                    {
+                        "status": "success",
+                        "message": f"Product '{product.name}' removed",
+                        "product_name": product.name,
+                        "event_id": str(event_id),
+                    }
+                )
             except Exception as e:
-                results.append({
-                    "status": "error",
-                    "message": str(e),
-                    "product_name": product.name
-                })
+                results.append(
+                    {"status": "error", "message": str(e), "product_name": product.name}
+                )
 
         return json.dumps(results)
 
-    def remove_all_stalls(
-        self
-    ) -> str:
+    def remove_all_stalls(self) -> str:
         """
         Removes all stalls and their products from Nostr
 
@@ -807,63 +835,73 @@ class Merchant(Toolkit):
             for j, (product, event_id) in enumerate(self.product_db):
                 if product.stall_id == stall_id:
                     if event_id is None:
-                        results.append({
-                            "status": "skipped",
-                            "message": f"Product '{product.name}' has not been published yet",
-                            "product_name": product.name,
-                            "stall_name": stall_name
-                        })
+                        results.append(
+                            {
+                                "status": "skipped",
+                                "message": f"Product '{product.name}' has not been published yet",
+                                "product_name": product.name,
+                                "stall_name": stall_name,
+                            }
+                        )
                         continue
 
                     try:
-                        self._nostr_client.delete_event(event_id, reason=f"Stall for product '{product.name}' removed")
+                        self._nostr_client.delete_event(
+                            event_id,
+                            reason=f"Stall for product '{product.name}' removed",
+                        )
                         self.product_db[j] = (product, None)
-                        results.append({
-                            "status": "success",
-                            "message": f"Product '{product.name}' removed",
-                            "product_name": product.name,
-                            "stall_name": stall_name,
-                            "event_id": str(event_id)
-                        })
+                        results.append(
+                            {
+                                "status": "success",
+                                "message": f"Product '{product.name}' removed",
+                                "product_name": product.name,
+                                "stall_name": stall_name,
+                                "event_id": str(event_id),
+                            }
+                        )
                     except Exception as e:
-                        results.append({
-                            "status": "error",
-                            "message": str(e),
-                            "product_name": product.name,
-                            "stall_name": stall_name
-                        })
+                        results.append(
+                            {
+                                "status": "error",
+                                "message": str(e),
+                                "product_name": product.name,
+                                "stall_name": stall_name,
+                            }
+                        )
 
             # Now remove the stall itself
             _, stall_event_id = self.stall_db[i]
             if stall_event_id is None:
-                results.append({
-                    "status": "skipped",
-                    "message": f"Stall '{stall_name}' has not been published yet",
-                    "stall_name": stall_name
-                })
+                results.append(
+                    {
+                        "status": "skipped",
+                        "message": f"Stall '{stall_name}' has not been published yet",
+                        "stall_name": stall_name,
+                    }
+                )
             else:
                 try:
-                    self._nostr_client.delete_event(stall_event_id, reason=f"Stall '{stall_name}' removed")
+                    self._nostr_client.delete_event(
+                        stall_event_id, reason=f"Stall '{stall_name}' removed"
+                    )
                     self.stall_db[i] = (stall, None)
-                    results.append({
-                        "status": "success",
-                        "message": f"Stall '{stall_name}' removed",
-                        "stall_name": stall_name,
-                        "event_id": str(stall_event_id)
-                    })
+                    results.append(
+                        {
+                            "status": "success",
+                            "message": f"Stall '{stall_name}' removed",
+                            "stall_name": stall_name,
+                            "event_id": str(stall_event_id),
+                        }
+                    )
                 except Exception as e:
-                    results.append({
-                        "status": "error",
-                        "message": str(e),
-                        "stall_name": stall_name
-                    })
+                    results.append(
+                        {"status": "error", "message": str(e), "stall_name": stall_name}
+                    )
 
         return json.dumps(results)
 
-    def remove_product_by_name(
-        self,
-        arguments: str
-    ) -> str:
+    def remove_product_by_name(self, arguments: str) -> str:
         """
         Deletes a product with the given name from Nostr
 
@@ -882,7 +920,9 @@ class Merchant(Toolkit):
                 parsed = arguments
             else:
                 parsed = json.loads(arguments)
-            name = parsed.get("name", parsed)  # Get name if exists, otherwise use whole value
+            name = parsed.get(
+                "name", parsed
+            )  # Get name if exists, otherwise use whole value
         except json.JSONDecodeError:
             # If not JSON, use the raw string
             name = arguments
@@ -891,50 +931,56 @@ class Merchant(Toolkit):
         for i, (product, event_id) in enumerate(self.product_db):
             if product.name == name:
                 if event_id is None:
-                    return json.dumps({
-                        "status": "error",
-                        "message": f"Product '{name}' has not been published yet",
-                        "product_name": name
-                    })
-                
+                    return json.dumps(
+                        {
+                            "status": "error",
+                            "message": f"Product '{name}' has not been published yet",
+                            "product_name": name,
+                        }
+                    )
+
                 try:
                     # Delete the event using the SDK's method
-                    self._nostr_client.delete_event(event_id, reason=f"Product '{name}' removed")
+                    self._nostr_client.delete_event(
+                        event_id, reason=f"Product '{name}' removed"
+                    )
                     # Remove the event_id, keeping the product in the database
                     self.product_db[i] = (product, None)
-                    return json.dumps({
-                        "status": "success",
-                        "message": f"Product '{name}' removed",
-                        "product_name": name,
-                        "event_id": str(event_id)
-                    })
+                    return json.dumps(
+                        {
+                            "status": "success",
+                            "message": f"Product '{name}' removed",
+                            "product_name": name,
+                            "event_id": str(event_id),
+                        }
+                    )
                 except Exception as e:
-                    return json.dumps({
-                        "status": "error",
-                        "message": str(e),
-                        "product_name": name
-                    })
-        
+                    return json.dumps(
+                        {"status": "error", "message": str(e), "product_name": name}
+                    )
+
         # If we get here, we didn't find the product
-        return json.dumps({
-            "status": "error",
-            "message": f"Product '{name}' not found in database",
-            "product_name": name
-        })
+        return json.dumps(
+            {
+                "status": "error",
+                "message": f"Product '{name}' not found in database",
+                "product_name": name,
+            }
+        )
 
     def remove_stall_by_name(self, arguments: Union[str, dict]) -> str:
         """Remove a stall and its products by name
-        
+
         Args:
             arguments: str or dict with the stall name. Can be in formats:
                 - {"name": "stall_name"}
                 - {"arguments": "{\"name\": \"stall_name\"}"}
                 - "stall_name"
-                
+
         Returns:
             str: JSON array with status of the operation
         """
-        
+
         try:
             # Parse arguments to get stall_name
             stall_name: str
@@ -971,97 +1017,110 @@ class Merchant(Toolkit):
                     stall_index = i
                     stall_id = stall.id
                     break
-            
+
             # If stall_id is empty, then we found no match
             if stall_id is None:
-                return json.dumps([{
-                    "status": "error",
-                    "message": f"Stall '{stall_name}' not found in database",
-                    "stall_name": stall_name
-                }])
-            
+                return json.dumps(
+                    [
+                        {
+                            "status": "error",
+                            "message": f"Stall '{stall_name}' not found in database",
+                            "stall_name": stall_name,
+                        }
+                    ]
+                )
+
             # First remove all products in this stall
             for i, (product, event_id) in enumerate(self.product_db):
                 if product.stall_id == stall_id:
                     if event_id is None:
-                        results.append({
-                            "status": "skipped",
-                            "message": f"Product '{product.name}' has not been published yet",
-                            "product_name": product.name,
-                            "stall_name": stall_name
-                        })
+                        results.append(
+                            {
+                                "status": "skipped",
+                                "message": f"Product '{product.name}' has not been published yet",
+                                "product_name": product.name,
+                                "stall_name": stall_name,
+                            }
+                        )
                         continue
 
                     try:
-                        self._nostr_client.delete_event(event_id, reason=f"Stall for '{product.name}' removed")
+                        self._nostr_client.delete_event(
+                            event_id, reason=f"Stall for '{product.name}' removed"
+                        )
                         self.product_db[i] = (product, None)
-                        results.append({
-                            "status": "success",
-                            "message": f"Product '{product.name}' removed",
-                            "product_name": product.name,
-                            "stall_name": stall_name,
-                            "event_id": str(event_id)
-                        })
+                        results.append(
+                            {
+                                "status": "success",
+                                "message": f"Product '{product.name}' removed",
+                                "product_name": product.name,
+                                "stall_name": stall_name,
+                                "event_id": str(event_id),
+                            }
+                        )
                     except Exception as e:
-                        results.append({
-                            "status": "error",
-                            "message": str(e),
-                            "product_name": product.name,
-                            "stall_name": stall_name
-                        })
+                        results.append(
+                            {
+                                "status": "error",
+                                "message": str(e),
+                                "product_name": product.name,
+                                "stall_name": stall_name,
+                            }
+                        )
 
             # Now remove the stall itself
             if stall_index is not None:
                 _, stall_event_id = self.stall_db[stall_index]
                 if stall_event_id is None:
-                    results.append({
-                        "status": "skipped",
-                        "message": f"Stall '{stall_name}' has not been published yet",
-                        "stall_name": stall_name
-                    })
+                    results.append(
+                        {
+                            "status": "skipped",
+                            "message": f"Stall '{stall_name}' has not been published yet",
+                            "stall_name": stall_name,
+                        }
+                    )
                 else:
                     try:
-                        self._nostr_client.delete_event(stall_event_id, reason=f"Stall '{stall_name}' removed")
-                        self.stall_db[stall_index] = (self.stall_db[stall_index][0], None)
-                        results.append({
-                            "status": "success",
-                            "message": f"Stall '{stall_name}' removed",
-                            "stall_name": stall_name,
-                            "event_id": str(stall_event_id)
-                        })
+                        self._nostr_client.delete_event(
+                            stall_event_id, reason=f"Stall '{stall_name}' removed"
+                        )
+                        self.stall_db[stall_index] = (
+                            self.stall_db[stall_index][0],
+                            None,
+                        )
+                        results.append(
+                            {
+                                "status": "success",
+                                "message": f"Stall '{stall_name}' removed",
+                                "stall_name": stall_name,
+                                "event_id": str(stall_event_id),
+                            }
+                        )
                     except Exception as e:
-                        results.append({
-                            "status": "error",
-                            "message": str(e),
-                            "stall_name": stall_name
-                        })
+                        results.append(
+                            {
+                                "status": "error",
+                                "message": str(e),
+                                "stall_name": stall_name,
+                            }
+                        )
 
             return json.dumps(results)
 
         except Exception as e:
-            return json.dumps([{
-                "status": "error",
-                "message": str(e),
-                "stall_name": "unknown"
-            }])
+            return json.dumps(
+                [{"status": "error", "message": str(e), "stall_name": "unknown"}]
+            )
 
     def get_event_id(self, response: Any) -> str:
         """Convert any response to a string event ID.
-        
+
         Args:
             response: Response that might contain an event ID
-            
+
         Returns:
             str: String representation of event ID or empty string if None
         """
         if response is None:
             return ""
         return str(response)
-
-    
-
-    
-
-
-
-    

@@ -1,9 +1,16 @@
 from dotenv import load_dotenv
 from os import getenv
 from pathlib import Path
-from phi.agent import Agent 
+from phi.agent import Agent
 from phi.model.openai import OpenAIChat
-from agentstr.marketplace import Profile, Merchant, ShippingMethod, ShippingCost, MerchantProduct, MerchantStall
+from agentstr.marketplace import (
+    Profile,
+    Merchant,
+    ShippingMethod,
+    ShippingCost,
+    MerchantProduct,
+    MerchantStall,
+)
 from typing import List, Tuple
 import httpx
 
@@ -18,13 +25,15 @@ MERCHANT_PICTURE = "https://i.nostr.build/ocjZ5GlAKwrvgRhx.png"
 
 # --*-- Stall info
 STALL_1_NAME = "The Hardware Store"
-STALL_1_ID = "212au4Pi" #"212a26qV"
+STALL_1_ID = "212au4Pi"  # "212a26qV"
 STALL_1_DESCRIPTION = "Your neighborhood hardware store, now available online."
 STALL_1_CURRENCY = "Sats"
 
 STALL_2_NAME = "The Trade School"
 STALL_2_ID = "c8762EFD"
-STALL_2_DESCRIPTION = "Educational videos to put all your hardware supplies to good use."
+STALL_2_DESCRIPTION = (
+    "Educational videos to put all your hardware supplies to good use."
+)
 STALL_2_CURRENCY = "Sats"
 
 # --*-- Shipping info
@@ -66,84 +75,87 @@ PRODUCT_3_PRICE = 1000
 PRODUCT_3_QUANTITY = 1000
 
 # --*-- Define Shipping methods for stalls (nostr SDK type)
-shipping_method_1 = ShippingMethod(
-    id = SHIPPING_ZONE_1_ID,
-    cost = 5000
-).name(SHIPPING_ZONE_1_NAME).regions(SHIPPING_ZONE_1_REGIONS)
+shipping_method_1 = (
+    ShippingMethod(id=SHIPPING_ZONE_1_ID, cost=5000)
+    .name(SHIPPING_ZONE_1_NAME)
+    .regions(SHIPPING_ZONE_1_REGIONS)
+)
 
-shipping_method_2 = ShippingMethod(
-    id = SHIPPING_ZONE_2_ID,
-    cost = 5000
-).name(SHIPPING_ZONE_2_NAME).regions(SHIPPING_ZONE_2_REGIONS)
+shipping_method_2 = (
+    ShippingMethod(id=SHIPPING_ZONE_2_ID, cost=5000)
+    .name(SHIPPING_ZONE_2_NAME)
+    .regions(SHIPPING_ZONE_2_REGIONS)
+)
 
-shipping_method_3 = ShippingMethod(
-    id = SHIPPING_ZONE_3_ID,
-    cost = 0
-).name(SHIPPING_ZONE_3_NAME).regions(SHIPPING_ZONE_3_REGIONS)
+shipping_method_3 = (
+    ShippingMethod(id=SHIPPING_ZONE_3_ID, cost=0)
+    .name(SHIPPING_ZONE_3_NAME)
+    .regions(SHIPPING_ZONE_3_REGIONS)
+)
 
 # --*-- Define Shipping costs for products (nostr SDK type)
-shipping_cost_1 = ShippingCost(id = SHIPPING_ZONE_1_ID, cost=1000)
-shipping_cost_2 = ShippingCost(id = SHIPPING_ZONE_2_ID, cost=2000)
-shipping_cost_3 = ShippingCost(id = SHIPPING_ZONE_3_ID, cost=3000)
+shipping_cost_1 = ShippingCost(id=SHIPPING_ZONE_1_ID, cost=1000)
+shipping_cost_2 = ShippingCost(id=SHIPPING_ZONE_2_ID, cost=2000)
+shipping_cost_3 = ShippingCost(id=SHIPPING_ZONE_3_ID, cost=3000)
 
 # --*-- define stalls (using ShippingMethod)
 test_stall_1 = MerchantStall(
-    id = STALL_1_ID,
-    name = STALL_1_NAME,
-    description = STALL_1_DESCRIPTION,
-    currency = STALL_1_CURRENCY,
-    shipping = [shipping_method_1, shipping_method_2] 
+    id=STALL_1_ID,
+    name=STALL_1_NAME,
+    description=STALL_1_DESCRIPTION,
+    currency=STALL_1_CURRENCY,
+    shipping=[shipping_method_1, shipping_method_2],
 )
 
 test_stall_2 = MerchantStall(
-    id = STALL_2_ID,
-    name = STALL_2_NAME,
-    description = STALL_2_DESCRIPTION,
-    currency = STALL_2_CURRENCY,
-    shipping = [shipping_method_3]  # Uses ShippingMethod
+    id=STALL_2_ID,
+    name=STALL_2_NAME,
+    description=STALL_2_DESCRIPTION,
+    currency=STALL_2_CURRENCY,
+    shipping=[shipping_method_3],  # Uses ShippingMethod
 )
 
 # --*-- define products (using ShippingZone)
 test_product_1 = MerchantProduct(
-    id = PRODUCT_1_ID,
-    stall_id = STALL_1_ID,
-    name = PRODUCT_1_NAME,
-    description = PRODUCT_1_DESCRIPTION,
-    images = PRODUCT_1_IMAGES,
-    currency = PRODUCT_1_CURRENCY,
-    price = PRODUCT_1_PRICE,
-    quantity = PRODUCT_1_QUANTITY,
-    shipping = [shipping_cost_1, shipping_cost_2],
-    categories = None,
-    specs = []  # List of lists of strings, e.g. [["Color", "Red"], ["Size", "Large"]]
+    id=PRODUCT_1_ID,
+    stall_id=STALL_1_ID,
+    name=PRODUCT_1_NAME,
+    description=PRODUCT_1_DESCRIPTION,
+    images=PRODUCT_1_IMAGES,
+    currency=PRODUCT_1_CURRENCY,
+    price=PRODUCT_1_PRICE,
+    quantity=PRODUCT_1_QUANTITY,
+    shipping=[shipping_cost_1, shipping_cost_2],
+    categories=None,
+    specs=[],  # List of lists of strings, e.g. [["Color", "Red"], ["Size", "Large"]]
 )
 
 test_product_2 = MerchantProduct(
-    id = PRODUCT_2_ID,
-    stall_id = STALL_1_ID,
-    name = PRODUCT_2_NAME,
-    description = PRODUCT_2_DESCRIPTION,
-    images = PRODUCT_2_IMAGES,
-    currency = PRODUCT_2_CURRENCY,
-    price = PRODUCT_2_PRICE,
-    quantity = PRODUCT_2_QUANTITY,
-    shipping = [shipping_cost_1, shipping_cost_2],
-    categories = None,
-    specs = []  # List of lists of strings
+    id=PRODUCT_2_ID,
+    stall_id=STALL_1_ID,
+    name=PRODUCT_2_NAME,
+    description=PRODUCT_2_DESCRIPTION,
+    images=PRODUCT_2_IMAGES,
+    currency=PRODUCT_2_CURRENCY,
+    price=PRODUCT_2_PRICE,
+    quantity=PRODUCT_2_QUANTITY,
+    shipping=[shipping_cost_1, shipping_cost_2],
+    categories=None,
+    specs=[],  # List of lists of strings
 )
 
 test_product_3 = MerchantProduct(
-    id = PRODUCT_3_ID,
-    stall_id = STALL_2_ID,
-    name = PRODUCT_3_NAME,
-    description = PRODUCT_3_DESCRIPTION,
-    images = PRODUCT_3_IMAGES,
-    currency = PRODUCT_3_CURRENCY,
-    price = PRODUCT_3_PRICE,
-    quantity = PRODUCT_3_QUANTITY,
-    shipping = [shipping_cost_3],
-    categories = None,
-    specs = []  # List of lists of strings
+    id=PRODUCT_3_ID,
+    stall_id=STALL_2_ID,
+    name=PRODUCT_3_NAME,
+    description=PRODUCT_3_DESCRIPTION,
+    images=PRODUCT_3_IMAGES,
+    currency=PRODUCT_3_CURRENCY,
+    price=PRODUCT_3_PRICE,
+    quantity=PRODUCT_3_QUANTITY,
+    shipping=[shipping_cost_3],
+    categories=None,
+    specs=[],  # List of lists of strings
 )
 
 nsec = getenv("NSEC_BASIC_CLI_KEY")
@@ -153,15 +165,7 @@ else:
     print(f"No NSEC found")
 
 
-
-test_merchant = Profile(
-    MERCHANT_NAME,
-    MERCHANT_DESCRIPTION,
-    MERCHANT_PICTURE,
-    nsec
-)
-
-
+test_merchant = Profile(MERCHANT_NAME, MERCHANT_DESCRIPTION, MERCHANT_PICTURE, nsec)
 
 
 agent = Agent(
@@ -172,9 +176,9 @@ agent = Agent(
             merchant_profile=test_merchant,
             relay=RELAY,
             stalls=[test_stall_1, test_stall_2],
-            products=[test_product_1, test_product_2, test_product_3]
-            )
-        ],
+            products=[test_product_1, test_product_2, test_product_3],
+        )
+    ],
     show_tool_calls=True,
     debug_mode=True,
     async_mode=True,
@@ -183,6 +187,5 @@ agent = Agent(
     ],
 )
 
-#agent.print_response("List the products of the merchant")
+# agent.print_response("List the products of the merchant")
 agent.cli_app(stream=False)
-

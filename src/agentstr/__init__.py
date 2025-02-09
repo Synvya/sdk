@@ -9,12 +9,13 @@ from .marketplace import (
     MerchantStall,
     MerchantProduct,
     ShippingMethod,
-    ShippingCost
+    ShippingCost,
 )
 
 # Import version from pyproject.toml at runtime
 try:
     from importlib.metadata import version
+
     __version__ = version("agentstr")
 except Exception:
     __version__ = "unknown"
