@@ -1,6 +1,6 @@
 import logging
 import json, ast, re
-from typing import Optional, List, Tuple, Dict, Any, Union
+from typing import Optional, List, Tuple, Dict, Any, Union, cast
 from agentstr.nostr import Keys, NostrClient, ProductData, StallData, EventId, ShippingMethod, ShippingCost
 
 try:
@@ -280,7 +280,7 @@ class Merchant(Toolkit):
         validate_assignment=True
     )
 
-    nostr_client: Optional[NostrClient] = None
+    _nostr_client: Optional[NostrClient] = None
     product_db: List[Tuple[MerchantProduct, Optional[EventId]]] = []
     stall_db: List[Tuple[MerchantStall, Optional[EventId]]] = []
     
@@ -303,7 +303,7 @@ class Merchant(Toolkit):
         super().__init__(name="merchant")
         self.relay = relay
         self.merchant_profile = merchant_profile
-        self.nostr_client = NostrClient(self.relay, self.merchant_profile.get_private_key())
+        self._nostr_client = NostrClient(self.relay, self.merchant_profile.get_private_key())
 
         # initialize the Product DB with no event id
         self.product_db = [(product, None) for product in products]
@@ -371,6 +371,10 @@ class Merchant(Toolkit):
         Returns:
             str: JSON array with status of all product publishing operations
         """
+
+        if self._nostr_client is None:
+            raise ValueError("NostrClient not initialized")
+
         results = []
 
         for i, (product, _) in enumerate(self.product_db):
@@ -378,7 +382,7 @@ class Merchant(Toolkit):
                 # Convert MerchantProduct to ProductData for nostr_client
                 product_data = product.to_product_data()
                 # Publish using the SDK's synchronous method
-                event_id = self.nostr_client.publish_product(product_data)
+                event_id = self._nostr_client.publish_product(product_data)
                 self.product_db[i] = (product, event_id)
                 results.append({
                     "status": "success",
@@ -404,13 +408,15 @@ class Merchant(Toolkit):
         Returns:
             str: JSON array with status of all stall publishing operations
         """
+        if self._nostr_client is None:
+            raise ValueError("NostrClient not initialized")
         results = []
 
         for i, (stall, _) in enumerate(self.stall_db):
             try:
                 # Convert MerchantStall to StallData for nostr_client
                 stall_data = stall.to_stall_data()
-                event_id = self.nostr_client.publish_stall(stall_data)
+                event_id = self._nostr_client.publish_stall(stall_data)
                 self.stall_db[i] = (stall, event_id)
                 results.append({
                     "status": "success",
@@ -437,11 +443,14 @@ class Merchant(Toolkit):
         Returns:
             str: JSON string with status of the operation
         """
+        if self._nostr_client is None:
+            raise ValueError("NostrClient not initialized")
+
         try:
             # Convert MerchantProduct to ProductData for nostr_client
             product_data = product.to_product_data()
             # Publish using the SDK's synchronous method
-            event_id = self.nostr_client.publish_product(product_data)
+            event_id = self._nostr_client.publish_product(product_data)
             # we need to add the product event id to the product db
             self.product_db.append((product, event_id))
             return json.dumps({
@@ -468,6 +477,9 @@ class Merchant(Toolkit):
         Returns:
             str: JSON string with status of the operation
         """
+        if self._nostr_client is None:
+            raise ValueError("NostrClient not initialized")
+
         try:
             # Try to parse as JSON first
             if isinstance(arguments, dict):
@@ -486,7 +498,7 @@ class Merchant(Toolkit):
                     # Convert MerchantProduct to ProductData for nostr_client
                     product_data = product.to_product_data()
                     # Publish using the SDK's synchronous method
-                    event_id = self.nostr_client.publish_product(product_data)
+                    event_id = self._nostr_client.publish_product(product_data)
                     # Update the product_db with the new event_id
                     self.product_db[i] = (product, event_id)
                     return json.dumps({
@@ -524,6 +536,9 @@ class Merchant(Toolkit):
         Returns:
             str: JSON array with status of all product publishing operations
         """
+        if self._nostr_client is None:
+            raise ValueError("NostrClient not initialized")
+
         try:
             # Parse arguments
             if isinstance(arguments, str):
@@ -575,7 +590,7 @@ class Merchant(Toolkit):
                         # Convert MerchantProduct to ProductData for nostr_client
                         product_data = product.to_product_data()
                         # Publish using the SDK's synchronous method
-                        event_id = self.nostr_client.publish_product(product_data)
+                        event_id = self._nostr_client.publish_product(product_data)
                         # Update the product_db with the new event_id
                         self.product_db[i] = (product, event_id)
                         results.append({
@@ -621,8 +636,11 @@ class Merchant(Toolkit):
         Raises:
             RuntimeError: if it can't publish the event
         """
+        if self._nostr_client is None:
+            raise ValueError("NostrClient not initialized")
+
         try:
-            event_id = self.nostr_client.publish_profile(
+            event_id = self._nostr_client.publish_profile(
                 self.merchant_profile.get_name(),
                 self.merchant_profile.get_about(),
                 self.merchant_profile.get_picture()
@@ -641,11 +659,14 @@ class Merchant(Toolkit):
         Returns:
             str: JSON string with status of the operation
         """
+        if self._nostr_client is None:
+            raise ValueError("NostrClient not initialized")
+
         try:
             # Convert to StallData for SDK
             stall_data = stall.to_stall_data()
             # Publish using the SDK's synchronous method
-            event_id = self.nostr_client.publish_stall(stall_data)
+            event_id = self._nostr_client.publish_stall(stall_data)
             # we need to add the stall event id to the stall db
             self.stall_db.append((stall, event_id))
             return json.dumps({
@@ -676,6 +697,8 @@ class Merchant(Toolkit):
         Returns:
             str: JSON array with status of all product publishing operations
         """
+        if self._nostr_client is None:
+            raise ValueError("NostrClient not initialized")
         
         stall_id = None
 
@@ -716,7 +739,7 @@ class Merchant(Toolkit):
                         # Convert to StallData for SDK
                         stall_data = stall.to_stall_data()
                         # Publish using the SDK's synchronous method
-                        event_id = self.nostr_client.publish_stall(stall_data)
+                        event_id = self._nostr_client.publish_stall(stall_data)
                         # we need to add the stall event id to the stall db
                         self.stall_db[i] = (stall, event_id)
                         return json.dumps({
@@ -758,6 +781,9 @@ class Merchant(Toolkit):
         Returns:
             str: JSON array with status of all product removal operations
         """
+        if self._nostr_client is None:
+            raise ValueError("NostrClient not initialized")
+
         results = []
 
         for i, (product, event_id) in enumerate(self.product_db):
@@ -771,7 +797,7 @@ class Merchant(Toolkit):
 
             try:
                 # Delete the event using the SDK's method
-                self.nostr_client.delete_event(event_id, reason=f"Product '{product.name}' removed")
+                self._nostr_client.delete_event(event_id, reason=f"Product '{product.name}' removed")
                 # Remove the event_id, keeping the product in the database
                 self.product_db[i] = (product, None)
                 results.append({
@@ -798,6 +824,9 @@ class Merchant(Toolkit):
         Returns:
             str: JSON array with status of all removal operations
         """
+        if self._nostr_client is None:
+            raise ValueError("NostrClient not initialized")
+
         results = []
 
         # First remove all products from all stalls
@@ -818,7 +847,7 @@ class Merchant(Toolkit):
                         continue
 
                     try:
-                        self.nostr_client.delete_event(event_id, reason=f"Stall for product '{product.name}' removed")
+                        self._nostr_client.delete_event(event_id, reason=f"Stall for product '{product.name}' removed")
                         self.product_db[j] = (product, None)
                         results.append({
                             "status": "success",
@@ -845,7 +874,7 @@ class Merchant(Toolkit):
                 })
             else:
                 try:
-                    self.nostr_client.delete_event(stall_event_id, reason=f"Stall '{stall_name}' removed")
+                    self._nostr_client.delete_event(stall_event_id, reason=f"Stall '{stall_name}' removed")
                     self.stall_db[i] = (stall, None)
                     results.append({
                         "status": "success",
@@ -875,6 +904,9 @@ class Merchant(Toolkit):
         Returns:
             str: JSON string with status of the operation
         """
+        if self._nostr_client is None:
+            raise ValueError("NostrClient not initialized")
+
         try:
             # Try to parse as JSON first
             if isinstance(arguments, dict):
@@ -898,7 +930,7 @@ class Merchant(Toolkit):
                 
                 try:
                     # Delete the event using the SDK's method
-                    self.nostr_client.delete_event(event_id, reason=f"Product '{name}' removed")
+                    self._nostr_client.delete_event(event_id, reason=f"Product '{name}' removed")
                     # Remove the event_id, keeping the product in the database
                     self.product_db[i] = (product, None)
                     return json.dumps({
@@ -933,6 +965,7 @@ class Merchant(Toolkit):
         Returns:
             str: JSON array with status of the operation
         """
+        
         try:
             # Handle string input
             if isinstance(arguments, str):
@@ -965,6 +998,9 @@ class Merchant(Toolkit):
 
     def _remove_stall_by_name(self, stall_name: str) -> str:
         """Internal method to handle the actual stall removal logic"""
+        if self._nostr_client is None:
+            raise ValueError("NostrClient not initialized")
+
         results = []
         stall_index = None
         stall_id = None
@@ -997,7 +1033,7 @@ class Merchant(Toolkit):
                     continue
 
                 try:
-                    self.nostr_client.delete_event(event_id, reason=f"Stall for '{product.name}' removed")
+                    self._nostr_client.delete_event(event_id, reason=f"Stall for '{product.name}' removed")
                     self.product_db[i] = (product, None)
                     results.append({
                         "status": "success",
@@ -1024,7 +1060,7 @@ class Merchant(Toolkit):
             })
         else:
             try:
-                self.nostr_client.delete_event(stall_event_id, reason=f"Stall '{stall_name}' removed")
+                self._nostr_client.delete_event(stall_event_id, reason=f"Stall '{stall_name}' removed")
                 self.stall_db[stall_index] = (self.stall_db[stall_index][0], None)
                 results.append({
                     "status": "success",

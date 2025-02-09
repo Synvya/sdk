@@ -225,7 +225,7 @@ def test_merchant_initialization(merchant: Merchant):
 
 def test_publish_product_by_name(merchant: Merchant, product_event_ids):
     """Test publishing a product by name"""
-    with patch.object(merchant.nostr_client, 'publish_product') as mock_publish:
+    with patch.object(merchant._nostr_client, 'publish_product') as mock_publish:
         mock_publish.return_value = product_event_ids[0]
         
         # Test with direct name
@@ -240,7 +240,7 @@ def test_publish_product_by_name(merchant: Merchant, product_event_ids):
 
 def test_publish_stall_by_name(merchant: Merchant, stall_event_ids):
     """Test publishing a stall by name"""
-    with patch.object(merchant.nostr_client, 'publish_stall') as mock_publish:
+    with patch.object(merchant._nostr_client, 'publish_stall') as mock_publish:
         mock_publish.return_value = stall_event_ids[0]
         
         # Test with direct name
@@ -255,7 +255,7 @@ def test_publish_stall_by_name(merchant: Merchant, stall_event_ids):
 
 def test_publish_products_by_stall_name(merchant: Merchant, product_event_ids):
     """Test publishing all products in a stall"""
-    with patch.object(merchant.nostr_client, 'publish_product') as mock_publish:
+    with patch.object(merchant._nostr_client, 'publish_product') as mock_publish:
         mock_publish.side_effect = itertools.cycle(product_event_ids)
         
         # Test with direct name
@@ -271,7 +271,7 @@ def test_publish_products_by_stall_name(merchant: Merchant, product_event_ids):
 
 def test_publish_all_products(merchant: Merchant, product_event_ids):
     """Test publishing all products"""
-    with patch.object(merchant.nostr_client, 'publish_product') as mock_publish:
+    with patch.object(merchant._nostr_client, 'publish_product') as mock_publish:
         mock_publish.side_effect = itertools.cycle(product_event_ids)
         
         results = json.loads(merchant.publish_all_products())
@@ -280,7 +280,7 @@ def test_publish_all_products(merchant: Merchant, product_event_ids):
 
 def test_publish_all_stalls(merchant: Merchant, stall_event_ids):
     """Test publishing all stalls"""
-    with patch.object(merchant.nostr_client, 'publish_stall') as mock_publish:
+    with patch.object(merchant._nostr_client, 'publish_stall') as mock_publish:
         mock_publish.side_effect = itertools.cycle(stall_event_ids)
         
         results = json.loads(merchant.publish_all_stalls())
@@ -311,7 +311,7 @@ def test_profile_operations(merchant: Merchant, profile_event_id):
     assert profile_data["description"] == MERCHANT_DESCRIPTION
     
     # Test publish profile
-    with patch.object(merchant.nostr_client, 'publish_profile') as mock_publish:
+    with patch.object(merchant._nostr_client, 'publish_profile') as mock_publish:
         mock_publish.return_value = profile_event_id
         result = json.loads(merchant.publish_profile())
         assert isinstance(result, dict)

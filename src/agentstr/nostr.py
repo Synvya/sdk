@@ -29,9 +29,9 @@ class NostrClient():
     
     def __init__(
         self,
-        relay: str = None,
-        nsec: str = None,
-    ):
+        relay: str,
+        nsec: str,
+    ) -> None:
         """
         Initialize the Nostr client.
 
