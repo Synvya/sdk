@@ -171,14 +171,12 @@ class NostrClient:
             return NostrClient.ERROR
 
     @classmethod
-    def set_logging_level(cls, logging_level: int):
-        """
-        Set the logging level for the NostrClient logger.
+    def set_logging_level(cls, logging_level: int) -> None:
+        """Set the logging level for the NostrClient logger.
 
         Args:
-           logging_level (int): The logging level (e.g., logging.DEBUG, logging.INFO).
+            logging_level: The logging level (e.g., logging.DEBUG, logging.INFO)
         """
-
         cls.logger.setLevel(logging_level)
         for handler in cls.logger.handlers:
             handler.setLevel(logging_level)

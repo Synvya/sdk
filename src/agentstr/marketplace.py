@@ -74,9 +74,9 @@ class Profile:
                 f"New public key created for {self.name}: {self.public_key}"
             )
 
-        self.url = self.WEB_URL + self.public_key
+        self.url = str(self.WEB_URL) + str(self.public_key)
 
-    def __str__(self):
+    def __str__(self) -> str:
         return (
             "Merchant Profile:\n"
             "Name = {}\n"
@@ -94,7 +94,7 @@ class Profile:
             )
         )
 
-    def to_dict(self):
+    def to_dict(self) -> dict:
         return {
             "name": self.name,
             "description": self.about,
@@ -137,7 +137,7 @@ class Profile:
         Returns:
             str: private key in bech32 format
         """
-        return self.private_key
+        return str(self.private_key)
 
     def get_public_key(self) -> str:
         """
@@ -146,10 +146,10 @@ class Profile:
         Returns:
             str: public key in bech32 format
         """
-        return self.public_key
+        return str(self.public_key)
 
     def get_url(self) -> str:
-        return self.url
+        return str(self.url)
 
 
 class MerchantProduct(BaseModel):
@@ -983,6 +983,8 @@ class Merchant(Toolkit):
         Returns:
             str: JSON array with status of the operation
         """
+        if self._nostr_client is None:
+            raise ValueError("NostrClient not initialized")
 
         try:
             # Parse arguments to get stall_name
