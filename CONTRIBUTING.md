@@ -16,6 +16,7 @@ black (code formater),isort (import sorter) and mypy (type checker)
 isort .
 black .
 mypy src/
+mypy examples/ # assuming you did some changes here
 ```
 
 ### Editor Settings (Cursor)

@@ -55,7 +55,17 @@ pip install agentstr
 
 ## Examples
 
-See our [examples directory](https://github.com/Synvya/agentstr/tree/main/src/agentstr/examples) for complete working implementations:
+You can find example code in the [examples](https://github.com/Synvya/agentstr/tree/main/examples/) directory.
+
+### Instaling the examples
+1. **Clone the repository**
+```bash
+git clone https://github.com/Synvya/agentstr.git
+```
+
+### Basic CLI Example
+A simple command-line interface demonstrating agentstr's merchant capabilities:
+
 
 - [Basic CLI Agent](https://github.com/Synvya/agentstr/tree/main/src/agentstr/examples/basic_cli/main.py) - A complete example showing:
   - Setting up merchant profiles
@@ -63,6 +73,29 @@ See our [examples directory](https://github.com/Synvya/agentstr/tree/main/src/ag
   - Defining products with shipping costs
   - Configuring the agent with the merchant toolkit
   - Running an interactive CLI application
+
+1. ** Create a virtual environment**
+```bash
+cd agentstr/examples/basic_cli
+python3 -m venv venv
+source venv/bin/activate
+```
+
+2. ** Install dependencies**
+```bash
+pip install -r requirements.txt
+```
+
+3. ** Configure your environment**
+```bash
+cp .env.example .env
+```
+**Edit the .env file with your own API keys and Nostr credentials**
+
+4. ** Run the example**
+```bash
+python main.py
+```
 
 
 ## Documentation
