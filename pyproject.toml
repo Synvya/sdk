@@ -55,5 +55,9 @@ mypy_path = "src"
 module = ["nostr_sdk.*"]
 ignore_missing_imports = true
 
-[tool.setuptools.package_data]
-agentstr = ["examples/basic_cli/.env.example"]
+[tool.setuptools]
+package-dir = {"" = "src"}
+packages = ["agentstr"]
+
+[tool.setuptools.package-data]
+"agentstr" = ["examples/basic_cli/.env.example"]
