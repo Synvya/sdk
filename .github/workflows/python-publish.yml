@@ -17,38 +17,56 @@ permissions:
   contents: read
 
 jobs:
-  publish:
+  test:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.9", "3.10", "3.11", "3.12"]
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
       
-      - name: Set up Python
+      - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v5
         with:
-          python-version: '3.12'
+          python-version: ${{ matrix.python-version }}
+          cache: 'pip'
           
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install setuptools wheel twine phidata openai packaging nostr-sdk pytest-asyncio
+          pip install .[dev]  # Install package with dev dependencies
 
-      - name: Build release distributions
-        run: |
-          python -m pip install build
-          python -m build
-          
-      - name: Test
+      - name: Run tests
         env:
           NSEC_KEY: ${{ secrets.NSEC_KEY }}
         run: |
-          pip install pytest 
-          export PYTHONPATH=$(pwd):$PYTHONPATH
-          pytest 
+          pytest tests/ -v
 
+      - name: Type check
+        run: mypy src/
+
+      - name: Format check
+        run: |
+          black --check src/ tests/
+          isort --check-only src/ tests/
+
+  build:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: 'pip'
+          
       - name: Build package
-        run: pip install build && python -m build
+        run: |
+          python -m pip install --upgrade pip build
+          python -m build
       
       - name: Upload distributions
         uses: actions/upload-artifact@v4
@@ -56,33 +74,24 @@ jobs:
           name: release-dists
           path: dist/
 
-  pypi-publish:
+  publish:
+    needs: build
     runs-on: ubuntu-latest
-    needs:
-      - publish
-    permissions:
-      # IMPORTANT: this permission is mandatory for trusted publishing
-      id-token: write
-
-    # Dedicated environments with protections for publishing are strongly recommended.
-    # For more information, see: https://docs.github.com/en/actions/deployment/targeting-different-environments/using-environments-for-deployment#deployment-protection-rules
     environment:
       name: pypi
-      # OPTIONAL: uncomment and update to include your PyPI project URL in the deployment status:
-      # url: https://pypi.org/p/YOURPROJECT
-      #
-      # ALTERNATIVE: if your GitHub Release name is the PyPI project version string
-      # ALTERNATIVE: exactly, uncomment the following line instead:
-      # url: https://pypi.org/project/YOURPROJECT/${{ github.event.release.name }}
+      url: https://pypi.org/p/agentstr  # Updated with your package name
+    permissions:
+      id-token: write
 
     steps:
-      - name: Retrieve release distributions
+      - name: Download release distributions
         uses: actions/download-artifact@v4
         with:
           name: release-dists
           path: dist/
 
-      - name: Publish release distributions to PyPI
+      - name: Publish to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
           packages-dir: dist/
+          verbose: true
