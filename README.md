@@ -55,9 +55,9 @@ pip install agentstr
 
 ## Examples
 
-See our [examples directory](https://github.com/Synvya/agentstr/tree/main/examples/) for complete working implementations:
+See our [examples directory](https://github.com/Synvya/agentstr/tree/main/src/agentstr/examples) for complete working implementations:
 
-- [Basic CLI Agent](https://github.com/Synvya/agentstr/tree/main/examples/basic_cli/main.py) - A complete example showing:
+- [Basic CLI Agent](https://github.com/Synvya/agentstr/tree/main/src/agentstr/examples/basic_cli/main.py) - A complete example showing:
   - Setting up merchant profiles
   - Creating stalls with shipping methods
   - Defining products with shipping costs
@@ -71,14 +71,14 @@ For more detailed documentation and examples, see [Docs](https://github.com/Synv
 
 ## Development
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for:
+See [CONTRIBUTING.md](https://github.com/Synvya/agentstr/blob/main/CONTRIBUTING.md) for:
 - Development setup
 - Testing instructions
 - Contribution guidelines
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+This project is licensed under the MIT License - see the [LICENSE](https://github.com/Synvya/agentstr/blob/main/LICENSE) file for details.
 
 ## Acknowledgments
 
