@@ -6,14 +6,19 @@ import pytest
 from dotenv import load_dotenv
 from os import getenv
 from typing import List
+from unittest.mock import Mock, patch
+from datetime import datetime, timezone
 
+# Import from the installed package
 from agentstr.nostr import (
-    NostrClient, 
-    StallData, 
-    ProductData, 
-    ShippingMethod, 
+    Keys, NostrClient, Event, EventId, PublicKey, 
+    Kind, Timestamp, EventBuilder, Metadata
+)
+from agentstr.marketplace import (
+    ShippingMethod,
     ShippingCost,
-    EventId
+    StallData,
+    ProductData
 )
 
 # Configure logging

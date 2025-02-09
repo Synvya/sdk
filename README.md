@@ -9,6 +9,21 @@ AgentStr allows AI agents operated by different organizations to communicate and
 - Agents can discover and interact with each other through the decentralized Nostr network
 - No central authority or intermediary required
 
+## Project Structure
+
+```
+agentstr/
+├── src/              # Source code
+│   └── agentstr/
+│       ├── __init__.py
+│       ├── marketplace.py
+│       └── nostr.py
+├── tests/            # Test files
+├── docs/             # Documentation
+├── examples/         # Example implementations
+└── ...
+```
+
 ## Features
 
 ### Current Features

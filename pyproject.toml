@@ -32,6 +32,7 @@ BugTracker = "https://github.com/synvya/agentstr/issues"
 
 [tool.setuptools.packages.find]
 where = ["src"]
+include = ["agentstr*"]
 
 [tool.black]
 line-length = 88
