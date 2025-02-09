@@ -54,3 +54,6 @@ mypy_path = "src"
 [[tool.mypy.overrides]]
 module = ["nostr_sdk.*"]
 ignore_missing_imports = true
+
+[tool.setuptools.package_data]
+agentstr = ["examples/basic_cli/.env.example"]

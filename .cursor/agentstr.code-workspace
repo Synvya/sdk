@@ -1,0 +1,33 @@
+{
+	"folders": [
+		{
+			"path": "."
+		},
+		{
+			"path": ".."
+		}
+	],
+	"settings": {
+		"editor.formatOnSave": true,
+		"editor.tabSize": 4,
+		"editor.rulers": [
+			88
+		],
+		"[python]": {
+			"editor.defaultFormatter": "ms-python.black-formatter"
+		},
+		"python.defaultInterpreterPath": "${env:HOME}/.venvs/aienv/bin/python",
+		"python.terminal.activateEnvironment": true,
+		"terminal.integrated.defaultProfile.osx": "zsh-with-env",
+		"terminal.integrated.profiles.osx": {
+			"zsh-with-env": {
+				"path": "/bin/zsh",
+				"args": [
+					"-c",
+					"source ${env:HOME}/.venvs/aienv/bin/activate && exec /bin/zsh -i"
+				],
+				"icon": "terminal"
+			}
+		}
+	}
+}
