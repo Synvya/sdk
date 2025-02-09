@@ -1,25 +1,28 @@
 [build-system]
-requires = ["setuptools", "wheel"]  # Tools required to build your library
-build-backend = "setuptools.build_meta"  # Backend used for the build process
+requires = ["setuptools>=45", "wheel"]
+build-backend = "setuptools.build_meta"
 
 [project]
 name = "agentstr"
 version = "0.1.8"
-description = "A library for collaborative AI agents"
-requires-python = ">=3.9, <3.13"
+description = "Nostr extension for Phidata AI agents"
 readme = "README.md"
-license = { text = "MIT" }
-authors = [
-    { name = "Alejandro Gil", email = "info@synvya.com" }
-]
-keywords = ["AI", "agents", "collaboration", "library"]
-classifiers = [
-    "Programming Language :: Python :: 3",
-    "License :: OSI Approved :: MIT License",
-    "Operating System :: OS Independent"
-]
+requires-python = ">=3.9, <3.13"
 dependencies = [
-    "phidata>=2.7.0", "openai>=1.50.0", "packaging>=24.0", "nostr-sdk>=0.38.0"  
+    "phidata>=2.7.0",
+    "openai>=1.50.0",
+    "packaging>=24.0",
+    "nostr-sdk>=0.38.0",
+    "pydantic>=2.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+    "black>=23.0",
+    "isort>=5.0",
+    "mypy>=1.0",
+    "python-dotenv>=1.0",
 ]
 
 [project.urls]
@@ -27,6 +30,26 @@ Homepage = "https://github.com/synvya/agentstr"
 Documentation = "https://github.com/synvya/agentstr#readme"
 BugTracker = "https://github.com/synvya/agentstr/issues"
 
-[tool.setuptools]
-packages = ["agentstr"]
-include-package-data = true
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.black]
+line-length = 88
+target-version = ['py39']
+include = '\.pyi?$'
+src = ["src", "tests", "examples"]
+
+[tool.isort]
+profile = "black"
+src_paths = ["src", "tests", "examples"]
+multi_line_output = 3
+
+[tool.mypy]
+python_version = "3.9"
+warn_return_any = true
+warn_unused_configs = true
+mypy_path = "src"
+
+[[tool.mypy.overrides]]
+module = ["nostr_sdk.*"]
+ignore_missing_imports = true

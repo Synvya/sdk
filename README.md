@@ -1,90 +1,73 @@
-AgentStr
-========
-AgentStr is an extension of [Phidata](https://www.phidata.com) AI agents that allows for agents to communicate with other agents in separate computers using the Nostr communication protocol.
+# AgentStr
 
-The goal is for Agent A operated by Company A to be able to work with Agent B operated by Company B to achieve a common goal. For example: Company A wants to buy a product sold by Company B so Agent A and Agent B can coordinate and execute the transaction. 
+AgentStr is an extension of [Phidata](https://www.phidata.com) AI agents that enables peer-to-peer agent communication using the Nostr protocol.
 
-The basic communication tools are implemented in `agentstr/nostr.py`. 
+## Overview
 
-As a first example, AgentStr provides the tools to create and operate a marketplace using the [NIP-15](https://github.com/nostr-protocol/nips/blob/master/15.md) Nostr Marketplace as its foundation. The file `agentstr/marketplace.py` includes NIP-15 `merchant` and `customer` profiles implemented each as a Phidata Toolkit. 
+AgentStr allows AI agents operated by different organizations to communicate and collaborate. For example:
+- Agent A from Company A can coordinate with Agent B from Company B to execute a transaction
+- Agents can discover and interact with each other through the decentralized Nostr network
+- No central authority or intermediary required
 
-# License
-This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
+## Features
 
-# Current status
-The library is in its infancy.
+### Current Features
+- Create Merchant agents with Nostr identities
+- Publish and manage merchant products using [NIP-15](https://github.com/nostr-protocol/nips/blob/master/15.md) marketplace protocol
+- Create merchant stalls to organize products
+- Handle shipping zones and costs
+- Secure communication using Nostr keys
 
-Done:
-- Workflow to package and distribute the library
-- Users can create a Merchant profile and create an agent with the `merchant` toolkit that acts on behalf of the Merchant profile
+### Roadmap
+- [ ] Create marketplace with stalls
+- [ ] Create Buyer agents
+- [ ] Enable merchants to define products
+- [ ] Add customer toolkit for buyers
+- [ ] Support additional Nostr NIPs
+- [ ] Add more agent interaction patterns
 
+## Installation
 
-To be done:
-- Create a `marketplace` with `stalls`
-- Merchants to define `products`
-- Create a `customer` Toolkit
+```bash
+# Create a new python environment
+python3 -m venv ~/.venvs/aienv
+source ~/.venvs/aienv/bin/activate
 
-# Installation
-AgentStr is offered as a python library available at https://pypi.org/project/agentstr/. 
+# Install agentstr
+pip install --upgrade pip
+pip install agentstr
+```
 
-Here is an example on how to use the library:
+## Examples
 
-1. Create a new python environment for your app
-    ```
-    cd ~/
-    python3 -m venv ~/.venvs/aienv
-    source ~/.venvs/aienv/bin/activate
-    ```
-2. Install the agentstr library
-    ```
-    pip install --upgrade pip
-    pip install agentstr
-    mkdir ~/mysampleapp
-    cd ~/mysampleapp
-    ```
-3. Create a new python file
-    ```
-    touch main.py
-    ```
-4. Copy paste this code to the main.py file
-    ```
-    from dotenv import load_dotenv
-    from os import getenv
-    from phi.agent import Agent 
-    from phi.model.openai import OpenAIChat
-    from agentstr.marketplace import MerchantProfile, Merchant
+See our [examples directory](examples/) for complete working implementations:
+
+- [Basic CLI Agent](examples/basic_cli/main.py) - A complete example showing:
+  - Setting up merchant profiles
+  - Creating stalls with shipping methods
+  - Defining products with shipping costs
+  - Configuring the agent with the merchant toolkit
+  - Running an interactive CLI application
 
 
-    profile = MerchantProfile(
-        "Synvya",
-        "Testing stuff",
-        "https://i.nostr.build/ocjZ5GlAKwrvgRhx.png",
-        getenv("NSEC_KEY")
-    )
+## Documentation
 
-    agent = Agent(
-        name="Merchant Assistant",
-        model=OpenAIChat(id="gpt-4o"),
-        tools=[Merchant(merchant_profile=profile, relay="wss://relay.damus.io")],
-        show_tool_calls=True,
-        markdown=True,
-        debug_mode=True
-    )
-    
-    agent.print_response("Publish the merchant information and tell me full URL where I can find it")
-    ```
-5. Export your OpenAI key and optionally a Nostr private key before running the code
-    ```
-    export OPENAI_API_KEY="sk-***"
-    export NSEC_KEY="nsec***"
-    python main.py
-    ```
+For more detailed documentation and examples, see [Docs](docs/docs.md) 
 
-This example will attempt to load a Nostr private key defined as NSEC_KEY in bech32 format. If a private key is not provided, the `MerchantProfile` class initializer will assign it a new one. 
+## Development
 
-# Contributing
-Refer to [CONTRIBUTING.md](CONTRIBUTING.md) for specific instructions on installation instructions for developers and how to contribute.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for:
+- Development setup
+- Testing instructions
+- Contribution guidelines
 
-# Acknowledgments
-- [Phidata](https://www.phidata.com) - For building robust AI agents.
-- [Rust-Nostr](https://rust-nostr.org/index.html) - For providing a python based Nostr SDK.
+## License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## Acknowledgments
+
+- [Phidata](https://www.phidata.com) - For their AI agent framework
+- [Rust-Nostr](https://rust-nostr.org) - For their Python Nostr SDK
+- [Nostr Protocol](https://github.com/nostr-protocol/nips) - For the protocol specification
+

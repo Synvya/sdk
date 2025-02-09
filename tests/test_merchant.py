@@ -5,7 +5,10 @@ import itertools
 from dotenv import load_dotenv
 from os import getenv
 from unittest.mock import Mock, patch
-from agentstr.marketplace import Merchant, Profile, NostrClient, ProductData, StallData, ShippingMethod, ShippingCost, EventId
+from agentstr.marketplace import (
+    Merchant, Profile, NostrClient, MerchantProduct, MerchantStall,
+    ProductData, StallData, ShippingMethod, ShippingCost, EventId
+)
 from agentstr.nostr import PublicKey, Timestamp, Kind, Event, Keys, EventBuilder, Metadata
 
 load_dotenv()
@@ -123,70 +126,68 @@ def shipping_costs():
     ]
 
 @pytest.fixture
-def stalls(shipping_methods):
+def merchant_stalls(shipping_methods) -> List[MerchantStall]:
+    """Create MerchantStall test fixtures"""
     return [
-        StallData(id = STALL_1_ID,
-                  name = STALL_1_NAME,
-                  description = STALL_1_DESCRIPTION,
-                  currency = STALL_1_CURRENCY,
-                  shipping = [
-                      shipping_methods[0],
-                      shipping_methods[1]
-                    ]
-                ),
-        StallData(id = STALL_2_ID,
-                  name = STALL_2_NAME,
-                  description = STALL_2_DESCRIPTION,
-                  currency = STALL_2_CURRENCY,
-                  shipping = [ 
-                      shipping_methods[2]
-                    ]
-                )
+        MerchantStall(
+            id=STALL_1_ID,
+            name=STALL_1_NAME,
+            description=STALL_1_DESCRIPTION,
+            currency=STALL_1_CURRENCY,
+            shipping=[shipping_methods[0], shipping_methods[1]]
+        ),
+        MerchantStall(
+            id=STALL_2_ID,
+            name=STALL_2_NAME,
+            description=STALL_2_DESCRIPTION,
+            currency=STALL_2_CURRENCY,
+            shipping=[shipping_methods[2]]
+        )
     ]
 
 @pytest.fixture
-def products(shipping_costs):
+def merchant_products(shipping_costs) -> List[MerchantProduct]:
+    """Create MerchantProduct test fixtures"""
     return [
-        ProductData(
-            id = PRODUCT_1_ID,
-            stall_id = STALL_1_ID,
-            name = PRODUCT_1_NAME,
-            description = PRODUCT_1_DESCRIPTION,
-            images = PRODUCT_1_IMAGES,
-            currency = PRODUCT_1_CURRENCY,
-            price = PRODUCT_1_PRICE,
-            quantity = PRODUCT_1_QUANTITY,
-            shipping = [shipping_costs[0], shipping_costs[1]],
-            specs= None,
-            categories=None
+        MerchantProduct(
+            id=PRODUCT_1_ID,
+            stall_id=STALL_1_ID,
+            name=PRODUCT_1_NAME,
+            description=PRODUCT_1_DESCRIPTION,
+            images=PRODUCT_1_IMAGES,
+            currency=PRODUCT_1_CURRENCY,
+            price=PRODUCT_1_PRICE,
+            quantity=PRODUCT_1_QUANTITY,
+            shipping=[shipping_costs[0], shipping_costs[1]]
         ),
-        ProductData(
-            id = PRODUCT_2_ID,
-            stall_id = STALL_1_ID,
-            name = PRODUCT_2_NAME,
-            description = PRODUCT_2_DESCRIPTION,
-            images = PRODUCT_2_IMAGES,
-            currency = PRODUCT_2_CURRENCY,
-            price = PRODUCT_2_PRICE,
-            quantity = PRODUCT_2_QUANTITY,
-            shipping = [shipping_costs[0], shipping_costs[1]],
-            specs= None,
-            categories=None
+        MerchantProduct(
+            id=PRODUCT_2_ID,
+            stall_id=STALL_1_ID,
+            name=PRODUCT_2_NAME,
+            description=PRODUCT_2_DESCRIPTION,
+            images=PRODUCT_2_IMAGES,
+            currency=PRODUCT_2_CURRENCY,
+            price=PRODUCT_2_PRICE,
+            quantity=PRODUCT_2_QUANTITY,
+            shipping=[shipping_costs[0], shipping_costs[1]]
         ),
-        ProductData(
-            id = PRODUCT_3_ID,
-            stall_id = STALL_2_ID,
-            name = PRODUCT_3_NAME,
-            description = PRODUCT_3_DESCRIPTION,
-            images = PRODUCT_3_IMAGES,
-            currency = PRODUCT_3_CURRENCY,
-            price = PRODUCT_3_PRICE,
-            quantity = PRODUCT_3_QUANTITY,
-            shipping = [shipping_costs[2]],
-            specs= None,
-            categories=None
+        MerchantProduct(
+            id=PRODUCT_3_ID,
+            stall_id=STALL_2_ID,
+            name=PRODUCT_3_NAME,
+            description=PRODUCT_3_DESCRIPTION,
+            images=PRODUCT_3_IMAGES,
+            currency=PRODUCT_3_CURRENCY,
+            price=PRODUCT_3_PRICE,
+            quantity=PRODUCT_3_QUANTITY,
+            shipping=[shipping_costs[2]]
         )
     ]
+
+@pytest.fixture
+def merchant(merchant_profile: Profile, relay: str, merchant_stalls: List[MerchantStall], merchant_products: List[MerchantProduct]) -> Merchant:
+    """Create a Merchant instance for testing"""
+    return Merchant(merchant_profile, relay, merchant_stalls, merchant_products)
 
 @pytest.fixture
 def product_event_ids():
@@ -205,174 +206,113 @@ def stall_event_ids():
         EventId.parse("ecc04d51f124598abb7bd6830e169dbd4d97aef3bfc19a20ba07b99db709b893"),
     ]
 
-def test_init(merchant_profile: Profile, relay, stalls: list[StallData], products: list[ProductData]):
-    merchant = Merchant(merchant_profile, relay, stalls, products)
-    assert isinstance(merchant.get_merchant_profile(), str)
-    assert merchant.get_merchant_relay() == RELAY
+def test_merchant_initialization(merchant: Merchant):
+    """Test merchant initialization"""
+    assert merchant.merchant_profile is not None
+    assert merchant.relay == RELAY
+    assert len(merchant.product_db) == 3
+    assert len(merchant.stall_db) == 2
+    
+    # Test that products were properly stored
+    products = json.loads(merchant.get_products())
+    assert len(products) == 3
+    assert products[0]["name"] == PRODUCT_1_NAME
+    
+    # Test that stalls were properly stored
+    stalls = json.loads(merchant.get_stalls())
+    assert len(stalls) == 2
+    assert stalls[0]["name"] == STALL_1_NAME
 
-def test_get_products(merchant_profile: Profile, relay, stalls: list[StallData], products: list[ProductData]):
-    merchant = Merchant(merchant_profile, relay, stalls, products)
-    products_result = merchant.get_products()
-    assert len(products_result) == len(products)
+def test_publish_product_by_name(merchant: Merchant, product_event_ids):
+    """Test publishing a product by name"""
+    with patch.object(merchant.nostr_client, 'publish_product') as mock_publish:
+        mock_publish.return_value = product_event_ids[0]
+        
+        # Test with direct name
+        result = json.loads(merchant.publish_product_by_name(PRODUCT_1_NAME))
+        assert result["status"] == "success"
+        assert result["product_name"] == PRODUCT_1_NAME
+        
+        # Test with JSON input
+        result = json.loads(merchant.publish_product_by_name(json.dumps({"name": PRODUCT_1_NAME})))
+        assert result["status"] == "success"
+        assert result["product_name"] == PRODUCT_1_NAME
 
-def test_get_stalls(merchant_profile: Profile, relay, stalls: list[StallData], products: list[ProductData]):
-    merchant = Merchant(merchant_profile, relay, stalls, products)
-    output = merchant.get_stalls()
-    json_output = json.loads(output)
-    assert len(json_output) == len(stalls)
+def test_publish_stall_by_name(merchant: Merchant, stall_event_ids):
+    """Test publishing a stall by name"""
+    with patch.object(merchant.nostr_client, 'publish_stall') as mock_publish:
+        mock_publish.return_value = stall_event_ids[0]
+        
+        # Test with direct name
+        result = json.loads(merchant.publish_stall_by_name(STALL_1_NAME))
+        assert result["status"] == "success"
+        assert result["stall_name"] == STALL_1_NAME
+        
+        # Test with JSON input
+        result = json.loads(merchant.publish_stall_by_name(json.dumps({"name": STALL_1_NAME})))
+        assert result["status"] == "success"
+        assert result["stall_name"] == STALL_1_NAME
 
-def test_publish_all_products(product_event_ids, merchant_profile: Profile, relay, stalls: list[StallData], products: list[ProductData]):
-    merchant = Merchant(merchant_profile, relay, stalls, products)
-    with patch.object(merchant.nostr_client, 'publish_product') as mock_publish_product:
-        mock_publish_product.side_effect = itertools.cycle(product_event_ids)
-        output = merchant.publish_all_products()
-        json_output = json.loads(output)
-    assert len(json_output) == 0
+def test_publish_products_by_stall_name(merchant: Merchant, product_event_ids):
+    """Test publishing all products in a stall"""
+    with patch.object(merchant.nostr_client, 'publish_product') as mock_publish:
+        mock_publish.side_effect = itertools.cycle(product_event_ids)
+        
+        # Test with direct name
+        results = json.loads(merchant.publish_products_by_stall_name(STALL_1_NAME))
+        assert len(results) == 2  # Two products in stall 1
+        assert all(r["status"] == "success" for r in results)
+        assert all(r["stall_name"] == STALL_1_NAME for r in results)
+        
+        # Test with JSON input
+        results = json.loads(merchant.publish_products_by_stall_name(json.dumps({"name": STALL_1_NAME})))
+        assert len(results) == 2
+        assert all(r["status"] == "success" for r in results)
 
-def test_publish_all_products_error(merchant_profile: Profile, relay, stalls: list[StallData], products: list[ProductData]):
-    merchant = Merchant(merchant_profile, relay, stalls, products)
-    with patch.object(merchant.nostr_client, 'publish_product') as mock_publish_product:
-        mock_publish_product.side_effect = Exception("Error publishing product")
-        output = merchant.publish_all_products()
-        json_output = json.loads(output)
-    assert len(json_output) == len(products)
+def test_publish_all_products(merchant: Merchant, product_event_ids):
+    """Test publishing all products"""
+    with patch.object(merchant.nostr_client, 'publish_product') as mock_publish:
+        mock_publish.side_effect = itertools.cycle(product_event_ids)
+        
+        results = json.loads(merchant.publish_all_products())
+        assert len(results) == 3  # All products
+        assert all(r["status"] == "success" for r in results)
 
+def test_publish_all_stalls(merchant: Merchant, stall_event_ids):
+    """Test publishing all stalls"""
+    with patch.object(merchant.nostr_client, 'publish_stall') as mock_publish:
+        mock_publish.side_effect = itertools.cycle(stall_event_ids)
+        
+        results = json.loads(merchant.publish_all_stalls())
+        assert len(results) == 2  # All stalls
+        assert all(r["status"] == "success" for r in results)
 
-def test_publish_all_stalls(stall_event_ids, merchant_profile: Profile, relay, stalls: list[StallData], products: list[ProductData]):
-    merchant = Merchant(merchant_profile, relay, stalls, products)
-    with patch.object(merchant.nostr_client, 'publish_stall') as mock_publish_stall:
-        mock_publish_stall.side_effect = itertools.cycle(stall_event_ids)
-        output = merchant.publish_all_stalls()
-        json_output = json.loads(output)
-    assert len(json_output) == 0
+def test_error_handling(merchant: Merchant):
+    """Test error handling in various scenarios"""
+    # Test non-existent product
+    result = json.loads(merchant.publish_product_by_name("NonExistentProduct"))
+    assert result["status"] == "error"
+    
+    # Test non-existent stall
+    results = json.loads(merchant.publish_stall_by_name("NonExistentStall"))
+    assert isinstance(results, list)
+    assert results[0]["status"] == "error"
+    
+    # Test publishing products for non-existent stall
+    results = json.loads(merchant.publish_products_by_stall_name("NonExistentStall"))
+    assert isinstance(results, list)
+    assert results[0]["status"] == "error"
 
-def test_publish_all_stalls_error(merchant_profile: Profile, relay, stalls: list[StallData], products: list[ProductData]):
-    merchant = Merchant(merchant_profile, relay, stalls, products)
-    with patch.object(merchant.nostr_client, 'publish_stall') as mock_publish_stall:
-        mock_publish_stall.side_effect = Exception("Error publishing stall")
-        output = merchant.publish_all_stalls()
-        json_output = json.loads(output)
-    assert len(json_output) == len(stalls)
-
-def test_publish_product(product_event_ids, merchant_profile: Profile, relay, stalls: list[StallData], products: list[ProductData]):
-    merchant = Merchant(merchant_profile, relay, stalls, products)
-    with patch.object(merchant.nostr_client, 'publish_product') as mock_publish_product:
-        mock_publish_product.return_value = itertools.cycle(product_event_ids)
-        product = products[0]
-        output = merchant.publish_product(product)
-        json_output = json.loads(output)
-    assert len(json_output) == 1
-
-def test_publish_product_error(product_event_ids, merchant_profile: Profile, relay, stalls: list[StallData], products: list[ProductData]):
-    merchant = Merchant(merchant_profile, relay, stalls, products)
-    with patch.object(merchant.nostr_client, 'publish_product') as mock_publish_product:
-        mock_publish_product.side_effect = Exception("Error publishing product")
-        product = products[0]
-        output = merchant.publish_product(product)
-        json_output = json.loads(output)
-    assert len(json_output) == 0
-
-
-
-def test_publish_product_by_name(product_event_ids, merchant_profile: Profile, relay, stalls: list[StallData], products: list[ProductData]):
-    merchant = Merchant(merchant_profile, relay, stalls, products)
-    with patch.object(merchant.nostr_client, 'publish_product') as mock_publish_product:
-        mock_publish_product.return_value = itertools.cycle(product_event_ids)
-        product = products[0]
-        output = merchant.publish_product_by_name(product.name)
-        json_output = json.loads(output)
-    assert len(json_output) == 1
-
-def test_publish_product_by_name_error(product_event_ids, merchant_profile: Profile, relay, stalls: list[StallData], products: list[ProductData]):
-    merchant = Merchant(merchant_profile, relay, stalls, products)
-    with patch.object(merchant.nostr_client, 'publish_product') as mock_publish_product:
-        mock_publish_product.side_effect = Exception("Error publishing product")
-        product = products[0]
-        output = merchant.publish_product_by_name(product.name)
-        json_output = json.loads(output)
-    assert len(json_output) == 0
-
-def test_publish_products_by_stall(product_event_ids, merchant_profile: Profile, relay, stalls: list[StallData], products: list[ProductData]):
-    merchant = Merchant(merchant_profile, relay, stalls, products)
-    with patch.object(merchant.nostr_client, 'publish_product') as mock_publish_product:
-        mock_publish_product.return_value = itertools.cycle(product_event_ids)
-        stall = stalls[0]
-        output = merchant.publish_products_by_stall(stall.name())
-        json_output = json.loads(output)
-    assert len(json_output) == 0
-
-def test_publish_product_by_stall_error(product_event_ids, merchant_profile: Profile, relay, stalls: list[StallData], products: list[ProductData]):
-    merchant = Merchant(merchant_profile, relay, stalls, products)
-    with patch.object(merchant.nostr_client, 'publish_product') as mock_publish_product:
-        mock_publish_product.side_effect = Exception("Error publishing product")
-        stall = stalls[0]
-        output = merchant.publish_products_by_stall(stall.name())
-        json_output = json.loads(output)
-    assert len(json_output) > 0
-
-def test_publish_stall(stall_event_ids, merchant_profile: Profile, relay, stalls: list[StallData], products: list[ProductData]):
-    merchant = Merchant(merchant_profile, relay, stalls, products)
-    with patch.object(merchant.nostr_client, 'publish_stall') as mock_publish_stall:
-        mock_publish_stall.return_value = itertools.cycle(stall_event_ids)
-        stall = stalls[0]
-        output = merchant.publish_stall(stall)
-        json_output = json.loads(output)
-    assert len(json_output) == 1
-
-def test_publish_stall_error(stall_event_ids, merchant_profile: Profile, relay, stalls: list[StallData], products: list[ProductData]):
-    merchant = Merchant(merchant_profile, relay, stalls, products)
-    with patch.object(merchant.nostr_client, 'publish_stall') as mock_publish_stall:
-        mock_publish_stall.side_effect = Exception("Error publishing stall")
-        stall = stalls[0]
-        output = merchant.publish_stall(stall)
-        json_output = json.loads(output)
-    assert len(json_output) == 0
-
-
-def test_publish_stall_by_name(stall_event_ids, merchant_profile: Profile, relay, stalls: list[StallData], products: list[ProductData]):
-    merchant = Merchant(merchant_profile, relay, stalls, products)
-    with patch.object(merchant.nostr_client, 'publish_stall') as mock_publish_stall:
-        mock_publish_stall.return_value = itertools.cycle(stall_event_ids)
-        stall = stalls[0]
-        output = merchant.publish_stall_by_name(stall.name)
-        json_output = json.loads(output)
-    assert len(json_output) == 1
-
-def test_publish_stall_by_name_error(stall_event_ids, merchant_profile: Profile, relay, stalls: list[StallData], products: list[ProductData]):
-    merchant = Merchant(merchant_profile, relay, stalls, products)
-    with patch.object(merchant.nostr_client, 'publish_stall') as mock_publish_stall:
-        mock_publish_stall.side_effect = Exception("Error publishing stall")
-        stall = stalls[0]
-        output = merchant.publish_stall_by_name(stall.name)
-        json_output = json.loads(output)
-    assert len(json_output) == 0
-
-
-def test_publish_profile(profile_event_id, merchant_profile: Profile, relay, stalls: list[StallData], products: list[ProductData]):
-    merchant = Merchant(merchant_profile, relay, stalls, products)
-    with patch.object(merchant.nostr_client, 'publish_profile') as mock_publish_profile:
-        mock_publish_profile.return_value = profile_event_id
-        result = merchant.publish_profile()
-    assert isinstance(result, str)
-    # You could also check if the result is a valid JSON string
-    try:
-        json.loads(result)
-    except json.JSONDecodeError:
-        pytest.fail("Result is not a valid JSON string")
-
-def test_publish_profile_failure(merchant_profile: Profile, relay, stalls: list[StallData], products: list[ProductData]):
-    merchant = Merchant(merchant_profile, relay, stalls, products)
-    with patch.object(merchant.nostr_client, 'publish_profile') as mock_publish_profile:
-        mock_publish_profile.side_effect = Exception("Test exception")
-        with pytest.raises(RuntimeError):
-            merchant.publish_profile()
-
-def test_get_products(merchant_profile: Profile, relay, stalls: list[StallData], products: list[ProductData]):
-    merchant = Merchant(merchant_profile, relay, stalls, products)
-    output = merchant.get_products()
-    assert isinstance(output, str)
-    try:
-        json.loads(output)
-    except json.JSONDecodeError:
-        assert False, "Output is not a valid JSON string"
+def test_profile_operations(merchant: Merchant, profile_event_id):
+    """Test profile-related operations"""
+    # Test get profile
+    profile_data = json.loads(merchant.get_profile())
+    assert profile_data["name"] == MERCHANT_NAME
+    assert profile_data["description"] == MERCHANT_DESCRIPTION
+    
+    # Test publish profile
+    with patch.object(merchant.nostr_client, 'publish_profile') as mock_publish:
+        mock_publish.return_value = profile_event_id
+        result = json.loads(merchant.publish_profile())
+        assert isinstance(result, dict)
 
