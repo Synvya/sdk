@@ -10,25 +10,22 @@ except ImportError:
 
 try:
     from nostr_sdk import (
-        Keys,
         Client,
+        Coordinate,
+        Event,
         EventBuilder,
-        NostrSigner,
         EventId,
+        Keys,
+        Kind,
+        Metadata,
+        NostrSigner,
+        ProductData,
+        PublicKey,
         ShippingCost,
         ShippingMethod,
-    )
-    from nostr_sdk import (
-        Metadata,
         StallData,
-        ProductData,
         Tag,
-        Coordinate,
-        Kind,
-        PublicKey,
         Timestamp,
-        Kind,
-        Event,
     )
 
 except ImportError:

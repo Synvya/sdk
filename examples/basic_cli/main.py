@@ -1,18 +1,20 @@
-from dotenv import load_dotenv
 from os import getenv
 from pathlib import Path
+from typing import List, Tuple
+
+import httpx
+from dotenv import load_dotenv
 from phi.agent import Agent
 from phi.model.openai import OpenAIChat
+
 from agentstr.marketplace import (
-    Profile,
     Merchant,
-    ShippingMethod,
-    ShippingCost,
     MerchantProduct,
     MerchantStall,
+    Profile,
+    ShippingCost,
+    ShippingMethod,
 )
-from typing import List, Tuple
-import httpx
 
 load_dotenv()
 

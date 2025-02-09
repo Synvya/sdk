@@ -1,14 +1,17 @@
+import ast
+import json
 import logging
-import json, ast, re
-from typing import Optional, List, Tuple, Dict, Any, Union, cast
+import re
+from typing import Any, Dict, List, Optional, Tuple, Union, cast
+
 from agentstr.nostr import (
+    EventId,
     Keys,
     NostrClient,
     ProductData,
-    StallData,
-    EventId,
-    ShippingMethod,
     ShippingCost,
+    ShippingMethod,
+    StallData,
 )
 
 try:
@@ -18,7 +21,7 @@ except ImportError:
         "`phidata` not installed. Please install using `pip install phidata`"
     )
 
-from pydantic import ConfigDict, BaseModel, Field, validate_call
+from pydantic import BaseModel, ConfigDict, Field, validate_call
 
 
 class Profile:

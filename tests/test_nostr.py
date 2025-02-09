@@ -1,27 +1,29 @@
-import logging
 import hashlib
+import logging
 import random
 import string
-import pytest
-from dotenv import load_dotenv
+from datetime import datetime, timezone
 from os import getenv
 from typing import List
 from unittest.mock import Mock, patch
-from datetime import datetime, timezone
+
+import pytest
+from dotenv import load_dotenv
+
+from agentstr.marketplace import ProductData, ShippingCost, ShippingMethod, StallData
 
 # Import from the installed package
 from agentstr.nostr import (
-    Keys,
-    NostrClient,
     Event,
-    EventId,
-    PublicKey,
-    Kind,
-    Timestamp,
     EventBuilder,
+    EventId,
+    Keys,
+    Kind,
     Metadata,
+    NostrClient,
+    PublicKey,
+    Timestamp,
 )
-from agentstr.marketplace import ShippingMethod, ShippingCost, StallData, ProductData
 
 
 # Configure logging

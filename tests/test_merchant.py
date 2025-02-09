@@ -1,30 +1,32 @@
-from typing import Literal, List
-import json
-import pytest
 import itertools
-from dotenv import load_dotenv
+import json
 from os import getenv
+from typing import List, Literal
 from unittest.mock import Mock, patch
+
+import pytest
+from dotenv import load_dotenv
+
 from agentstr.marketplace import (
+    EventId,
     Merchant,
-    Profile,
-    NostrClient,
     MerchantProduct,
     MerchantStall,
+    NostrClient,
     ProductData,
-    StallData,
-    ShippingMethod,
+    Profile,
     ShippingCost,
-    EventId,
+    ShippingMethod,
+    StallData,
 )
 from agentstr.nostr import (
+    Event,
+    EventBuilder,
+    Keys,
+    Kind,
+    Metadata,
     PublicKey,
     Timestamp,
-    Kind,
-    Event,
-    Keys,
-    EventBuilder,
-    Metadata,
 )
 
 load_dotenv()

@@ -4,12 +4,12 @@ AgentStr: Nostr extension for Phidata AI agents
 
 # Import main classes to make them available at package level
 from .marketplace import (
-    Profile,
     Merchant,
-    MerchantStall,
     MerchantProduct,
-    ShippingMethod,
+    MerchantStall,
+    Profile,
     ShippingCost,
+    ShippingMethod,
 )
 
 # Import version from pyproject.toml at runtime
