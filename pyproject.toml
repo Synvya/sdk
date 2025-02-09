@@ -4,10 +4,14 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "agentstr"
-version = "0.1.9"
+version = "0.1.10"
 description = "Nostr extension for Phidata AI agents"
 readme = "README.md"
 requires-python = ">=3.9, <3.13"
+license = {file = "LICENSE"}
+authors = [
+    {name = "Synvya", email = "info@synvya.com"}  # Add author info
+]
 dependencies = [
     "phidata>=2.7.0",
     "openai>=1.50.0",
@@ -32,7 +36,11 @@ BugTracker = "https://github.com/synvya/agentstr/issues"
 
 [tool.setuptools]
 package-dir = {"" = "src"}
-packages = ["agentstr"]
+packages = [
+    "agentstr",
+    "agentstr.examples",
+    "agentstr.examples.basic_cli"
+]
 
 [tool.black]
 line-length = 88

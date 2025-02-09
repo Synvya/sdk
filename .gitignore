@@ -1,7 +1,12 @@
+# Environment files
+.env
+.venv
+env/
+venv/
+
 # Python
 __pycache__/
 *.py[cod]
-*$py.class
 *.so
 .Python
 build/
@@ -17,8 +22,6 @@ sdist/
 var/
 wheels/
 *.egg-info/
-.installed.cfg
-*.egg
 
 # Virtual Environment
 venv/
