@@ -16,8 +16,10 @@ agentstr/
 ├── src/              # Source code
 │   └── agentstr/
 │       ├── __init__.py
-│       ├── marketplace.py
-│       └── nostr.py
+│       ├── merchant.py
+│       ├── merchant.pyi
+│       ├── nostr.py
+│       └── nostr.pyi
 ├── tests/            # Test files
 ├── docs/             # Documentation
 ├── examples/         # Example implementations

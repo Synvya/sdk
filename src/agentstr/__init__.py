@@ -3,7 +3,7 @@ AgentStr: Nostr extension for Phidata AI agents
 """
 
 # Import main classes to make them available at package level
-from .marketplace import (
+from .merchant import (
     Merchant,
     MerchantProduct,
     MerchantStall,

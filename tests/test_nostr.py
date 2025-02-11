@@ -10,7 +10,7 @@ from unittest.mock import Mock, patch
 import pytest
 from dotenv import load_dotenv
 
-from agentstr.marketplace import ProductData, ShippingCost, ShippingMethod, StallData
+from agentstr.merchant import ProductData, ShippingCost, ShippingMethod, StallData
 
 # Import from the installed package
 from agentstr.nostr import (
@@ -28,7 +28,7 @@ from agentstr.nostr import (
 
 # Configure logging
 @pytest.fixture(autouse=True)
-def setup_logging():
+def setup_logging() -> None:
     """Setup logging for all tests"""
     for handler in logging.root.handlers[:]:
         logging.root.removeHandler(handler)
@@ -40,7 +40,7 @@ def setup_logging():
 
 
 @pytest.fixture(scope="session")
-def nostr_client():
+def nostr_client() -> NostrClient:
     """Create a NostrClient instance for tests"""
     load_dotenv()
     nsec = getenv("NSEC_TEST_KEY")
@@ -60,7 +60,7 @@ def generate_random_id(input_str: str, length: int = 8) -> str:
 
 
 @pytest.fixture
-def shipping_methods():
+def shipping_methods() -> List[ShippingMethod]:
     """Create shipping methods for testing"""
     method1 = (
         ShippingMethod(id="64be11rM", cost=10000)
@@ -82,7 +82,7 @@ def shipping_methods():
 
 
 @pytest.fixture
-def shipping_costs():
+def shipping_costs() -> List[ShippingCost]:
     """Create shipping costs for testing"""
     return [
         ShippingCost(id="64be11rM", cost=5000),
@@ -91,7 +91,7 @@ def shipping_costs():
 
 
 @pytest.fixture
-def test_stall(shipping_methods):
+def test_stall(shipping_methods: List[ShippingMethod]) -> StallData:
     """Create a test stall"""
     return StallData(
         id="212au4Pi",
@@ -103,7 +103,7 @@ def test_stall(shipping_methods):
 
 
 @pytest.fixture
-def test_product(shipping_costs):
+def test_product(shipping_costs: List[ShippingCost]) -> ProductData:
     """Create a test product"""
     return ProductData(
         id="bcf00Rx7",
@@ -123,17 +123,23 @@ def test_product(shipping_costs):
 class TestNostrClient:
     """Test suite for NostrClient"""
 
-    def test_publish_stall(self, nostr_client, test_stall):
+    def test_publish_stall(
+        self, nostr_client: NostrClient, test_stall: StallData
+    ) -> None:
         """Test publishing a stall"""
         event_id = nostr_client.publish_stall(test_stall)
         assert isinstance(event_id, EventId)
 
-    def test_publish_product(self, nostr_client, test_product):
+    def test_publish_product(
+        self, nostr_client: NostrClient, test_product: ProductData
+    ) -> None:
         """Test publishing a product"""
         event_id = nostr_client.publish_product(test_product)
         assert isinstance(event_id, EventId)
 
-    def test_delete_event(self, nostr_client, test_stall):
+    def test_delete_event(
+        self, nostr_client: NostrClient, test_stall: StallData
+    ) -> None:
         """Test deleting an event"""
         # First publish something to delete
         event_id = nostr_client.publish_stall(test_stall)
@@ -143,7 +149,7 @@ class TestNostrClient:
         delete_event_id = nostr_client.delete_event(event_id, reason="Test deletion")
         assert isinstance(delete_event_id, EventId)
 
-    def test_publish_profile(self, nostr_client):
+    def test_publish_profile(self, nostr_client: NostrClient) -> None:
         """Test publishing a profile"""
         event_id = nostr_client.publish_profile(
             name="Test Profile",
@@ -153,12 +159,12 @@ class TestNostrClient:
         assert isinstance(event_id, EventId)
 
     @pytest.mark.asyncio
-    async def test_async_connect(self, nostr_client):
+    async def test_async_connect(self, nostr_client: NostrClient) -> None:
         """Test async connection"""
         result = await nostr_client._async_connect()
         assert result == NostrClient.SUCCESS
 
-    def test_set_logging_level(self):
+    def test_set_logging_level(self) -> None:
         """Test setting logging level"""
         NostrClient.set_logging_level(logging.DEBUG)
         assert NostrClient.logger.level == logging.DEBUG

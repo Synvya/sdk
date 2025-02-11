@@ -7,7 +7,7 @@ from dotenv import load_dotenv
 from phi.agent import Agent  # type: ignore
 from phi.model.openai import OpenAIChat  # type: ignore
 
-from agentstr.marketplace import (
+from agentstr.merchant import (
     Merchant,
     MerchantProduct,
     MerchantStall,

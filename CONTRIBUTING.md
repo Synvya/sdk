@@ -10,13 +10,20 @@ black (code formater),isort (import sorter) and mypy (type checker)
   pip install black isort mypy
   ```
 
-2. **Run the tools before committing:**
+2. **Install the package in development mode:**
+
+```bash
+pip install -e .[dev]
+```
+
+3. **Run the tools before committing:**
 
 ```bash
 isort .
 black .
 mypy src/
 mypy examples/ # assuming you did some changes here
+mypy tests/
 ```
 
 ### Editor Settings (Cursor)
