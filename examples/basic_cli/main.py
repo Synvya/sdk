@@ -7,14 +7,8 @@ from dotenv import load_dotenv
 from phi.agent import Agent  # type: ignore
 from phi.model.openai import OpenAIChat  # type: ignore
 
-from agentstr.merchant import (
-    Merchant,
-    MerchantProduct,
-    MerchantStall,
-    Profile,
-    ShippingCost,
-    ShippingMethod,
-)
+from agentstr.merchant import Merchant, MerchantProduct, MerchantStall, Profile
+from agentstr.nostr import ShippingCost, ShippingMethod
 
 load_dotenv()
 
@@ -177,8 +171,8 @@ agent = Agent(  # type: ignore[call-arg]
         Merchant(
             merchant_profile=test_merchant,
             relay=RELAY,
-            stalls=[test_stall_1, test_stall_2],
-            products=[test_product_1, test_product_2, test_product_3],
+            merchant_stalls=[test_stall_1, test_stall_2],
+            merchant_products=[test_product_1, test_product_2, test_product_3],
         )
     ],
     show_tool_calls=True,

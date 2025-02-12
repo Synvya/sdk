@@ -9,20 +9,16 @@ from unittest.mock import Mock, patch
 
 import pytest
 from dotenv import load_dotenv
+from nostr_sdk import Event, EventBuilder, Events, Kind, Metadata, PublicKey, Timestamp
 
-from agentstr.merchant import ProductData, ShippingCost, ShippingMethod, StallData
-
-# Import from the installed package
 from agentstr.nostr import (
-    Event,
-    EventBuilder,
     EventId,
     Keys,
-    Kind,
-    Metadata,
     NostrClient,
-    PublicKey,
-    Timestamp,
+    ProductData,
+    ShippingCost,
+    ShippingMethod,
+    StallData,
 )
 
 
@@ -158,11 +154,25 @@ class TestNostrClient:
         )
         assert isinstance(event_id, EventId)
 
+    def test_retrieve_merchants(self, nostr_client: NostrClient) -> None:
+        """Test retrieving merchants"""
+        try:
+            events = nostr_client.retrieve_merchants()
+            merchants = events.to_vec()
+            print(f"First merchant: {merchants[0].as_pretty_json()}")
+        except RuntimeError as e:
+            print(f"\nError retrieving merchants: {e}")
+            raise e
+
     @pytest.mark.asyncio
     async def test_async_connect(self, nostr_client: NostrClient) -> None:
         """Test async connection"""
-        result = await nostr_client._async_connect()
-        assert result == NostrClient.SUCCESS
+
+        try:
+            await nostr_client._async_connect()
+            assert True, "Expected _async_connect to return None"
+        except Exception as e:
+            pytest.fail(f"_async_connect raised an unexpected exception: {e}")
 
     def test_set_logging_level(self) -> None:
         """Test setting logging level"""

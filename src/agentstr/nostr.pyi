@@ -1,37 +1,61 @@
-from datetime import datetime
-from typing import List, Optional, Union
+from typing import Any, List, Optional
 
-class PublicKey:
+from nostr_sdk import (  # type: ignore
+    Event,
+    EventBuilder,
+    EventId,
+    Events,
+    Keys,
+    Kind,
+    Metadata,
+    ProductData,
+    PublicKey,
+    ShippingCost,
+    ShippingMethod,
+    StallData,
+    Timestamp,
+)
+
+# Re-export all needed types
+__all__ = [
+    "Event",
+    "EventBuilder",
+    "Events",
+    "EventId",
+    "Keys",
+    "Kind",
+    "Metadata",
+    "ProductData",
+    "PublicKey",
+    "ShippingCost",
+    "ShippingMethod",
+    "StallData",
+    "Timestamp",
+]
+
+class NostrClient:
+    logger: Any
+
+    def __init__(self, relay_url: str, nsec: Optional[str] = None) -> None: ...
+    def publish_event(self, event: EventBuilder) -> EventId: ...
+    def publish_note(self, content: str) -> EventId: ...
+    def publish_profile(self, name: str, about: str, picture: str) -> EventId: ...
+    def publish_stall(self, stall: StallData) -> EventId: ...
+    def publish_product(self, product: ProductData) -> EventId: ...
+    def delete_event(
+        self, event_id: EventId, reason: Optional[str] = None
+    ) -> EventId: ...
+    def retrieve_merchants(self) -> Events: ...
     @classmethod
-    def parse(cls, hex_str: str) -> "PublicKey": ...
+    def set_logging_level(cls, level: int) -> None: ...
 
-class Kind:
-    def __init__(self, value: int) -> None: ...
-
-class Timestamp:
-    @classmethod
-    def from_secs(cls, secs: int) -> "Timestamp": ...
-
-class Event:
-    def __init__(
-        self,
-        id: str,
-        pubkey: PublicKey,
-        created_at: Timestamp,
-        kind: Kind,
-        tags: List[List[str]],
-        content: str,
-    ) -> None: ...
-
-class EventBuilder:
-    def __init__(self, content: str) -> None: ...
-    def kind(self, kind: Kind) -> "EventBuilder": ...
-    def tags(self, tags: List[List[str]]) -> "EventBuilder": ...
-
-class Keys:
-    def __init__(self, secret_key: Optional[str] = None) -> None: ...
-    @property
-    def public_key(self) -> PublicKey: ...
-
-class Metadata:
-    def __init__(self, name: str, about: str, picture: str) -> None: ...
+    # Async methods
+    async def _async_connect(self) -> None: ...  # Changed to None
+    async def _async_publish_event(self, event_builder: EventBuilder) -> EventId: ...
+    async def _async_publish_note(self, text: str) -> EventId: ...
+    async def _async_publish_product(self, product: ProductData) -> EventId: ...
+    async def _async_publish_profile(
+        self, name: str, about: str, picture: str
+    ) -> EventId: ...
+    async def _async_publish_stall(self, stall: StallData) -> EventId: ...
+    async def _async_retreive_merchants(self) -> Events: ...

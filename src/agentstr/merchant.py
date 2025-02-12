@@ -29,7 +29,9 @@ class Profile:
     logger = logging.getLogger("Profile")
     WEB_URL: str = "https://primal.net/p/"
 
-    def __init__(self, name: str, about: str, picture: str, nsec: Optional[str] = None):
+    def __init__(
+        self, name: str, about: str, picture: str, nsec: Optional[str] = None
+    ) -> None:
         """Initialize the profile.
 
         Args:

@@ -7,25 +7,20 @@ from unittest.mock import Mock, patch
 import pytest
 from dotenv import load_dotenv
 
-from agentstr.merchant import (
-    EventId,
-    Merchant,
-    MerchantProduct,
-    MerchantStall,
-    NostrClient,
-    ProductData,
-    Profile,
-    ShippingCost,
-    ShippingMethod,
-    StallData,
-)
+from agentstr.merchant import Merchant, MerchantProduct, MerchantStall, Profile
 from agentstr.nostr import (
     Event,
     EventBuilder,
+    EventId,
     Keys,
     Kind,
     Metadata,
+    NostrClient,
+    ProductData,
     PublicKey,
+    ShippingCost,
+    ShippingMethod,
+    StallData,
     Timestamp,
 )
 
@@ -249,10 +244,10 @@ def stall_event_ids() -> List[EventId]:
 
 def test_merchant_initialization(merchant: Merchant) -> None:
     """Test merchant initialization"""
-    assert merchant.merchant_profile is not None
-    assert merchant.relay == RELAY
-    assert len(merchant.product_db) == 3
-    assert len(merchant.stall_db) == 2
+    assert merchant.get_profile() is not None
+    assert merchant.get_relay() == RELAY
+    assert len(merchant.get_products()) == 3
+    assert len(merchant.get_stalls()) == 2
 
     products = json.loads(merchant.get_products())
     assert len(products) == 3

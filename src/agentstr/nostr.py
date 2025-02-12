@@ -1,4 +1,5 @@
 import logging
+from datetime import timedelta
 from typing import Optional
 
 try:
@@ -12,9 +13,10 @@ try:
     from nostr_sdk import (
         Client,
         Coordinate,
-        Event,
         EventBuilder,
         EventId,
+        Events,
+        Filter,
         Keys,
         Kind,
         Metadata,
@@ -44,8 +46,6 @@ class NostrClient:
     """
 
     logger = logging.getLogger("NostrClient")
-    ERROR: str = "ERROR"
-    SUCCESS: str = "SUCCESS"
 
     def __init__(
         self,
@@ -98,7 +98,7 @@ class NostrClient:
         Publish generic Nostr event to the relay
 
         Returns:
-            EventId: event id if successful or NostrClient.ERROR if unsuccesful
+            EventId: event id published
 
         Raises:
             RuntimeError: if the product can't be published
@@ -113,7 +113,7 @@ class NostrClient:
             text: text to be published as kind 1 event
 
         Returns:
-            EventId: EventId if successful or NostrClient.ERROR if unsuccesful
+            EventId: EventId if successful
 
         Raises:
             RuntimeError: if the product can't be published
@@ -129,7 +129,7 @@ class NostrClient:
             product: product to be published
 
         Returns:
-            EventId: event id if successful or NostrClient.ERROR if unsuccesful
+            EventId: event id of the publication event
 
         Raises:
             RuntimeError: if the product can't be published
@@ -147,7 +147,7 @@ class NostrClient:
             picture: url to a png file with a picture for the profile
 
         Returns:
-            EventId: event id if successful or NostrClient.ERROR if unsuccesful
+            EventId: event id if successful
 
         Raises:
             RuntimeError: if the profile can't be published
@@ -162,13 +162,30 @@ class NostrClient:
             stall: stall to be published
 
         Returns:
-            EventId: event id if successful or NostrClient.ERROR if unsuccesful
+            EventId: Id of the publication event
+
+        Raises:
+            RuntimeError: if the stall can't be published
         """
         try:
             return asyncio.run(self._async_publish_stall(stall))
         except Exception as e:
-            self.logger.error(f"Failed to publish stall: {e}")
-            return NostrClient.ERROR
+            raise RuntimeError(f"Failed to publish stall: {e}")
+
+    def retrieve_merchants(self) -> Events:
+        """
+        Retrieve all merchants from the relay
+
+        Returns:
+            Events: events containing all merchants
+
+        Raises:
+            RuntimeError: if the merchants can't be retrieved
+        """
+        try:
+            return asyncio.run(self._async_retreive_merchants())
+        except Exception as e:
+            raise RuntimeError(f"Failed to retrieve merchants: {e}")
 
     @classmethod
     def set_logging_level(cls, logging_level: int) -> None:
@@ -186,23 +203,22 @@ class NostrClient:
     # --*-- async functions for internal use only. Developers should use synchronous functions above
     # ----------------------------------------------------------------------------------------------
 
-    async def _async_connect(self) -> str:
+    async def _async_connect(self) -> None:
         """Asynchronous function to add relay to the NostrClient instance and connect to it.
+        TBD: refactor to not return anything if successful and raise an exception if not
 
-        Returns:
-            str: NostrClient.SUCCESS or NostrClient.ERROR
+        Raises:
+            RuntimeError: if the relay can't be connected to
         """
         try:
             await self.client.add_relay(self.relay)
             NostrClient.logger.info(f"Relay {self.relay} succesfully added.")
             await self.client.connect()
             NostrClient.logger.info("Connected to relay.")
-            return NostrClient.SUCCESS
         except Exception as e:
-            NostrClient.logger.error(
+            raise RuntimeError(
                 f"Unable to connect to relay {self.relay}. Exception: {e}."
             )
-            return NostrClient.ERROR
 
     async def _async_publish_event(self, event_builder: EventBuilder) -> EventId:
         """
@@ -214,10 +230,10 @@ class NostrClient:
         Raises:
             RuntimeError: if the event can't be published
         """
-        connected = await self._async_connect()
-
-        if connected == NostrClient.ERROR:
-            raise RuntimeError("Unable to connect to the relay")
+        try:
+            await self._async_connect()
+        except Exception as e:
+            raise RuntimeError(f"Unable to connect to the relay: {e}")
 
         try:
             output = await self.client.send_event_builder(event_builder)
@@ -232,9 +248,7 @@ class NostrClient:
             NostrClient.logger.error(
                 f"NostrClient instance not properly initialized. Exception: {e}."
             )
-            raise RuntimeError(
-                f"NostrClient instance not properly initialized. Exception: {e}."
-            )
+            raise RuntimeError(f"Unable to publish event: {e}.")
 
     async def _async_publish_note(self, text: str) -> EventId:
         """
@@ -244,7 +258,7 @@ class NostrClient:
             text: text to be published as kind 1 event
 
         Returns:
-            EventId: event id if successful or NostrClient.ERROR if unsuccesful
+            EventId: event id if successful
 
         Raises:
             RuntimeError: if the event can't be published
@@ -260,7 +274,7 @@ class NostrClient:
             product: product to publish
 
         Returns:
-            EventId: event id if successful or NostrClient.ERROR if unsuccesfull
+            EventId: event id if successful
 
         Raises:
             RuntimeError: if the product can't be published
@@ -296,7 +310,7 @@ class NostrClient:
             picture: url to a png file with a picture for the profile
 
         Returns:
-            EventId: event id if successful or NostrClient.ERROR if unsuccesful
+            EventId: event id if successful
 
         Raises:
             RuntimeError: if the profile can't be published
@@ -316,7 +330,7 @@ class NostrClient:
             stall: stall to be published
 
         Returns:
-            EventId: event id if successful or NostrClient.ERROR if unsuccesfull
+            EventId: Id of the publication event
 
         Raises:
             RuntimeError: if the profile can't be published
@@ -325,3 +339,27 @@ class NostrClient:
         self.logger.info(f"Stall: {stall}")
         event_builder = EventBuilder.stall_data(stall)
         return await self._async_publish_event(event_builder)
+
+    async def _async_retreive_merchants(self) -> Events:
+        """
+        Asynchronous function to retreive all merchants from the relay
+
+        Returns:
+            Events: events containing all merchants
+
+        Raises:
+            RuntimeError: if the merchants can't be retrieved
+        """
+        try:
+            await self._async_connect()
+        except Exception as e:
+            raise RuntimeError("Unable to connect to the relay")
+
+        try:
+            filter = Filter().kind(Kind(30017))
+            events = await self.client.fetch_events_from(
+                urls=[self.relay], filters=[filter], timeout=timedelta(seconds=2)
+            )
+            return events
+        except Exception as e:
+            raise RuntimeError(f"Unable to retreive merchants: {e}")
