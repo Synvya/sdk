@@ -21,9 +21,7 @@ pip install -e .[dev]
 ```bash
 isort .
 black .
-mypy src/
-mypy examples/ # assuming you did some changes here
-mypy tests/
+mypy src/ examples/ tests/
 ```
 
 ### Editor Settings (Cursor)
