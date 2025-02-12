@@ -66,8 +66,8 @@ class Merchant(Toolkit):
         self,
         merchant_profile: Profile,
         relay: str,
-        merchant_stalls: List[MerchantStall],
-        merchant_products: List[MerchantProduct],
+        stalls: List[MerchantStall],
+        products: List[MerchantProduct],
     ) -> None: ...
     def get_profile(self) -> str: ...
     def get_relay(self) -> str: ...

@@ -12,7 +12,7 @@
 
     ```bash
     git clone https://github.com/agentstr/agentstr.git
-    cd agentstr/examples/basic_cli
+    cd agentstr/examples/basic_merchant
     ```
 
     2. Install dependencies:
@@ -30,13 +30,16 @@
     4. Run the example:
 
     ```bash
-    python main.py
+    python basic_merchant.py
     ```
 
 ## Usage
 
-You can ask the merchant agent to:
+You can skip the RELAY and NSEC_BASIC_MERCHANT_KEY environment variables from the .env file:
+ - The example will create a new private key for you and store it in the .env file for subsequent runs.
+ - The default relay wss://relay.damus.io will be used.
 
+You can ask the merchant agent to:
 - List all stalls and products
 - List all products from a specific stall
 - Publish stalls and products to Nostr

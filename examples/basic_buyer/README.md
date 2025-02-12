@@ -41,3 +41,8 @@
 You can skip the RELAY and NSEC_BASIC_BUYER_KEY environment variables from the .env file:
  - The example will create a new private key for you and store it in the .env file for subsequent runs.
  - The default relay wss://relay.damus.io will be used.
+
+ You can ask the buyer agent to:
+ - Retrieve a list of sellers from the relay
+ - Refresh the list of sellers from the relay
+ - Find an specific seller by name or public key

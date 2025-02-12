@@ -8,11 +8,26 @@ from phi.agent import Agent  # type: ignore
 from phi.model.openai import OpenAIChat  # type: ignore
 
 from agentstr.merchant import Merchant, MerchantProduct, MerchantStall, Profile
-from agentstr.nostr import ShippingCost, ShippingMethod
+from agentstr.nostr import Keys, ShippingCost, ShippingMethod, generate_and_save_keys
+
+# Environment variables
+ENV_RELAY = "RELAY"
+DEFAULT_RELAY = "wss://relay.damus.io"
+ENV_KEY = "NSEC_BASIC_MERCHANT_KEY"
 
 load_dotenv()
 
-RELAY = "wss://relay.damus.io"
+# Load or generate keys
+nsec = getenv(ENV_KEY)
+if nsec is None:
+    keys = generate_and_save_keys(env_var=ENV_KEY)
+else:
+    keys = Keys.parse(nsec)
+
+# Load or use default relay
+relay = getenv(ENV_RELAY)
+if relay is None:
+    relay = DEFAULT_RELAY
 
 # --*-- Merchant info
 MERCHANT_NAME = "Merchant 1"
@@ -154,12 +169,6 @@ test_product_3 = MerchantProduct(
     specs=[],  # List of lists of strings
 )
 
-nsec = getenv("NSEC_BASIC_CLI_KEY")
-if nsec:
-    print(f"nsec: {nsec}")
-else:
-    print(f"No NSEC found")
-
 
 test_merchant = Profile(MERCHANT_NAME, MERCHANT_DESCRIPTION, MERCHANT_PICTURE, nsec)
 
@@ -170,9 +179,9 @@ agent = Agent(  # type: ignore[call-arg]
     tools=[
         Merchant(
             merchant_profile=test_merchant,
-            relay=RELAY,
-            merchant_stalls=[test_stall_1, test_stall_2],
-            merchant_products=[test_product_1, test_product_2, test_product_3],
+            relay=relay,
+            stalls=[test_stall_1, test_stall_2],
+            products=[test_product_1, test_product_2, test_product_3],
         )
     ],
     show_tool_calls=True,

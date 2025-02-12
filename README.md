@@ -16,10 +16,15 @@ agentstr/
 ├── src/              # Source code
 │   └── agentstr/
 │       ├── __init__.py
+│       ├── buyer.py
+│       ├── buyer.pyi
 │       ├── merchant.py
 │       ├── merchant.pyi
 │       ├── nostr.py
-│       └── nostr.pyi
+│       ├── nostr.pyi
+│       ├── py.typed
+│       ├── utils.py
+│       └── utils.pyi
 ├── tests/            # Test files
 ├── docs/             # Documentation
 ├── examples/         # Example implementations
@@ -29,17 +34,20 @@ agentstr/
 ## Features
 
 ### Current Features
-- Create Merchant agents with Nostr identities
-- Publish and manage merchant products using [NIP-15](https://github.com/nostr-protocol/nips/blob/master/15.md) marketplace protocol
-- Create merchant stalls to organize products
-- Handle shipping zones and costs
-- Secure communication using Nostr keys
+- Create Merchant agents with Nostr identities:
+  - Publish and manage merchant products using [NIP-15](https://github.com/nostr-protocol/nips/blob/master/15.md) marketplace protocol
+  - Create merchant stalls to organize products
+  - Handle shipping zones and costs
+  - Secure communication using Nostr keys
+- Create Buyer agents:
+  - Retrieve a list of sellers from the relay using [NIP-15](https://github.com/nostr-protocol/nips/blob/master/15.md) marketplace protocol
+  - Find an specific seller by name or public key
+  - Refresh the list of sellers from the relay
 
 ### Roadmap
 - [ ] Create marketplace with stalls
-- [ ] Create Buyer agents
+- [ ] Expand buyer agent to include more features
 - [ ] Enable merchants to define products
-- [ ] Add customer toolkit for buyers
 - [ ] Support additional Nostr NIPs
 - [ ] Add more agent interaction patterns
 
@@ -59,46 +67,13 @@ pip install agentstr
 
 You can find example code in the [examples](https://github.com/Synvya/agentstr/tree/main/examples/) directory.
 
-### Instaling the examples
-1. **Clone the repository**
+To install the examples clone the repository and navigate to the examples directory:
+
 ```bash
 git clone https://github.com/Synvya/agentstr.git
+cd agentstr/examples/
 ```
-
-### Basic CLI Example
-A simple command-line interface demonstrating agentstr's merchant capabilities:
-
-
-- [Basic CLI Agent](https://github.com/Synvya/agentstr/tree/main/src/agentstr/examples/basic_cli/main.py) - A complete example showing:
-  - Setting up merchant profiles
-  - Creating stalls with shipping methods
-  - Defining products with shipping costs
-  - Configuring the agent with the merchant toolkit
-  - Running an interactive CLI application
-
-1. ** Create a virtual environment**
-```bash
-cd agentstr/examples/basic_cli
-python3 -m venv venv
-source venv/bin/activate
-```
-
-2. ** Install dependencies**
-```bash
-pip install -r requirements.txt
-```
-
-3. ** Configure your environment**
-```bash
-cp .env.example .env
-```
-**Edit the .env file with your own API keys and Nostr credentials**
-
-4. ** Run the example**
-```bash
-python main.py
-```
-
+Each example has its own README with instructions on how to run it.
 
 ## Documentation
 
