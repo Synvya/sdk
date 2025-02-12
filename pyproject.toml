@@ -61,3 +61,6 @@ disallow_untyped_defs = true
 [[tool.mypy.overrides]]
 module = ["nostr_sdk.*"]
 ignore_missing_imports = true
+
+[tool.setuptools.package-data]
+agentstr = ["py.typed"]

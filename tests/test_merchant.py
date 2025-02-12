@@ -9,12 +9,9 @@ from dotenv import load_dotenv
 
 from agentstr.merchant import Merchant, MerchantProduct, MerchantStall, Profile
 from agentstr.nostr import (
-    Event,
-    EventBuilder,
     EventId,
     Keys,
     Kind,
-    Metadata,
     NostrClient,
     ProductData,
     PublicKey,
@@ -22,11 +19,14 @@ from agentstr.nostr import (
     ShippingMethod,
     StallData,
     Timestamp,
+    generate_and_save_keys,
 )
 
 load_dotenv()
 
-RELAY = "wss://relay.damus.io"
+ENV_RELAY = "RELAY"
+DEFAULT_RELAY = "wss://relay.damus.io"
+ENV_KEY = "NSEC_TEST_KEY"
 
 # --*-- Merchant info
 MERCHANT_NAME = "Merchant 1"
@@ -87,7 +87,23 @@ PRODUCT_3_QUANTITY = 1000
 
 @pytest.fixture
 def relay() -> str:
-    return RELAY
+    # Load or use default relay
+    relay = getenv(ENV_RELAY)
+    if relay is None:
+        relay = DEFAULT_RELAY
+    return relay
+
+
+@pytest.fixture
+def keys() -> Keys:
+    # Load or generate keys
+    nsec = getenv(ENV_KEY)
+
+    if nsec is None:
+        keys = generate_and_save_keys(env_var=ENV_KEY)
+    else:
+        keys = Keys.parse(nsec)
+    return keys
 
 
 @pytest.fixture
@@ -105,16 +121,19 @@ def profile_event_id() -> EventId:
 
 
 @pytest.fixture
-def merchant_profile() -> Profile:
-    nsec = getenv("NSEC_KEY")
-    profile = Profile(MERCHANT_NAME, MERCHANT_DESCRIPTION, MERCHANT_PICTURE, nsec)
+def merchant_profile(keys: Keys) -> Profile:
+    profile = Profile(
+        MERCHANT_NAME,
+        MERCHANT_DESCRIPTION,
+        MERCHANT_PICTURE,
+        keys.secret_key().to_bech32(),
+    )
     return profile
 
 
 @pytest.fixture
-def nostr_client() -> NostrClient:
-    nsec = getenv("NSEC_KEY")
-    return NostrClient(RELAY, nsec)
+def nostr_client(relay: str, keys: Keys) -> NostrClient:
+    return NostrClient(relay, keys.secret_key().to_bech32())
 
 
 @pytest.fixture
@@ -242,10 +261,10 @@ def stall_event_ids() -> List[EventId]:
     ]
 
 
-def test_merchant_initialization(merchant: Merchant) -> None:
+def test_merchant_initialization(relay: str, merchant: Merchant) -> None:
     """Test merchant initialization"""
     assert merchant.get_profile() is not None
-    assert merchant.get_relay() == RELAY
+    assert merchant.get_relay() == relay
     assert len(merchant.get_products()) == 3
     assert len(merchant.get_stalls()) == 2
 

@@ -21,6 +21,8 @@ from agentstr.nostr import (
     StallData,
 )
 
+SELLER_PUBLIC_KEY = "npub1h022vtjkztz5xrm5t0g3dwk8nlgcd52vrwze5qk4jg8hf8y2g5assk5w8l"
+
 
 # Configure logging
 @pytest.fixture(autouse=True)
@@ -154,15 +156,23 @@ class TestNostrClient:
         )
         assert isinstance(event_id, EventId)
 
-    def test_retrieve_merchants(self, nostr_client: NostrClient) -> None:
-        """Test retrieving merchants"""
+    def test_retrieve_sellers(self, nostr_client: NostrClient) -> None:
+        """Test retrieving sellers"""
         try:
-            events = nostr_client.retrieve_merchants()
-            merchants = events.to_vec()
-            print(f"First merchant: {merchants[0].as_pretty_json()}")
+            sellers = nostr_client.retrieve_sellers()
+            assert len(sellers) > 0
         except RuntimeError as e:
-            print(f"\nError retrieving merchants: {e}")
+            print(f"\nError retrieving sellers: {e}")
             raise e
+
+    @pytest.mark.asyncio
+    async def test_async_retrieve_profile(self, nostr_client: NostrClient) -> None:
+        """Test async retrieve profile"""
+        profile = await nostr_client._async_retrieve_profile(
+            PublicKey.parse(SELLER_PUBLIC_KEY)
+        )
+        assert profile is not None
+        print(f"Profile: {profile.to_json()}")
 
     @pytest.mark.asyncio
     async def test_async_connect(self, nostr_client: NostrClient) -> None:

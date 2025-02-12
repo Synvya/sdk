@@ -3,9 +3,8 @@ from typing import Any, Dict, List, Optional, Union
 from nostr_sdk import NostrClient  # type: ignore
 from phi.tools import Toolkit
 
-from agentstr.nostr import (
+from agentstr.nostr import (  # NostrClient,
     Metadata,
-    NostrClient,
     ProductData,
     ShippingCost,
     ShippingMethod,

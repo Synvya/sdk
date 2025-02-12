@@ -1,8 +1,6 @@
-import ast
 import json
 import logging
-import re
-from typing import Any, Dict, List, Optional, Tuple, Union, cast
+from typing import Any, List, Optional, Tuple, Union
 
 from agentstr.nostr import (
     EventId,
@@ -21,7 +19,7 @@ except ImportError:
         "`phidata` not installed. Please install using `pip install phidata`"
     )
 
-from pydantic import BaseModel, ConfigDict, Field, validate_call
+from pydantic import BaseModel, ConfigDict
 
 
 class Profile:
@@ -329,7 +327,7 @@ class Merchant(Toolkit):
         # initialize the Stall DB with no event id
         self.stall_db = [(stall, None) for stall in stalls]
 
-        # Register wrapped versions of the methods
+        # Register methods
         self.register(self.get_profile)
         self.register(self.get_relay)
         self.register(self.get_products)
