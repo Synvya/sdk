@@ -511,7 +511,7 @@ class NostrClient:
         try:
             filter = Filter().kind(Kind(30017))
             events = await self.client.fetch_events_from(
-                urls=[self.relay], filters=[filter], timeout=timedelta(seconds=2)
+                urls=[self.relay], filter=filter, timeout=timedelta(seconds=2)
             )
             return events
         except Exception as e:
@@ -559,7 +559,7 @@ class NostrClient:
         try:
             filter = Filter().kind(Kind(30017)).authors([seller])
             events = await self.client.fetch_events_from(
-                urls=[self.relay], filters=[filter], timeout=timedelta(seconds=2)
+                urls=[self.relay], filter=filter, timeout=timedelta(seconds=2)
             )
             return events
         except Exception as e:
