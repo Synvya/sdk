@@ -172,11 +172,9 @@ class TestNostrClient:
             print(f"\nError retrieving sellers: {e}")
             raise e
 
-    def test_retrieve_stalls_from_seller(
-        self, nostr_client: NostrClient, nostr_profile: NostrProfile
-    ) -> None:
+    def test_retrieve_stalls_from_seller(self, nostr_client: NostrClient) -> None:
         """Test retrieving stalls from a seller"""
-        stalls = nostr_client.retrieve_stalls_from_seller(nostr_profile)
+        stalls = nostr_client.retrieve_stalls_from_seller(SELLER_PUBLIC_KEY)
         assert len(stalls) > 0
 
     @pytest.mark.asyncio

@@ -23,8 +23,8 @@ isort .
 black .
 mypy src/ examples/ tests/
 # test the package
-pytest tests/
-# test build the package
+pytest tests/ -v
+# build the package
 rm -rf dist/ build/ *.egg-info
 python -m build
 ```
