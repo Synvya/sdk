@@ -50,6 +50,7 @@ class Buyer(Toolkit):
         self.register(self.find_seller_by_public_key)
         self.register(self.get_profile)
         self.register(self.get_relay)
+        self.register(self.get_seller_collections)
         self.register(self.get_seller_count)
         self.register(self.get_sellers)
         self.register(self.refresh_sellers)
@@ -97,6 +98,21 @@ class Buyer(Toolkit):
             str: Nostr relay
         """
         return self.relay
+
+    def get_seller_collections(self, public_key: str) -> str:
+        """Get the collections (NIP-15 stalls) from a seller.
+
+        Args:
+            public_key: public key of the seller
+
+        Returns:
+            str: JSON string with seller collections
+        """
+        try:
+            stalls = self._nostr_client.retrieve_stalls_from_seller(public_key)
+            return json.dumps([stall.as_json() for stall in stalls])
+        except Exception as e:
+            return json.dumps({"status": "error", "message": str(e)})
 
     def get_seller_count(self) -> str:
         """Get the number of sellers.

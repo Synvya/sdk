@@ -7,7 +7,13 @@ import pytest
 from dotenv import load_dotenv
 
 from agentstr.buyer import Buyer
-from agentstr.nostr import AgentProfile, Keys, generate_and_save_keys
+from agentstr.nostr import (
+    AgentProfile,
+    Keys,
+    NostrProfile,
+    PublicKey,
+    generate_and_save_keys,
+)
 
 # Environment variables
 ENV_RELAY = "RELAY"
@@ -61,6 +67,12 @@ def buyer_profile(keys: Keys) -> AgentProfile:
 
 
 @pytest.fixture
+def nostr_profile() -> NostrProfile:
+    """Create a NostrProfile instance for tests"""
+    return NostrProfile(PublicKey.parse(SELLER_PUBLIC_KEY))
+
+
+@pytest.fixture
 def buyer(buyer_profile: AgentProfile, relay: str) -> Buyer:
     """
     A fixture that returns a Buyer instance with a new list of sellers.
@@ -89,15 +101,20 @@ def test_find_seller_by_public_key(buyer: Buyer) -> None:
     assert SELLER_PUBLIC_KEY in result
 
 
-# def test_seller_profile() -> None:
-#     # Create a base metadata object
-#     metadata = Metadata()
-#     metadata.name = "Test Seller"
-#     metadata.display_name = "Test Seller Display"
+def test_get_seller_collections(buyer: Buyer, nostr_profile: NostrProfile) -> None:
+    result = buyer.get_seller_collections(nostr_profile)
+    assert result is not None
 
-#     # Convert to SellerProfile
-#     seller = SellerProfile.from_metadata(metadata)
+    # # Parse the JSON string into a Python list
+    # stalls_json = json.loads(result)
 
-#     assert seller.name == "Test Seller"
-#     assert seller.display_name == "Test Seller Display"
-#     assert isinstance(seller.to_json(), str)
+    # # Verify we got a list
+    # assert isinstance(stalls_json, list)
+
+    # # Check each stall has required StallData fields
+    # for stall in stalls_json:
+    #     assert "id" in stall
+    #     assert "name" in stall
+    #     assert "description" in stall
+    #     assert "currency" in stall
+    #     assert "shipping" in stall

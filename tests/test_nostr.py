@@ -15,6 +15,7 @@ from agentstr.nostr import (
     EventId,
     Keys,
     NostrClient,
+    NostrProfile,
     ProductData,
     ShippingCost,
     ShippingMethod,
@@ -37,6 +38,12 @@ def setup_logging() -> None:
     )
 
 
+@pytest.fixture
+def nostr_profile() -> NostrProfile:
+    """Create a NostrProfile instance for tests"""
+    return NostrProfile(PublicKey.parse(SELLER_PUBLIC_KEY))
+
+
 @pytest.fixture(scope="session")
 def nostr_client() -> NostrClient:
     """Create a NostrClient instance for tests"""
@@ -47,14 +54,14 @@ def nostr_client() -> NostrClient:
     return NostrClient("wss://relay.damus.io", nsec)
 
 
-def generate_random_id(input_str: str, length: int = 8) -> str:
-    """Generate a random ID using a string as input."""
-    hash_object = hashlib.sha256(input_str.encode())
-    hash_digest = hash_object.hexdigest()
-    random_part = "".join(
-        random.choices(string.ascii_letters + string.digits, k=length)
-    )
-    return f"{hash_digest[:length // 2]}{random_part[:length // 2]}"
+# def generate_random_id(input_str: str, length: int = 8) -> str:
+#     """Generate a random ID using a string as input."""
+#     hash_object = hashlib.sha256(input_str.encode())
+#     hash_digest = hash_object.hexdigest()
+#     random_part = "".join(
+#         random.choices(string.ascii_letters + string.digits, k=length)
+#     )
+#     return f"{hash_digest[:length // 2]}{random_part[:length // 2]}"
 
 
 @pytest.fixture
@@ -165,6 +172,13 @@ class TestNostrClient:
             print(f"\nError retrieving sellers: {e}")
             raise e
 
+    def test_retrieve_stalls_from_seller(
+        self, nostr_client: NostrClient, nostr_profile: NostrProfile
+    ) -> None:
+        """Test retrieving stalls from a seller"""
+        stalls = nostr_client.retrieve_stalls_from_seller(nostr_profile)
+        assert len(stalls) > 0
+
     @pytest.mark.asyncio
     async def test_async_retrieve_profile(self, nostr_client: NostrClient) -> None:
         """Test async retrieve profile"""
@@ -172,7 +186,6 @@ class TestNostrClient:
             PublicKey.parse(SELLER_PUBLIC_KEY)
         )
         assert profile is not None
-        print(f"Profile: {profile.to_json()}")
 
     @pytest.mark.asyncio
     async def test_async_connect(self, nostr_client: NostrClient) -> None:

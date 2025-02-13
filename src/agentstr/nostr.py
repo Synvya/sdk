@@ -286,28 +286,58 @@ class NostrClient:
         """
         sellers = set()
 
+        # First we retrieve all stalls from the relay
         try:
             events = asyncio.run(self._async_retrieve_all_stalls())
         except Exception as e:
             raise RuntimeError(f"Failed to retrieve stalls: {e}")
 
-        # Now we search for unique npubs in the events
+        # Now we search for unique npubs from the list of stalls
         events_list = events.to_vec()
         authors = set()
         for event in events_list:
             if event.kind() == Kind(30017):
                 authors.add(event.author())
 
-        # Build the set of merchants
+        # Retrieve the profiles and build the set of merchants
         for author in authors:
             try:
                 profile = asyncio.run(self._async_retrieve_profile(author))
                 sellers.add(profile)
             except Exception as e:
-                self.logger.info(f"Skipping author - failed to retrieve metadata: {e}")
+                # self.logger.info(f"Skipping author - failed to retrieve metadata: {e}")
                 continue
 
         return sellers
+
+    def retrieve_stalls_from_seller(self, public_key: str) -> List[StallData]:
+        """
+        Retrieve all stalls from a given seller.
+
+        Args:
+            public_key: bech32 encoded public key of the seller
+
+        Returns:
+            List[StallData]: list of stalls from the seller
+        """
+        stalls = []
+        try:
+            events = asyncio.run(
+                self._async_retrieve_stalls_from_seller(PublicKey.parse(public_key))
+            )
+            events_list = events.to_vec()
+            for event in events_list:
+                try:
+                    # Parse the content field instead of the whole event
+                    content = event.content()
+                    stall = StallData.from_json(content)
+                    stalls.append(stall)
+                except Exception as e:
+                    self.logger.warning(f"Failed to parse stall data: {e}")
+                    continue
+            return stalls
+        except Exception as e:
+            raise RuntimeError(f"Failed to retrieve stalls: {e}")
 
     @classmethod
     def set_logging_level(cls, logging_level: int) -> None:
@@ -507,6 +537,33 @@ class NostrClient:
             return NostrProfile.from_metadata(metadata, author)
         except Exception as e:
             raise RuntimeError(f"Unable to retrieve metadata: {e}")
+
+    async def _async_retrieve_stalls_from_seller(self, seller: PublicKey) -> Events:
+        """
+        Asynchronous function to retrieve the stall for a given author
+
+        Args:
+            seller: PublicKey of the seller to retrieve the stall for
+
+        Returns:
+            Events: list of events containing the stalls of the seller
+
+        Raises:
+            RuntimeError: if the stall can't be retrieved
+        """
+        try:
+            await self._async_connect()
+        except Exception as e:
+            raise RuntimeError("Unable to connect to the relay")
+
+        try:
+            filter = Filter().kind(Kind(30017)).authors([seller])
+            events = await self.client.fetch_events_from(
+                urls=[self.relay], filters=[filter], timeout=timedelta(seconds=2)
+            )
+            return events
+        except Exception as e:
+            raise RuntimeError(f"Unable to retrieve stalls: {e}")
 
 
 def generate_and_save_keys(env_var: str, env_path: Optional[Path] = None) -> Keys:
