@@ -8,7 +8,8 @@ from phi.agent import Agent  # type: ignore
 from phi.model.openai import OpenAIChat  # type: ignore
 
 from agentstr.buyer import Buyer
-from agentstr.nostr import AgentProfile, Keys, generate_and_save_keys
+from agentstr.models import AgentProfile
+from agentstr.nostr import Keys, generate_and_save_keys
 
 # Environment variables
 ENV_RELAY = "RELAY"

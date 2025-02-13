@@ -7,13 +7,8 @@ import pytest
 from dotenv import load_dotenv
 
 from agentstr.buyer import Buyer
-from agentstr.nostr import (
-    AgentProfile,
-    Keys,
-    NostrProfile,
-    PublicKey,
-    generate_and_save_keys,
-)
+from agentstr.models import AgentProfile, MerchantProduct, NostrProfile
+from agentstr.nostr import Keys, PublicKey, generate_and_save_keys
 
 # Environment variables
 ENV_RELAY = "RELAY"
@@ -102,19 +97,14 @@ def test_find_seller_by_public_key(buyer: Buyer) -> None:
 
 
 def test_get_seller_collections(buyer: Buyer, nostr_profile: NostrProfile) -> None:
-    result = buyer.get_seller_collections(nostr_profile)
+    result = buyer.get_seller_collections(SELLER_PUBLIC_KEY)
     assert result is not None
 
-    # # Parse the JSON string into a Python list
-    # stalls_json = json.loads(result)
 
-    # # Verify we got a list
-    # assert isinstance(stalls_json, list)
-
-    # # Check each stall has required StallData fields
-    # for stall in stalls_json:
-    #     assert "id" in stall
-    #     assert "name" in stall
-    #     assert "description" in stall
-    #     assert "currency" in stall
-    #     assert "shipping" in stall
+def test_get_seller_products(buyer: Buyer, nostr_profile: NostrProfile) -> None:
+    result = buyer.get_seller_products(SELLER_PUBLIC_KEY)
+    products = json.loads(result)  # Parse JSON string to list
+    assert products is not None
+    assert len(products) > 0
+    assert isinstance(products, list)
+    assert "name" in products[0]  # Check first product has name field

@@ -4,8 +4,10 @@ AgentStr: Nostr extension for Phidata AI agents
 
 from nostr_sdk import ShippingCost, ShippingMethod  # type: ignore
 
+from .merchant import Merchant
+
 # Import main classes to make them available at package level
-from .merchant import Merchant, MerchantProduct, MerchantStall
+from .models import AgentProfile, MerchantProduct, MerchantStall, NostrProfile
 
 # Import version from pyproject.toml at runtime
 try:
@@ -23,14 +25,7 @@ __all__ = [
     "ShippingMethod",
 ]
 
-from agentstr.nostr import (
-    AgentProfile,
-    EventId,
-    Keys,
-    NostrClient,
-    ProductData,
-    StallData,
-)
+from agentstr.nostr import EventId, Keys, NostrClient, ProductData, StallData
 
 __all__ = [
     "EventId",

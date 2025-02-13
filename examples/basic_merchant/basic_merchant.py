@@ -7,14 +7,9 @@ from dotenv import load_dotenv
 from phi.agent import Agent  # type: ignore
 from phi.model.openai import OpenAIChat  # type: ignore
 
-from agentstr.merchant import Merchant, MerchantProduct, MerchantStall
-from agentstr.nostr import (
-    AgentProfile,
-    Keys,
-    ShippingCost,
-    ShippingMethod,
-    generate_and_save_keys,
-)
+from agentstr.merchant import Merchant
+from agentstr.models import AgentProfile, MerchantProduct, MerchantStall
+from agentstr.nostr import Keys, ShippingCost, ShippingMethod, generate_and_save_keys
 
 # Environment variables
 ENV_RELAY = "RELAY"

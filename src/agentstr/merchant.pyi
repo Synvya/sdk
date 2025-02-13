@@ -3,45 +3,13 @@ from typing import Any, List, Optional
 from nostr_sdk import NostrClient  # type: ignore
 from phi.tools import Toolkit
 
+from agentstr.models import AgentProfile, MerchantProduct, MerchantStall
 from agentstr.nostr import (  # NostrClient,
-    AgentProfile,
     ProductData,
     ShippingCost,
     ShippingMethod,
     StallData,
 )
-
-class MerchantStall:
-    stall: StallData
-    def __init__(
-        self,
-        id: str,
-        name: str,
-        description: str,
-        currency: str,
-        shipping: List[ShippingMethod],
-    ) -> None: ...
-    def get_data(self) -> StallData: ...
-    def name(self) -> str: ...
-
-class MerchantProduct:
-    product: ProductData
-    def __init__(
-        self,
-        id: str,
-        stall_id: str,
-        name: str,
-        description: str,
-        images: List[str],
-        currency: str,
-        price: int,
-        quantity: int,
-        shipping: List[ShippingCost],
-        categories: Optional[List[str]] = None,
-        specs: Optional[List[List[str]]] = None,
-    ) -> None: ...
-    def get_data(self) -> ProductData: ...
-    def name(self) -> str: ...
 
 class Merchant(Toolkit):
     _nostr_client: NostrClient

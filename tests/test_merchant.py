@@ -1,24 +1,22 @@
 import itertools
 import json
 from os import getenv
-from typing import List, Literal
-from unittest.mock import Mock, patch
+from typing import List
+from unittest.mock import patch
 
 import pytest
 from dotenv import load_dotenv
 
-from agentstr.merchant import Merchant, MerchantProduct, MerchantStall
+from agentstr.merchant import Merchant
+from agentstr.models import AgentProfile, MerchantProduct, MerchantStall
 from agentstr.nostr import (
-    AgentProfile,
     EventId,
     Keys,
     Kind,
     NostrClient,
-    ProductData,
     PublicKey,
     ShippingCost,
     ShippingMethod,
-    StallData,
     Timestamp,
     generate_and_save_keys,
 )

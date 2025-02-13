@@ -1,7 +1,8 @@
 import json
 import logging
 
-from agentstr.nostr import AgentProfile, NostrClient, NostrProfile
+from agentstr.models import AgentProfile, NostrProfile
+from agentstr.nostr import NostrClient
 
 try:
     from phi.tools import Toolkit
@@ -48,9 +49,11 @@ class Buyer(Toolkit):
         # Register methods
         self.register(self.find_seller_by_name)
         self.register(self.find_seller_by_public_key)
+        self.register(self.find_seller_by_zip_code)
         self.register(self.get_profile)
         self.register(self.get_relay)
         self.register(self.get_seller_collections)
+        self.register(self.get_seller_products)
         self.register(self.get_seller_count)
         self.register(self.get_sellers)
         self.register(self.refresh_sellers)
@@ -80,6 +83,20 @@ class Buyer(Toolkit):
         """
         for seller in self.sellers:
             if seller.get_public_key() == public_key:
+                return seller.to_json()
+        return json.dumps({"status": "error", "message": "Seller not found"})
+
+    def find_seller_by_zip_code(self, zip_code: str) -> str:
+        """Find a seller by zip code.
+
+        Args:
+            zip_code: zip code of the seller to find
+
+        Returns:
+            str: seller profile json string or error message
+        """
+        for seller in self.sellers:
+            if zip_code in seller.get_zip_codes():
                 return seller.to_json()
         return json.dumps({"status": "error", "message": "Seller not found"})
 
@@ -122,9 +139,23 @@ class Buyer(Toolkit):
         """
         return json.dumps({"status": "success", "count": len(self.sellers)})
 
+    def get_seller_products(self, public_key: str) -> str:
+        """Get the products from a seller
+
+        Args:
+            public_key: public key of the seller
+
+        Returns:
+            str: JSON string with seller products
+        """
+        try:
+            products = self._nostr_client.retrieve_products_from_seller(public_key)
+            return json.dumps([product.to_dict() for product in products])
+        except Exception as e:
+            return json.dumps({"status": "error", "message": str(e)})
+
     def get_sellers(self) -> str:
         """Get the list of sellers.
-
         If no sellers are cached, the list is refreshed from the Nostr relay.
         If sellers are cached, the list is returned from the cache.
         To get a fresh list of sellers, call refresh_sellers() sellers first.

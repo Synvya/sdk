@@ -2,8 +2,8 @@ import json
 import logging
 from typing import Any, List, Optional, Tuple, Union
 
+from agentstr.models import AgentProfile, MerchantProduct, MerchantStall
 from agentstr.nostr import (
-    AgentProfile,
     EventId,
     Keys,
     NostrClient,
@@ -22,133 +22,132 @@ except ImportError:
 
 from pydantic import BaseModel, ConfigDict
 
+# class MerchantProduct(BaseModel):
+# model_config = ConfigDict(arbitrary_types_allowed=True)
 
-class MerchantProduct(BaseModel):
-    model_config = ConfigDict(arbitrary_types_allowed=True)
+# id: str
+# stall_id: str
+# name: str
+# description: str
+# images: List[str]
+# currency: str
+# price: float
+# quantity: int
+# shipping: List[ShippingCost]
+# categories: Optional[List[str]] = []
+# specs: Optional[List[List[str]]] = []
 
-    id: str
-    stall_id: str
-    name: str
-    description: str
-    images: List[str]
-    currency: str
-    price: float
-    quantity: int
-    shipping: List[ShippingCost]
-    categories: Optional[List[str]] = []
-    specs: Optional[List[List[str]]] = []
+# @classmethod
+# def from_product_data(cls, product: ProductData) -> "MerchantProduct":
+#     return cls(
+#         id=product.id,
+#         stall_id=product.stall_id,
+#         name=product.name,
+#         description=product.description,
+#         images=product.images,
+#         currency=product.currency,
+#         price=product.price,
+#         quantity=product.quantity,
+#         shipping=product.shipping,
+#         categories=product.categories if product.categories is not None else [],
+#         specs=product.specs if product.specs is not None else [],
+#     )
 
-    @classmethod
-    def from_product_data(cls, product: ProductData) -> "MerchantProduct":
-        return cls(
-            id=product.id,
-            stall_id=product.stall_id,
-            name=product.name,
-            description=product.description,
-            images=product.images,
-            currency=product.currency,
-            price=product.price,
-            quantity=product.quantity,
-            shipping=product.shipping,
-            categories=product.categories if product.categories is not None else [],
-            specs=product.specs if product.specs is not None else [],
-        )
+# def to_product_data(self) -> ProductData:
+#     return ProductData(
+#         id=self.id,
+#         stall_id=self.stall_id,
+#         name=self.name,
+#         description=self.description,
+#         images=self.images,
+#         currency=self.currency,
+#         price=self.price,
+#         quantity=self.quantity,
+#         shipping=self.shipping,
+#         categories=self.categories,
+#         specs=self.specs,
+#     )
 
-    def to_product_data(self) -> ProductData:
-        return ProductData(
-            id=self.id,
-            stall_id=self.stall_id,
-            name=self.name,
-            description=self.description,
-            images=self.images,
-            currency=self.currency,
-            price=self.price,
-            quantity=self.quantity,
-            shipping=self.shipping,
-            categories=self.categories,
-            specs=self.specs,
-        )
+# def to_dict(self) -> dict:
+#     """
+#     Returns a dictionary representation of the MerchantProduct.
+#     ShippingCost class is not serializable, so we need to convert it to a dictionary.
 
-    def to_dict(self) -> dict:
-        """
-        Returns a dictionary representation of the MerchantProduct.
-        ShippingCost class is not serializable, so we need to convert it to a dictionary.
+#     Returns:
+#         dict: dictionary representation of the MerchantProduct
+#     """
+#     shipping_dicts = []
+#     for shipping in self.shipping:
+#         shipping_dicts.append({"id": shipping.id, "cost": shipping.cost})
 
-        Returns:
-            dict: dictionary representation of the MerchantProduct
-        """
-        shipping_dicts = []
-        for shipping in self.shipping:
-            shipping_dicts.append({"id": shipping.id, "cost": shipping.cost})
-
-        return {
-            "id": self.id,
-            "stall_id": self.stall_id,
-            "name": self.name,
-            "description": self.description,
-            "images": self.images,
-            "currency": self.currency,
-            "price": self.price,
-            "quantity": self.quantity,
-            "shipping": shipping_dicts,
-            "categories": self.categories,
-            "specs": self.specs,
-        }
+#     return {
+#         "id": self.id,
+#         "stall_id": self.stall_id,
+#         "name": self.name,
+#         "description": self.description,
+#         "images": self.images,
+#         "currency": self.currency,
+#         "price": self.price,
+#         "quantity": self.quantity,
+#         "shipping": shipping_dicts,
+#         "categories": self.categories,
+#         "specs": self.specs,
+#     }
 
 
-class MerchantStall(BaseModel):
-    model_config = ConfigDict(arbitrary_types_allowed=True)
+# class MerchantStall(BaseModel):
+#     model_config = ConfigDict(arbitrary_types_allowed=True)
 
-    id: str
-    name: str
-    description: str
-    currency: str
-    shipping: List[ShippingMethod]
+#     id: str
+#     name: str
+#     description: str
+#     currency: str
+#     shipping: List[ShippingMethod]
 
-    @classmethod
-    def from_stall_data(cls, stall: StallData) -> "MerchantStall":
-        return cls(
-            id=stall.id(),
-            name=stall.name(),
-            description=stall.description(),
-            currency=stall.currency(),
-            shipping=stall.shipping(),
-        )
+#     @classmethod
+#     def from_stall_data(cls, stall: StallData) -> "MerchantStall":
+#         return cls(
+#             id=stall.id(),
+#             name=stall.name(),
+#             description=stall.description(),
+#             currency=stall.currency(),
+#             shipping=stall.shipping(),
+#         )
 
-    def to_stall_data(self) -> StallData:
-        return StallData(
-            self.id,
-            self.name,
-            self.description,
-            self.currency,
-            self.shipping,  # No conversion needed
-        )
+#     def to_stall_data(self) -> StallData:
+#         return StallData(
+#             self.id,
+#             self.name,
+#             self.description,
+#             self.currency,
+#             self.shipping,  # No conversion needed
+#         )
 
-    def to_dict(self) -> dict:
-        """
-        Returns a dictionary representation of the MerchantStall.
-        ShippingMethod class is not serializable, so we need to convert it to a dictionary.
-        We can only access cost and id from the ShippingMethod class. We can't access name or regions.
+#     def to_dict(self) -> dict:
+#         """
+#         Returns a dictionary representation of the MerchantStall.
+#         ShippingMethod class is not serializable, so we need to convert it to a dictionary.
+#         We can only access cost and id from the ShippingMethod class. We can't access name or regions.
 
-        Returns:
-            dict: dictionary representation of the MerchantStall
-        """
-        shipping_dicts = []
-        for shipping in self.shipping:
-            shipping_dicts.append(
-                {
-                    "cost": shipping.get_shipping_cost().cost,
-                    "id": shipping.get_shipping_cost().id,
-                }
-            )
+#         Returns:
+#             dict: dictionary representation of the MerchantStall
+#         """
+#         shipping_dicts = []
+#         for shipping in self.shipping:
+#             shipping_dicts.append(
+#                 {
+#                     "cost": shipping.get_shipping_cost().cost,
+#                     "id": shipping.get_shipping_cost().id,
+#                 }
+#             )
 
-        return {
-            "id": self.id,
-            "name": self.name,
-            "description": self.description,
-            "currency": self.currency,
-            "shipping zones": [shipping_dicts],
-        }
+#         return {
+#             "id": self.id,
+#             "name": self.name,
+#             "description": self.description,
+#             "currency": self.currency,
+#             "shipping zones": [shipping_dicts],
+#         }
 
 
 class Merchant(Toolkit):

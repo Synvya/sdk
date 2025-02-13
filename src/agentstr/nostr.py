@@ -4,7 +4,7 @@ from datetime import timedelta
 from pathlib import Path
 from typing import List, Optional
 
-from agentstr.utils import Profile
+from agentstr.models import MerchantProduct, NostrProfile
 
 try:
     import asyncio
@@ -40,103 +40,110 @@ except ImportError:
     )
 
 
-class AgentProfile(Profile):
-    """
-    AgentProfile is a Profile that is used to represent an agent.
-    """
+# class AgentProfile(Profile):
+#     """
+#     AgentProfile is a Profile that is used to represent an agent.
+#     """
 
-    WEB_URL: str = "https://primal.net/p/"
-    profile_url: str
-    keys: Keys
+#     WEB_URL: str = "https://primal.net/p/"
+#     profile_url: str
+#     keys: Keys
 
-    def __init__(self, keys: Keys) -> None:
-        super().__init__()
-        self.keys = keys
-        self.profile_url = self.WEB_URL + self.keys.public_key().to_bech32()
+#     def __init__(self, keys: Keys) -> None:
+#         super().__init__()
+#         self.keys = keys
+#         self.profile_url = self.WEB_URL + self.keys.public_key().to_bech32()
 
-    @classmethod
-    def from_metadata(cls, metadata: Metadata, keys: Keys) -> "AgentProfile":
-        profile = cls(keys)
-        profile.set_about(metadata.get_about())
-        profile.set_display_name(metadata.get_display_name())
-        profile.set_name(metadata.get_name())
-        profile.set_picture(metadata.get_picture())
-        profile.set_website(metadata.get_website())
-        return profile
+#     @classmethod
+#     def from_metadata(cls, metadata: Metadata, keys: Keys) -> "AgentProfile":
+#         profile = cls(keys)
+#         profile.set_about(metadata.get_about())
+#         profile.set_display_name(metadata.get_display_name())
+#         profile.set_name(metadata.get_name())
+#         profile.set_picture(metadata.get_picture())
+#         profile.set_website(metadata.get_website())
+#         return profile
 
-    def get_private_key(self) -> str:
-        return str(self.keys.secret_key().to_bech32())
+#     def get_private_key(self) -> str:
+#         return str(self.keys.secret_key().to_bech32())
 
-    def get_public_key(self) -> str:
-        return str(self.keys.public_key().to_bech32())
+#     def get_public_key(self) -> str:
+#         return str(self.keys.public_key().to_bech32())
 
-    def to_json(self) -> str:
-        # Parse parent's JSON string back to dict
-        data = json.loads(super().to_json())
-        # Add AgentProfile-specific fields
-        data.update(
-            {
-                "profile_url": self.profile_url,
-                "public_key": self.keys.public_key().to_bech32(),
-                "private_key": self.keys.secret_key().to_bech32(),
-            }
-        )
-        return json.dumps(data)
+#     def to_json(self) -> str:
+#         # Parse parent's JSON string back to dict
+#         data = json.loads(super().to_json())
+#         # Add AgentProfile-specific fields
+#         data.update(
+#             {
+#                 "profile_url": self.profile_url,
+#                 "public_key": self.keys.public_key().to_bech32(),
+#                 "private_key": self.keys.secret_key().to_bech32(),
+#             }
+#         )
+#         return json.dumps(data)
 
 
-class NostrProfile(Profile):
-    """
-    NostrProfile is a Profile that is used to represent a public Nostr profile.
+# class NostrProfile(Profile):
+#     """
+#     NostrProfile is a Profile that is used to represent a public Nostr profile.
 
-    Key difference between NostrProfile and AgentProfile is that NostrProfile represents a third party profile and therefore we only have its public key.
-    """
+#     Key difference between NostrProfile and AgentProfile is that NostrProfile represents a third party profile and therefore we only have its public key.
+#     """
 
-    WEB_URL: str = "https://primal.net/p/"
-    profile_url: str
-    public_key: PublicKey
+#     WEB_URL: str = "https://primal.net/p/"
+#     profile_url: str
+#     public_key: PublicKey
+#     zip_codes: List[str]
 
-    def __init__(self, public_key: PublicKey) -> None:
-        super().__init__()
-        self.public_key = public_key
-        self.profile_url = self.WEB_URL + self.public_key.to_bech32()
+#     def __init__(self, public_key: PublicKey) -> None:
+#         super().__init__()
+#         self.public_key = public_key
+#         self.profile_url = self.WEB_URL + self.public_key.to_bech32()
 
-    @classmethod
-    def from_metadata(cls, metadata: Metadata, public_key: PublicKey) -> "NostrProfile":
-        profile = cls(public_key)
-        profile.set_about(metadata.get_about())
-        profile.set_display_name(metadata.get_display_name())
-        profile.set_name(metadata.get_name())
-        profile.set_picture(metadata.get_picture())
-        profile.set_website(metadata.get_website())
-        return profile
+#     @classmethod
+#     def from_metadata(cls, metadata: Metadata, public_key: PublicKey) -> "NostrProfile":
+#         profile = cls(public_key)
+#         profile.set_about(metadata.get_about())
+#         profile.set_display_name(metadata.get_display_name())
+#         profile.set_name(metadata.get_name())
+#         profile.set_picture(metadata.get_picture())
+#         profile.set_website(metadata.get_website())
+#         return profile
 
-    def get_public_key(self) -> str:
-        """Get the public key of the Nostr profile.
+#     def get_public_key(self) -> str:
+#         """Get the public key of the Nostr profile.
 
-        Returns:
-            str: bech32 encoded public key of the Nostr profile
-        """
-        return str(self.public_key.to_bech32())
+#         Returns:
+#             str: bech32 encoded public key of the Nostr profile
+#         """
+#         return str(self.public_key.to_bech32())
 
-    def to_json(self) -> str:
-        # Parse parent's JSON string back to dict
-        data = json.loads(super().to_json())
-        # Add NostrProfile-specific fields
-        data.update(
-            {
-                "profile_url": self.profile_url,
-                "public_key": self.public_key.to_bech32(),
-            }
-        )
-        return json.dumps(data)
+#     def get_profile_url(self) -> str:
+#         return self.profile_url
 
-    def __eq__(self, other: object) -> bool:
-        if not isinstance(other, NostrProfile):
-            return False
-        return str(self.public_key.to_bech32()) == str(other.public_key.to_bech32())
+#     def get_zip_codes(self) -> List[str]:
+#         return self.zip_codes
 
-    def __hash__(self) -> int:
-        return hash(str(self.public_key.to_bech32()))
+#     def to_json(self) -> str:
+#         # Parse parent's JSON string back to dict
+#         data = json.loads(super().to_json())
+#         # Add NostrProfile-specific fields
+#         data.update(
+#             {
+#                 "profile_url": self.profile_url,
+#                 "public_key": self.public_key.to_bech32(),
+#             }
+#         )
+#         return json.dumps(data)
+
+#     def __eq__(self, other: object) -> bool:
+#         if not isinstance(other, NostrProfile):
+#             return False
+#         return str(self.public_key.to_bech32()) == str(other.public_key.to_bech32())
+
+#     def __hash__(self) -> int:
+#         return hash(str(self.public_key.to_bech32()))
 
 
 class NostrClient:
@@ -274,6 +281,42 @@ class NostrClient:
             return asyncio.run(self._async_publish_stall(stall))
         except Exception as e:
             raise RuntimeError(f"Failed to publish stall: {e}")
+
+    def retrieve_products_from_seller(self, public_key: str) -> List[MerchantProduct]:
+        """
+        Retrieve all products from a given seller.
+
+        Args:
+            public_key: bech32 encoded public key of the seller
+
+        Returns:
+            List[MerchantProduct]: list of products from the seller
+        """
+        products = []
+        try:
+            events = asyncio.run(
+                self._async_retrieve_products_from_seller(PublicKey.parse(public_key))
+            )
+            events_list = events.to_vec()
+            for event in events_list:
+                content = json.loads(event.content())
+                product_data = ProductData(
+                    id=content.get("id"),
+                    stall_id=content.get("stall_id"),
+                    name=content.get("name"),
+                    description=content.get("description"),
+                    images=content.get("images", []),
+                    currency=content.get("currency"),
+                    price=content.get("price"),
+                    quantity=content.get("quantity"),
+                    specs=content.get("specs", {}),
+                    shipping=content.get("shipping", []),
+                    categories=content.get("categories", []),
+                )
+                products.append(MerchantProduct.from_product_data(product_data))
+            return products
+        except Exception as e:
+            raise RuntimeError(f"Failed to retrieve products: {e}")
 
     def retrieve_sellers(self) -> set[NostrProfile]:
         """
@@ -510,6 +553,33 @@ class NostrClient:
 
         try:
             filter = Filter().kind(Kind(30017))
+            events = await self.client.fetch_events_from(
+                urls=[self.relay], filter=filter, timeout=timedelta(seconds=2)
+            )
+            return events
+        except Exception as e:
+            raise RuntimeError(f"Unable to retrieve stalls: {e}")
+
+    async def _async_retrieve_products_from_seller(self, seller: PublicKey) -> Events:
+        """
+        Asynchronous function to retrieve the products for a given author
+
+        Args:
+            seller: PublicKey of the seller to retrieve the products for
+
+        Returns:
+            Events: list of events containing the products of the seller
+
+        Raises:
+            RuntimeError: if the products can't be retrieved
+        """
+        try:
+            await self._async_connect()
+        except Exception as e:
+            raise RuntimeError("Unable to connect to the relay")
+
+        try:
+            filter = Filter().kind(Kind(30018)).authors([seller])
             events = await self.client.fetch_events_from(
                 urls=[self.relay], filter=filter, timeout=timedelta(seconds=2)
             )

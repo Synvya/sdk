@@ -9,13 +9,12 @@ from unittest.mock import Mock, patch
 
 import pytest
 from dotenv import load_dotenv
-from nostr_sdk import Event, EventBuilder, Events, Kind, Metadata, PublicKey, Timestamp
+from nostr_sdk import PublicKey
 
+from agentstr.models import MerchantProduct, NostrProfile
 from agentstr.nostr import (
     EventId,
-    Keys,
     NostrClient,
-    NostrProfile,
     ProductData,
     ShippingCost,
     ShippingMethod,
@@ -162,6 +161,14 @@ class TestNostrClient:
             picture="https://example.com/pic.jpg",
         )
         assert isinstance(event_id, EventId)
+
+    def test_retrieve_products_from_seller(self, nostr_client: NostrClient) -> None:
+        """Test retrieving products from a seller"""
+        products = nostr_client.retrieve_products_from_seller(SELLER_PUBLIC_KEY)
+        assert len(products) > 0
+        for product in products:
+            assert isinstance(product, MerchantProduct)
+            print(f"Product: {product.name}")
 
     def test_retrieve_sellers(self, nostr_client: NostrClient) -> None:
         """Test retrieving sellers"""
