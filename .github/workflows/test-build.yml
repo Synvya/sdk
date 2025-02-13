@@ -1,7 +1,13 @@
 name: Test and Build
 
 on:
-  workflow_dispatch:  # Allows manual triggering
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+  schedule:
+    - cron: '0 2 * * *'  # Runs at 2am UTC every day
+  workflow_dispatch:      # Allows manual triggering
 
 jobs:
   test:
