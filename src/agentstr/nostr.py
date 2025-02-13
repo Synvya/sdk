@@ -184,6 +184,7 @@ class NostrClient:
         self.keys = Keys.parse(nsec)
         self.nostr_signer = NostrSigner.keys(self.keys)
         self.client = Client(self.nostr_signer)
+        self.connected = False
 
     def delete_event(self, event_id: EventId, reason: Optional[str] = None) -> EventId:
         """
@@ -405,15 +406,18 @@ class NostrClient:
         Raises:
             RuntimeError: if the relay can't be connected to
         """
-        try:
-            await self.client.add_relay(self.relay)
-            NostrClient.logger.info(f"Relay {self.relay} succesfully added.")
-            await self.client.connect()
-            NostrClient.logger.info("Connected to relay.")
-        except Exception as e:
-            raise RuntimeError(
-                f"Unable to connect to relay {self.relay}. Exception: {e}."
-            )
+        if not self.connected:
+            try:
+                await self.client.add_relay(self.relay)
+                NostrClient.logger.info(f"Relay {self.relay} succesfully added.")
+                await self.client.connect()
+                await asyncio.sleep(1)  # give time for slower connections
+                NostrClient.logger.info("Connected to relay.")
+                self.connected = True
+            except Exception as e:
+                raise RuntimeError(
+                    f"Unable to connect to relay {self.relay}. Exception: {e}."
+                )
 
     async def _async_publish_event(self, event_builder: EventBuilder) -> EventId:
         """

@@ -64,3 +64,12 @@ ignore_missing_imports = true
 
 [tool.setuptools.package-data]
 agentstr = ["py.typed"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+markers = [
+    "asyncio: mark test as async",
+]
+
+[tool.poetry.dependencies]
+pytest-asyncio = "^0.23.5"
