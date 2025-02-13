@@ -1,16 +1,13 @@
-from datetime import timedelta
 from logging import Logger
 from pathlib import Path
-from typing import Any, ClassVar, List, Optional
+from typing import ClassVar, Optional
 
 from nostr_sdk import (  # type: ignore
     Client,
-    Coordinate,
     Event,
     EventBuilder,
     EventId,
     Events,
-    Filter,
     Keys,
     Kind,
     Metadata,

@@ -3,6 +3,7 @@ import logging
 from typing import Any, List, Optional, Tuple, Union
 
 from agentstr.nostr import (
+    AgentProfile,
     EventId,
     Keys,
     NostrClient,
@@ -20,136 +21,6 @@ except ImportError:
     )
 
 from pydantic import BaseModel, ConfigDict
-
-
-class Profile:
-
-    logger = logging.getLogger("Profile")
-    WEB_URL: str = "https://primal.net/p/"
-
-    def __init__(
-        self, name: str, about: str, picture: str, nsec: Optional[str] = None
-    ) -> None:
-        """Initialize the profile.
-
-        Args:
-            name: Name for the merchant
-            about: brief description about the merchant
-            picture: url to a png file with a picture for the merchant
-            nsec: optional private key to be used by this Merchant
-        """
-
-        # Set log handling for MerchantProfile
-        if not Profile.logger.hasHandlers():
-            console_handler = logging.StreamHandler()
-            console_handler.setLevel(logging.INFO)
-            formatter = logging.Formatter(
-                "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-            )
-            console_handler.setFormatter(formatter)
-            Profile.logger.addHandler(console_handler)
-
-        self.name = name
-        self.about = about
-        self.picture = picture
-
-        if nsec:
-            self.private_key = nsec
-            keys = Keys.parse(self.private_key)
-            self.public_key = keys.public_key().to_bech32()
-            Profile.logger.info(
-                f"Pre-defined private key reused for {self.name}: {self.private_key}"
-            )
-            Profile.logger.info(
-                f"Pre-defined public key reused for {self.name}: {self.public_key}"
-            )
-        else:
-            keys = Keys.generate()
-            self.private_key = keys.secret_key().to_bech32()
-            self.public_key = keys.public_key().to_bech32()
-            Profile.logger.info(
-                f"New private key created for {self.name}: {self.private_key}"
-            )
-            Profile.logger.info(
-                f"New public key created for {self.name}: {self.public_key}"
-            )
-
-        self.url = str(self.WEB_URL) + str(self.public_key)
-
-    def __str__(self) -> str:
-        return (
-            "Merchant Profile:\n"
-            "Name = {}\n"
-            "Description = {}\n"
-            "Picture = {}\n"
-            "URL = {}\n"
-            "Private key = {}\n"
-            "Public key = {}".format(
-                self.name,
-                self.about,
-                self.picture,
-                self.url,
-                self.private_key,
-                self.public_key,
-            )
-        )
-
-    def to_dict(self) -> dict:
-        return {
-            "name": self.name,
-            "description": self.about,
-            "picture": self.picture,
-            "public key": self.public_key,
-            "private key": self.private_key,
-        }
-
-    def get_about(self) -> str:
-        """
-        Returns a description of the Merchant
-
-        Returns:
-            str: description of the Merchant
-        """
-        return self.about
-
-    def get_name(self) -> str:
-        """
-        Returns the Merchant's name
-
-        Returns:
-            str: Merchant's name
-        """
-        return self.name
-
-    def get_picture(self) -> str:
-        """
-        Returns the picture associated with the Merchant.
-
-        Returns:
-            str: URL to the picture associated with the Merchant
-        """
-        return self.picture
-
-    def get_private_key(self) -> str:
-        """
-        Returns the private key.
-
-        Returns:
-            str: private key in bech32 format
-        """
-        return str(self.private_key)
-
-    def get_public_key(self) -> str:
-        """
-        Returns the public key.
-
-        Returns:
-            str: public key in bech32 format
-        """
-        return str(self.public_key)
-
-    def get_url(self) -> str:
-        return str(self.url)
 
 
 class MerchantProduct(BaseModel):
@@ -301,7 +172,7 @@ class Merchant(Toolkit):
 
     def __init__(
         self,
-        merchant_profile: Profile,
+        merchant_profile: AgentProfile,
         relay: str,
         stalls: List[MerchantStall],
         products: List[MerchantProduct],
@@ -317,9 +188,7 @@ class Merchant(Toolkit):
         super().__init__(name="merchant")
         self.relay = relay
         self.merchant_profile = merchant_profile
-        self._nostr_client = NostrClient(
-            self.relay, self.merchant_profile.get_private_key()
-        )
+        self._nostr_client = NostrClient(relay, merchant_profile.get_private_key())
 
         # initialize the Product DB with no event id
         self.product_db = [(product, None) for product in products]
@@ -352,9 +221,15 @@ class Merchant(Toolkit):
         Returns:
             str: merchant profile in JSON format
         """
-        return json.dumps(self.merchant_profile.to_dict())
+        return json.dumps(self.merchant_profile.to_json())
 
     def get_relay(self) -> str:
+        """
+        Retrieves the Nostr relay the merchant is using
+
+        Returns:
+            str: Nostr relay
+        """
         return self.relay
 
     def get_products(self) -> str:
@@ -405,7 +280,7 @@ class Merchant(Toolkit):
                     }
                 )
             except Exception as e:
-                Profile.logger.error(f"Unable to publish product {product}. Error {e}")
+                logging.error(f"Unable to publish product {product}. Error {e}")
                 results.append(
                     {"status": "error", "message": str(e), "product_name": product.name}
                 )
@@ -439,7 +314,7 @@ class Merchant(Toolkit):
                     }
                 )
             except Exception as e:
-                Profile.logger.error(f"Unable to publish stall {stall}. Error {e}")
+                logging.error(f"Unable to publish stall {stall}. Error {e}")
                 results.append(
                     {"status": "error", "message": str(e), "stall_name": stall.name}
                 )

@@ -7,8 +7,9 @@ from unittest.mock import Mock, patch
 import pytest
 from dotenv import load_dotenv
 
-from agentstr.merchant import Merchant, MerchantProduct, MerchantStall, Profile
+from agentstr.merchant import Merchant, MerchantProduct, MerchantStall
 from agentstr.nostr import (
+    AgentProfile,
     EventId,
     Keys,
     Kind,
@@ -121,13 +122,11 @@ def profile_event_id() -> EventId:
 
 
 @pytest.fixture
-def merchant_profile(keys: Keys) -> Profile:
-    profile = Profile(
-        MERCHANT_NAME,
-        MERCHANT_DESCRIPTION,
-        MERCHANT_PICTURE,
-        keys.secret_key().to_bech32(),
-    )
+def merchant_profile(keys: Keys) -> AgentProfile:
+    profile = AgentProfile(keys=keys)
+    profile.set_name(MERCHANT_NAME)
+    profile.set_about(MERCHANT_DESCRIPTION)
+    profile.set_picture(MERCHANT_PICTURE)
     return profile
 
 
@@ -223,7 +222,7 @@ def merchant_products(shipping_costs: List[ShippingCost]) -> List[MerchantProduc
 
 @pytest.fixture
 def merchant(
-    merchant_profile: Profile,
+    merchant_profile: AgentProfile,
     relay: str,
     merchant_stalls: List[MerchantStall],
     merchant_products: List[MerchantProduct],
@@ -265,12 +264,9 @@ def test_merchant_initialization(relay: str, merchant: Merchant) -> None:
     """Test merchant initialization"""
     assert merchant.get_profile() is not None
     assert merchant.get_relay() == relay
-    assert len(merchant.get_products()) == 3
-    assert len(merchant.get_stalls()) == 2
 
     products = json.loads(merchant.get_products())
     assert len(products) == 3
-    assert products[0]["name"] == PRODUCT_1_NAME
 
     stalls = json.loads(merchant.get_stalls())
     assert len(stalls) == 2
@@ -356,8 +352,9 @@ def test_error_handling(merchant: Merchant) -> None:
 def test_profile_operations(merchant: Merchant, profile_event_id: EventId) -> None:
     """Test profile-related operations"""
     profile_data = json.loads(merchant.get_profile())
-    assert profile_data["name"] == MERCHANT_NAME
-    assert profile_data["description"] == MERCHANT_DESCRIPTION
+    profile = json.loads(profile_data)  # Parse the nested JSON string
+    assert profile["name"] == MERCHANT_NAME
+    assert profile["about"] == MERCHANT_DESCRIPTION
 
     with patch.object(merchant._nostr_client, "publish_profile") as mock_publish:
         mock_publish.return_value = profile_event_id

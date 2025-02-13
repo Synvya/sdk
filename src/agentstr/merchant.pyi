@@ -1,28 +1,15 @@
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, List, Optional
 
 from nostr_sdk import NostrClient  # type: ignore
 from phi.tools import Toolkit
 
 from agentstr.nostr import (  # NostrClient,
-    Metadata,
+    AgentProfile,
     ProductData,
     ShippingCost,
     ShippingMethod,
     StallData,
 )
-
-class Profile:
-    name: str
-    about: str
-    picture: str
-    private_key: str
-    public_key: str
-    url: str
-    def __init__(
-        self, name: str, about: str, picture: str, nsec: Optional[str] = None
-    ) -> None: ...
-    def __str__(self) -> str: ...
-    def to_metadata(self) -> Metadata: ...
 
 class MerchantStall:
     stall: StallData
@@ -58,13 +45,13 @@ class MerchantProduct:
 
 class Merchant(Toolkit):
     _nostr_client: NostrClient
-    _profile: Profile
+    _profile: AgentProfile
     _stalls: List[MerchantStall]
     _products: List[MerchantProduct]
 
     def __init__(
         self,
-        merchant_profile: Profile,
+        merchant_profile: AgentProfile,
         relay: str,
         stalls: List[MerchantStall],
         products: List[MerchantProduct],

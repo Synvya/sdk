@@ -7,8 +7,14 @@ from dotenv import load_dotenv
 from phi.agent import Agent  # type: ignore
 from phi.model.openai import OpenAIChat  # type: ignore
 
-from agentstr.merchant import Merchant, MerchantProduct, MerchantStall, Profile
-from agentstr.nostr import Keys, ShippingCost, ShippingMethod, generate_and_save_keys
+from agentstr.merchant import Merchant, MerchantProduct, MerchantStall
+from agentstr.nostr import (
+    AgentProfile,
+    Keys,
+    ShippingCost,
+    ShippingMethod,
+    generate_and_save_keys,
+)
 
 # Environment variables
 ENV_RELAY = "RELAY"
@@ -170,7 +176,10 @@ test_product_3 = MerchantProduct(
 )
 
 
-test_merchant = Profile(MERCHANT_NAME, MERCHANT_DESCRIPTION, MERCHANT_PICTURE, nsec)
+test_merchant = AgentProfile(keys=keys)
+test_merchant.set_name(MERCHANT_NAME)
+test_merchant.set_about(MERCHANT_DESCRIPTION)
+test_merchant.set_picture(MERCHANT_PICTURE)
 
 
 agent = Agent(  # type: ignore[call-arg]
