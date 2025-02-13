@@ -18,6 +18,13 @@ jobs:
 
     steps:
     - uses: actions/checkout@v4 
+
+    - name: Check relay connectivity
+      run: |
+        curl -I $RELAY || echo "Relay is unreachable"
+      env:
+        RELAY: ${{ secrets.RELAY }}
+
     - name: Set up Python ${{ matrix.python-version }}
       uses: actions/setup-python@v5
       with:
@@ -36,12 +43,15 @@ jobs:
     
     - name: Run mypy
       run: mypy src/ tests/ examples/
+
+    - name: Enable Rust logs
+      run: echo "RUST_LOG=debug" >> $GITHUB_ENV
     
     - name: Run tests
       env:
         RELAY: ${{ secrets.RELAY }}
         NSEC_TEST_KEY: ${{ secrets.NSEC_TEST_KEY }}
-      run: pytest tests/ -v
+      run: pytest tests/ -v --log-cli-level=DEBUG --asyncio-mode=auto
 
   build:
     needs: test
