@@ -36,12 +36,19 @@ class Profile:
         self.name = ""
         self.picture = ""
         self.website = ""
+        self.locations = []
+
+    def add_locations(self, locations: List[str]) -> None:
+        self.locations.extend(locations)
 
     def get_about(self) -> str:
         return self.about
 
     def get_display_name(self) -> str:
         return self.display_name
+
+    def get_locations(self) -> List[str]:
+        return self.locations
 
     def get_name(self) -> str:
         return self.name
@@ -201,12 +208,22 @@ class MerchantProduct(BaseModel):
 
     @classmethod
     def from_product_data(cls, product_data: "ProductData") -> "MerchantProduct":
+        # print(f"Raw product data specs: {product_data.specs}")  # Debug print
         shipping_costs = []
         for ship in product_data.shipping:
             if isinstance(ship, dict):
                 shipping_costs.append(ShippingCost(id=ship["id"], cost=ship["cost"]))
             else:
                 shipping_costs.append(ship)
+
+        # Handle specs - ensure it's a list
+        specs = []
+        if product_data.specs is not None:
+            if isinstance(product_data.specs, dict):
+                # Convert dict to list of lists if needed
+                specs = [[k, v] for k, v in product_data.specs.items()]
+            elif isinstance(product_data.specs, list):
+                specs = product_data.specs
 
         return cls(
             id=product_data.id,
@@ -221,7 +238,7 @@ class MerchantProduct(BaseModel):
             categories=(
                 product_data.categories if product_data.categories is not None else []
             ),
-            specs=product_data.specs if product_data.specs is not None else [],
+            specs=specs,
         )
 
     def to_product_data(self) -> "ProductData":
@@ -279,6 +296,7 @@ class MerchantStall(BaseModel):
     description: str
     currency: str
     shipping: List[ShippingMethod]
+    geohash: str
 
     @classmethod
     def from_stall_data(cls, stall: "StallData") -> "MerchantStall":
@@ -290,14 +308,11 @@ class MerchantStall(BaseModel):
             shipping=stall.shipping(),
         )
 
-    def to_stall_data(self) -> "StallData":
-        return StallData(
-            self.id,
-            self.name,
-            self.description,
-            self.currency,
-            self.shipping,  # No conversion needed
-        )
+    def get_geohash(self) -> str:
+        return self.geohash
+
+    def set_geohash(self, geohash: str) -> None:
+        self.geohash = geohash
 
     def to_dict(self) -> dict:
         """
@@ -323,4 +338,14 @@ class MerchantStall(BaseModel):
             "description": self.description,
             "currency": self.currency,
             "shipping zones": [shipping_dicts],
+            "geohash": self.geohash,
         }
+
+    def to_stall_data(self) -> "StallData":
+        return StallData(
+            self.id,
+            self.name,
+            self.description,
+            self.currency,
+            self.shipping,  # No conversion needed
+        )

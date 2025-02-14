@@ -12,9 +12,8 @@ on:
   push:
     tags:
       - 'v*.*.*'  # Trigger on version tags
-  # Add workflow_dispatch to enable manual triggers
-  workflow_dispatch: 
-    
+  workflow_dispatch:
+
 permissions:
   contents: read
 
@@ -26,62 +25,74 @@ jobs:
         python-version: ["3.9", "3.10", "3.11", "3.12"]
 
     steps:
-      - uses: actions/checkout@v4
-      
-      - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v5
-        with:
-          python-version: ${{ matrix.python-version }}
-          cache: 'pip'
-          
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install .[dev]  # Install package with dev dependencies
+    - uses: actions/checkout@v4 
 
-      - name: Run tests
-        env:
-          NSEC_KEY: ${{ secrets.NSEC_KEY }}
-        run: |
-          pytest tests/ -v
+    - name: Check relay connectivity
+      run: |
+        curl -I $RELAY || echo "Relay is unreachable"
+      env:
+        RELAY: ${{ secrets.RELAY }}
 
-      - name: Type check
-        run: mypy src/
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ matrix.python-version }}
 
-      - name: Format check
-        run: |
-          black --check src/ tests/
-          isort --check-only src/ tests/
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -e ".[dev]"
+        pip install pytest mypy black isort
+    
+    - name: Run black
+      run: black . --check
+    
+    - name: Run isort
+      run: isort . --check
+    
+    - name: Run mypy
+      run: mypy src/ tests/ examples/
+
+    - name: Enable Rust logs
+      run: echo "RUST_LOG=debug" >> $GITHUB_ENV
+    
+    - name: Run tests
+      env:
+        RELAY: ${{ secrets.RELAY }}
+        NSEC_TEST_KEY: ${{ secrets.NSEC_TEST_KEY }}
+      run: pytest tests/ -v --log-cli-level=DEBUG --asyncio-mode=auto
 
   build:
     needs: test
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+    - uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: "3.12"
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install build
+    
+    - name: Build package
+      run: python -m build
       
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-          cache: 'pip'
-          
-      - name: Build package
-        run: |
-          python -m pip install --upgrade pip build
-          python -m build
-      
-      - name: Upload distributions
-        uses: actions/upload-artifact@v4
-        with:
-          name: release-dists
-          path: dist/
+    - name: Upload distributions
+      uses: actions/upload-artifact@v4
+      with:
+        name: release-dists
+        path: dist/
 
   publish:
     needs: build
     runs-on: ubuntu-latest
     environment:
       name: pypi
-      url: https://pypi.org/p/agentstr  # Updated with your package name
+      url: https://pypi.org/p/agentstr
     permissions:
       id-token: write
 

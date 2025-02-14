@@ -1,6 +1,6 @@
 from enum import Enum
 from logging import Logger
-from typing import ClassVar, List, Optional, Union
+from typing import ClassVar, List, Optional
 
 from nostr_sdk import (
     Keys,
@@ -14,16 +14,23 @@ from nostr_sdk import (
 from pydantic import BaseModel
 
 class Profile:
+    """
+    Generic Profile class that holds the metadata of a Nostr profile.
+    """
+
     logger: ClassVar[Logger]
     about: str
     display_name: str
     name: str
     picture: str
     website: str
+    locations: List[str]
 
     def __init__(self) -> None: ...
+    def add_locations(self, locations: List[str]) -> None: ...
     def get_about(self) -> str: ...
     def get_display_name(self) -> str: ...
+    def get_locations(self) -> List[str]: ...
     def get_name(self) -> str: ...
     def get_picture(self) -> str: ...
     def get_website(self) -> str: ...
@@ -64,7 +71,18 @@ class NostrProfile(Profile):
     def __hash__(self) -> int: ...
 
 class MerchantProduct:
-    product: ProductData
+    id: str
+    stall_id: str
+    name: str
+    description: str
+    images: List[str]
+    currency: str
+    price: int
+    quantity: int
+    shipping: List[ShippingCost]
+    categories: Optional[List[str]]
+    specs: Optional[List[List[str]]]
+
     def __init__(
         self,
         id: str,
@@ -80,17 +98,21 @@ class MerchantProduct:
         specs: Optional[List[List[str]]] = None,
     ) -> None: ...
     def get_data(self) -> ProductData: ...
-    def name(self) -> str: ...
+    def to_dict(self) -> dict: ...
+    @classmethod
+    def from_product_data(cls, product_data: ProductData) -> "MerchantProduct": ...
 
-class MerchantStall:
-    stall: StallData
-    def __init__(
-        self,
-        id: str,
-        name: str,
-        description: str,
-        currency: str,
-        shipping: List[ShippingMethod],
-    ) -> None: ...
-    def get_data(self) -> StallData: ...
-    def name(self) -> str: ...
+class MerchantStall(BaseModel):
+    id: str
+    name: str
+    description: str
+    currency: str
+    shipping: List[ShippingMethod]
+    geohash: str
+
+    @classmethod
+    def from_stall_data(cls, stall_data: StallData) -> "MerchantStall": ...
+    def get_geohash(self) -> str: ...
+    def set_geohash(self, geohash: str) -> None: ...
+    def to_dict(self) -> dict: ...
+    def to_stall_data(self) -> StallData: ...

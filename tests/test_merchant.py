@@ -37,6 +37,7 @@ STALL_1_NAME = "The Hardware Store"
 STALL_1_ID = "212au4Pi"  # "212a26qV"
 STALL_1_DESCRIPTION = "Your neighborhood hardware store, now available online."
 STALL_1_CURRENCY = "Sats"
+STALL_1_GEOHASH = "C23Q7U36W"
 
 STALL_2_NAME = "The Trade School"
 STALL_2_ID = "c8762EFD"
@@ -44,6 +45,7 @@ STALL_2_DESCRIPTION = (
     "Educational videos to put all your hardware supplies to good use."
 )
 STALL_2_CURRENCY = "Sats"
+STALL_2_GEOHASH = "C23Q7U36W"
 
 # --*-- Shipping info
 SHIPPING_ZONE_1_NAME = "North America"
@@ -167,6 +169,7 @@ def merchant_stalls(shipping_methods: List[ShippingMethod]) -> List[MerchantStal
             description=STALL_1_DESCRIPTION,
             currency=STALL_1_CURRENCY,
             shipping=[shipping_methods[0], shipping_methods[1]],
+            geohash=STALL_1_GEOHASH,
         ),
         MerchantStall(
             id=STALL_2_ID,
@@ -174,6 +177,7 @@ def merchant_stalls(shipping_methods: List[ShippingMethod]) -> List[MerchantStal
             description=STALL_2_DESCRIPTION,
             currency=STALL_2_CURRENCY,
             shipping=[shipping_methods[2]],
+            geohash=STALL_2_GEOHASH,
         ),
     ]
 

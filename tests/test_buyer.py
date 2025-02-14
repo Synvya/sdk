@@ -25,8 +25,9 @@ DISPLAY_NAME = "Buyer Agent for Business Test Name Inc."
 # Load environment variables
 load_dotenv()
 
-SELLER_NAME = "Merchant 1"
-SELLER_PUBLIC_KEY = "npub1h022vtjkztz5xrm5t0g3dwk8nlgcd52vrwze5qk4jg8hf8y2g5assk5w8l"
+SELLER_NAME = "Test Profile"
+SELLER_PUBLIC_KEY = "npub176r83h7rdsppmeqj0uyvzav0c69ynusmwgat4rn80jzmv9z4kg4sytqqx7"
+LOCATION = "Snoqualmie, WA"
 
 
 @pytest.fixture
@@ -84,6 +85,12 @@ def test_buyer_profile_creation(buyer_profile: AgentProfile) -> None:
     assert buyer_profile.get_picture() == PICTURE
 
 
+def test_find_sellers_by_location(buyer: Buyer) -> None:
+    result = buyer.find_sellers_by_location(LOCATION)
+    assert result is not None
+    assert SELLER_NAME in result
+
+
 def test_find_seller_by_name(buyer: Buyer) -> None:
     result = buyer.find_seller_by_name(SELLER_NAME)
     assert result is not None
@@ -105,6 +112,12 @@ def test_get_seller_products(buyer: Buyer, nostr_profile: NostrProfile) -> None:
     result = buyer.get_seller_products(SELLER_PUBLIC_KEY)
     products = json.loads(result)  # Parse JSON string to list
     assert products is not None
-    assert len(products) > 0
+
+    # Check if we got an error response
+    if isinstance(products, dict) and "status" in products:
+        print(f"Got error response: {products['message']}")  # For debugging
+        assert False, f"Expected products list but got error: {products['message']}"
+
     assert isinstance(products, list)
+    assert len(products) > 0
     assert "name" in products[0]  # Check first product has name field

@@ -40,6 +40,7 @@ STALL_1_NAME = "The Hardware Store"
 STALL_1_ID = "212au4Pi"  # "212a26qV"
 STALL_1_DESCRIPTION = "Your neighborhood hardware store, now available online."
 STALL_1_CURRENCY = "Sats"
+STALL_1_GEOHASH = "C23Q7U36W"
 
 STALL_2_NAME = "The Trade School"
 STALL_2_ID = "c8762EFD"
@@ -47,6 +48,7 @@ STALL_2_DESCRIPTION = (
     "Educational videos to put all your hardware supplies to good use."
 )
 STALL_2_CURRENCY = "Sats"
+STALL_2_GEOHASH = "C23Q7U36W"
 
 # --*-- Shipping info
 SHIPPING_ZONE_1_NAME = "North America"
@@ -117,6 +119,7 @@ test_stall_1 = MerchantStall(
     description=STALL_1_DESCRIPTION,
     currency=STALL_1_CURRENCY,
     shipping=[shipping_method_1, shipping_method_2],
+    geohash=STALL_1_GEOHASH,
 )
 
 test_stall_2 = MerchantStall(
@@ -125,6 +128,7 @@ test_stall_2 = MerchantStall(
     description=STALL_2_DESCRIPTION,
     currency=STALL_2_CURRENCY,
     shipping=[shipping_method_3],  # Uses ShippingMethod
+    geohash=STALL_2_GEOHASH,
 )
 
 # --*-- define products (using ShippingZone)

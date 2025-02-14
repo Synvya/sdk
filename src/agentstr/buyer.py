@@ -12,6 +12,21 @@ except ImportError:
     )
 
 
+def _map_location_to_geohash(location: str) -> str:
+    """
+    Map a location to a geohash.
+
+    TBD: Implement this function. Returning a fixed geohash for now.
+
+    Args:
+        location: location to map to a geohash. Can be a zip code, city, state, country, or latitude and longitude.
+
+    Returns:
+        str: geohash of the location or empty string if location is not found
+    """
+    return "C23Q7U36W"
+
+
 class Buyer(Toolkit):
     """
     Buyer is a toolkit that allows an agent to find sellers and transact with them over Nostr.
@@ -49,7 +64,7 @@ class Buyer(Toolkit):
         # Register methods
         self.register(self.find_seller_by_name)
         self.register(self.find_seller_by_public_key)
-        self.register(self.find_seller_by_zip_code)
+        self.register(self.find_sellers_by_location)
         self.register(self.get_profile)
         self.register(self.get_relay)
         self.register(self.get_seller_collections)
@@ -86,19 +101,32 @@ class Buyer(Toolkit):
                 return seller.to_json()
         return json.dumps({"status": "error", "message": "Seller not found"})
 
-    def find_seller_by_zip_code(self, zip_code: str) -> str:
-        """Find a seller by zip code.
+    def find_sellers_by_location(self, location: str) -> str:
+        """Find sellers by location.
 
         Args:
-            zip_code: zip code of the seller to find
+            location: location of the seller to find (e.g. "San Francisco, CA")
 
         Returns:
-            str: seller profile json string or error message
+            str: list of seller profile json strings or error message
         """
+        sellers = []
+        geohash = _map_location_to_geohash(location)
+
+        if not geohash:
+            return json.dumps({"status": "error", "message": "Invalid location"})
+
+        # Find sellers in the same geohash
         for seller in self.sellers:
-            if zip_code in seller.get_zip_codes():
-                return seller.to_json()
-        return json.dumps({"status": "error", "message": "Seller not found"})
+            if geohash in seller.get_locations():
+                sellers.append(seller.to_json())
+
+        if not sellers:
+            return json.dumps(
+                {"status": "error", "message": f"No sellers found near {location}"}
+            )
+
+        return json.dumps(sellers)
 
     def get_profile(self) -> str:
         """Get the Nostr profile of the buyer agent.
@@ -150,8 +178,10 @@ class Buyer(Toolkit):
         """
         try:
             products = self._nostr_client.retrieve_products_from_seller(public_key)
+            print(f"Raw products data: {products}")  # Add this debug line
             return json.dumps([product.to_dict() for product in products])
         except Exception as e:
+            print(f"Error: {e}")
             return json.dumps({"status": "error", "message": str(e)})
 
     def get_sellers(self) -> str:

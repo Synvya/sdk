@@ -2,9 +2,9 @@ import json
 import logging
 from datetime import timedelta
 from pathlib import Path
-from typing import List, Optional
+from typing import Dict, List, Optional
 
-from agentstr.models import MerchantProduct, NostrProfile
+from agentstr.models import MerchantProduct, MerchantStall, NostrProfile
 
 try:
     import asyncio
@@ -15,6 +15,7 @@ except ImportError:
 
 try:
     from nostr_sdk import (
+        Alphabet,
         Client,
         Coordinate,
         EventBuilder,
@@ -29,8 +30,10 @@ try:
         PublicKey,
         ShippingCost,
         ShippingMethod,
+        SingleLetterTag,
         StallData,
         Tag,
+        TagKind,
         Timestamp,
     )
 
@@ -38,112 +41,6 @@ except ImportError:
     raise ImportError(
         "`nostr_sdk` not installed. Please install using `pip install nostr_sdk`"
     )
-
-
-# class AgentProfile(Profile):
-#     """
-#     AgentProfile is a Profile that is used to represent an agent.
-#     """
-
-#     WEB_URL: str = "https://primal.net/p/"
-#     profile_url: str
-#     keys: Keys
-
-#     def __init__(self, keys: Keys) -> None:
-#         super().__init__()
-#         self.keys = keys
-#         self.profile_url = self.WEB_URL + self.keys.public_key().to_bech32()
-
-#     @classmethod
-#     def from_metadata(cls, metadata: Metadata, keys: Keys) -> "AgentProfile":
-#         profile = cls(keys)
-#         profile.set_about(metadata.get_about())
-#         profile.set_display_name(metadata.get_display_name())
-#         profile.set_name(metadata.get_name())
-#         profile.set_picture(metadata.get_picture())
-#         profile.set_website(metadata.get_website())
-#         return profile
-
-#     def get_private_key(self) -> str:
-#         return str(self.keys.secret_key().to_bech32())
-
-#     def get_public_key(self) -> str:
-#         return str(self.keys.public_key().to_bech32())
-
-#     def to_json(self) -> str:
-#         # Parse parent's JSON string back to dict
-#         data = json.loads(super().to_json())
-#         # Add AgentProfile-specific fields
-#         data.update(
-#             {
-#                 "profile_url": self.profile_url,
-#                 "public_key": self.keys.public_key().to_bech32(),
-#                 "private_key": self.keys.secret_key().to_bech32(),
-#             }
-#         )
-#         return json.dumps(data)
-
-
-# class NostrProfile(Profile):
-#     """
-#     NostrProfile is a Profile that is used to represent a public Nostr profile.
-
-#     Key difference between NostrProfile and AgentProfile is that NostrProfile represents a third party profile and therefore we only have its public key.
-#     """
-
-#     WEB_URL: str = "https://primal.net/p/"
-#     profile_url: str
-#     public_key: PublicKey
-#     zip_codes: List[str]
-
-#     def __init__(self, public_key: PublicKey) -> None:
-#         super().__init__()
-#         self.public_key = public_key
-#         self.profile_url = self.WEB_URL + self.public_key.to_bech32()
-
-#     @classmethod
-#     def from_metadata(cls, metadata: Metadata, public_key: PublicKey) -> "NostrProfile":
-#         profile = cls(public_key)
-#         profile.set_about(metadata.get_about())
-#         profile.set_display_name(metadata.get_display_name())
-#         profile.set_name(metadata.get_name())
-#         profile.set_picture(metadata.get_picture())
-#         profile.set_website(metadata.get_website())
-#         return profile
-
-#     def get_public_key(self) -> str:
-#         """Get the public key of the Nostr profile.
-
-#         Returns:
-#             str: bech32 encoded public key of the Nostr profile
-#         """
-#         return str(self.public_key.to_bech32())
-
-#     def get_profile_url(self) -> str:
-#         return self.profile_url
-
-#     def get_zip_codes(self) -> List[str]:
-#         return self.zip_codes
-
-#     def to_json(self) -> str:
-#         # Parse parent's JSON string back to dict
-#         data = json.loads(super().to_json())
-#         # Add NostrProfile-specific fields
-#         data.update(
-#             {
-#                 "profile_url": self.profile_url,
-#                 "public_key": self.public_key.to_bech32(),
-#             }
-#         )
-#         return json.dumps(data)
-
-#     def __eq__(self, other: object) -> bool:
-#         if not isinstance(other, NostrProfile):
-#             return False
-#         return str(self.public_key.to_bech32()) == str(other.public_key.to_bech32())
-
-#     def __hash__(self) -> int:
-#         return hash(str(self.public_key.to_bech32()))
 
 
 class NostrClient:
@@ -266,7 +163,7 @@ class NostrClient:
         # Run the async publishing function synchronously
         return asyncio.run(self._async_publish_profile(name, about, picture))
 
-    def publish_stall(self, stall: StallData) -> EventId:
+    def publish_stall(self, stall: MerchantStall) -> EventId:
         """Publish a stall to nostr
 
         Args:
@@ -328,7 +225,8 @@ class NostrClient:
         Returns:
             set[NostrProfile]: set of seller profiles (skips authors with missing metadata)
         """
-        sellers = set()
+        sellers = set()  # set of NostrProfiles
+        authors_to_locations: Dict[PublicKey, List[str]] = {}
 
         # First we retrieve all stalls from the relay
         try:
@@ -337,19 +235,29 @@ class NostrClient:
             raise RuntimeError(f"Failed to retrieve stalls: {e}")
 
         # Now we search for unique npubs from the list of stalls
+        # Locations are stored in the tags of the stall event so we need to extract them now
         events_list = events.to_vec()
-        authors = set()
+
         for event in events_list:
             if event.kind() == Kind(30017):
-                authors.add(event.author())
+                author = event.author()
+                locations = []
+                tags = event.tags().to_vec()
+                for tag in tags:
+                    if tag.kind() == TagKind.SINGLE_LETTER(
+                        SingleLetterTag.lowercase(Alphabet.G)
+                    ):
+                        locations.append(tag.content())
+                authors_to_locations[author] = locations
 
         # Retrieve the profiles and build the set of merchants
-        for author in authors:
+        for author in authors_to_locations:
             try:
                 profile = asyncio.run(self._async_retrieve_profile(author))
+                profile.add_locations(authors_to_locations[author])
                 sellers.add(profile)
             except Exception as e:
-                # self.logger.info(f"Skipping author - failed to retrieve metadata: {e}")
+                # print(f"Skipping author - failed to retrieve metadata: {e}")
                 continue
 
         return sellers
@@ -411,7 +319,7 @@ class NostrClient:
                 await self.client.add_relay(self.relay)
                 NostrClient.logger.info(f"Relay {self.relay} succesfully added.")
                 await self.client.connect()
-                await asyncio.sleep(1)  # give time for slower connections
+                await asyncio.sleep(2)  # give time for slower connections
                 NostrClient.logger.info("Connected to relay.")
                 self.connected = True
             except Exception as e:
@@ -431,23 +339,33 @@ class NostrClient:
         """
         try:
             await self._async_connect()
-        except Exception as e:
-            raise RuntimeError(f"Unable to connect to the relay: {e}")
 
-        try:
-            output = await self.client.send_event_builder(event_builder)
-            if len(output.success) > 0:
-                NostrClient.logger.info(
-                    f"Event published with event id: {output.id.to_bech32()}"
-                )
-                return output.id
-            else:
-                raise RuntimeError("Unable to publish event")
-        except Exception as e:
-            NostrClient.logger.error(
-                f"NostrClient instance not properly initialized. Exception: {e}."
+            # Add debug logging
+            NostrClient.logger.debug(f"Attempting to publish event: {event_builder}")
+            NostrClient.logger.debug(
+                f"Using keys: {self.keys.public_key().to_bech32()}"
             )
-            raise RuntimeError(f"Unable to publish event: {e}.")
+
+            # Wait for connection and try to publish
+            output = await self.client.send_event_builder(event_builder)
+
+            # More detailed error handling
+            if not output:
+                raise RuntimeError("No output received from send_event_builder")
+            if len(output.success) == 0:
+                raise RuntimeError(
+                    f"Event rejected by relay. Reason: {output.message if hasattr(output, 'message') else 'unknown'}"
+                )
+
+            NostrClient.logger.info(
+                f"Event published with event id: {output.id.to_bech32()}"
+            )
+            return output.id
+
+        except Exception as e:
+            NostrClient.logger.error(f"Failed to publish event: {str(e)}")
+            NostrClient.logger.debug("Event details:", exc_info=True)
+            raise RuntimeError(f"Unable to publish event: {str(e)}")
 
     async def _async_publish_note(self, text: str) -> EventId:
         """
@@ -521,7 +439,7 @@ class NostrClient:
         event_builder = EventBuilder.metadata(metadata_content)
         return await self._async_publish_event(event_builder)
 
-    async def _async_publish_stall(self, stall: StallData) -> EventId:
+    async def _async_publish_stall(self, stall: MerchantStall) -> EventId:
         """
         Asynchronous function to create or update a NIP-15 Marketplace stall with event kind 30017
 
@@ -535,8 +453,19 @@ class NostrClient:
             RuntimeError: if the profile can't be published
         """
 
-        self.logger.info(f"Stall: {stall}")
-        event_builder = EventBuilder.stall_data(stall)
+        # good_event_builder = EventBuilder(Kind(30018), content).tags(
+        #     [Tag.identifier(product.id), Tag.coordinate(coordinate_tag)]
+        # )
+
+        self.logger.info(f" Merchant Stall: {stall}")
+        event_builder = EventBuilder.stall_data(stall.to_stall_data()).tags(
+            [
+                Tag.custom(
+                    TagKind.SINGLE_LETTER(SingleLetterTag.lowercase(Alphabet.G)),
+                    [stall.geohash],
+                ),
+            ]
+        )
         return await self._async_publish_event(event_builder)
 
     async def _async_retrieve_all_stalls(self) -> Events:
