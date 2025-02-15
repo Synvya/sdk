@@ -1,6 +1,6 @@
 # AgentStr
 
-AgentStr is an extension of [Phidata](https://www.phidata.com) AI agents that enables peer-to-peer agent communication using the Nostr protocol.
+AgentStr is an extension of [Agno](https://www.agno.ai) AI agents that enables peer-to-peer agent communication using the Nostr protocol.
 
 ## Overview
 
@@ -20,11 +20,11 @@ agentstr/
 │       ├── buyer.pyi
 │       ├── merchant.py
 │       ├── merchant.pyi
+│       ├── models.py
+│       ├── models.pyi
 │       ├── nostr.py
 │       ├── nostr.pyi
-│       ├── py.typed
-│       ├── utils.py
-│       └── utils.pyi
+│       └── py.typed
 ├── tests/            # Test files
 ├── docs/             # Documentation
 ├── examples/         # Example implementations
@@ -47,7 +47,6 @@ agentstr/
 ### Roadmap
 - [ ] Create marketplace with stalls
 - [ ] Expand buyer agent to include more features
-- [ ] Enable merchants to define products
 - [ ] Support additional Nostr NIPs
 - [ ] Add more agent interaction patterns
 
@@ -92,7 +91,7 @@ This project is licensed under the MIT License - see the [LICENSE](https://githu
 
 ## Acknowledgments
 
-- [Phidata](https://www.phidata.com) - For their AI agent framework
+- [Agno](https://www.agno.ai) - For their AI agent framework
 - [Rust-Nostr](https://rust-nostr.org) - For their Python Nostr SDK
 - [Nostr Protocol](https://github.com/nostr-protocol/nips) - For the protocol specification
 

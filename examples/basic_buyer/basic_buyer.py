@@ -1,9 +1,9 @@
 from os import getenv
 from pathlib import Path
 
+from agno.agent import Agent  # type: ignore
+from agno.model.openai import OpenAIChat  # type: ignore
 from dotenv import load_dotenv
-from phi.agent import Agent  # type: ignore
-from phi.model.openai import OpenAIChat  # type: ignore
 
 from agentstr.buyer import BuyerTools
 from agentstr.models import AgentProfile

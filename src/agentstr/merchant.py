@@ -6,11 +6,9 @@ from agentstr.models import AgentProfile, MerchantProduct, MerchantStall
 from agentstr.nostr import EventId, NostrClient
 
 try:
-    from phi.tools import Toolkit
+    from agno.tools import Toolkit
 except ImportError:
-    raise ImportError(
-        "`phidata` not installed. Please install using `pip install phidata`"
-    )
+    raise ImportError("`agno` not installed. Please install using `pip install agno`")
 
 from pydantic import BaseModel, ConfigDict
 

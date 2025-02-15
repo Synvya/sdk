@@ -1,7 +1,7 @@
 from logging import Logger
 from typing import ClassVar
 
-from phi.tools import Toolkit
+from agno.tools import Toolkit
 
 from agentstr.models import AgentProfile, NostrProfile
 from agentstr.nostr import NostrClient

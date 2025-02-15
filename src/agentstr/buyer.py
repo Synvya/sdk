@@ -5,11 +5,9 @@ from agentstr.models import AgentProfile, NostrProfile
 from agentstr.nostr import NostrClient, PublicKey
 
 try:
-    from phi.tools import Toolkit
+    from agno.tools import Toolkit
 except ImportError:
-    raise ImportError(
-        "`phidata` not installed. Please install using `pip install phidata`"
-    )
+    raise ImportError("`agno` not installed. Please install using `pip install agno`")
 
 
 def _map_location_to_geohash(location: str) -> str:

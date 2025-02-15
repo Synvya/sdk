@@ -1,5 +1,5 @@
 """
-AgentStr: Nostr extension for Phidata AI agents
+AgentStr: Nostr extension for Agno AI agents
 """
 
 from nostr_sdk import ShippingCost, ShippingMethod  # type: ignore

@@ -1,7 +1,7 @@
 from typing import Any, List
 
+from agno.tools import Toolkit
 from nostr_sdk import NostrClient  # type: ignore
-from phi.tools import Toolkit
 
 from agentstr.models import AgentProfile, MerchantProduct, MerchantStall
 

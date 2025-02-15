@@ -1,14 +1,14 @@
 from os import getenv
 
 # --***---
+from agno.agent import Agent  # type: ignore
+from agno.model.openai import OpenAIChat  # type: ignore
+
+# --***---
 # Collect sample data from the merchant examples
 # Remove comment from the one you want to use
 # from nrm import merchant, products, stalls
 from mtp import products, profile, stalls
-
-# --***---
-from phi.agent import Agent  # type: ignore
-from phi.model.openai import OpenAIChat  # type: ignore
 
 from agentstr.merchant import MerchantTools
 

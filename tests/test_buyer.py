@@ -4,6 +4,10 @@ from agentstr.buyer import BuyerTools
 from agentstr.models import AgentProfile, NostrProfile
 from agentstr.nostr import Keys
 
+#### You might need to run the examples/basic_merchant/basic_merchant.py with
+# the sample data from examples/basic_merchant/mtp.py to create the test data that will
+# make these tests successful.
+
 
 def test_buyer_profile_creation(
     buyer_profile: AgentProfile,

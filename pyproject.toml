@@ -13,7 +13,7 @@ authors = [
     {name = "Synvya", email = "info@synvya.com"}
 ]
 dependencies = [
-    "phidata>=2.7.0",
+    "agno>=1.1.1",
     "openai>=1.50.0",
     "packaging>=24.0",
     "nostr_sdk>=0.39.0",

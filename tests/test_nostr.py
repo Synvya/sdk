@@ -1,8 +1,7 @@
-import logging
 from typing import List
 
-from agentstr.models import MerchantProduct, MerchantStall, NostrProfile
-from agentstr.nostr import EventId, Keys, NostrClient, ProductData
+from agentstr.models import MerchantProduct, MerchantStall
+from agentstr.nostr import EventId, Keys, NostrClient
 
 
 class TestNostrClient:
