@@ -1,32 +1,75 @@
-from typing import List
+from os import getenv
+from pathlib import Path
+from typing import Any, List
 
 import pytest
-from nostr_sdk import Keys, PublicKey
+from _pytest.config import Config
+from _pytest.main import Session
+from _pytest.nodes import Item
+from dotenv import load_dotenv
 
 from agentstr.buyer import BuyerTools
 from agentstr.merchant import MerchantTools
 from agentstr.models import AgentProfile, MerchantProduct, MerchantStall, NostrProfile
 from agentstr.nostr import (
     EventId,
+    Keys,
     Kind,
     NostrClient,
-    PublicKey,
     ShippingCost,
     ShippingMethod,
     Timestamp,
+    generate_and_save_keys,
 )
+
+# Get directory where the script is located
+script_dir = Path(__file__).parent
+# Load .env from the script's directory
+load_dotenv(script_dir / ".env")
+
+# Load or generate keys for test profiles
+
+
+def pytest_collection_modifyitems(
+    session: Session, config: Config, items: List[Item]
+) -> None:
+    """Define the desired execution order of test files"""
+    # Define the desired execution order of test files
+    ordered_files = [
+        "tests/test_nostr.py",
+        "tests/test_merchant.py",
+        "tests/test_buyer.py",
+    ]
+
+    # Create a dictionary mapping filenames to execution order
+    order_map = {name: index for index, name in enumerate(ordered_files)}
+
+    # Sort test items based on the order_map; default to a high value for unspecified files
+    items.sort(key=lambda item: order_map.get(item.location[0], 100))
 
 
 @pytest.fixture
 def merchant_keys() -> Keys:
-    """Fixture providing test keys"""
-    return Keys.parse("nsec1nnxpuqpr3h2ku54k803gtu2dkwlyuvla4kkvnjyt389e96ulx4cs40dnlk")
+    nsec = getenv("TEST_MERCHANT_KEY")
+    if nsec is None:
+        merchant_keys = generate_and_save_keys(
+            env_var="TEST_MERCHANT_KEY", env_path=script_dir / ".env"
+        )
+    else:
+        merchant_keys = Keys.parse(nsec)
+    return merchant_keys
 
 
 @pytest.fixture
 def buyer_keys() -> Keys:
-    """Fixture providing test keys"""
-    return Keys.parse("nsec1qyt0lhlezddr04rkt5cy0h29vmer5m994quvhyx3xuzf00tzz0rsrd6cn9")
+    nsec = getenv("TEST_BUYER_KEY")
+    if nsec is None:
+        buyer_keys = generate_and_save_keys(
+            env_var="TEST_BUYER_KEY", env_path=script_dir / ".env"
+        )
+    else:
+        buyer_keys = Keys.parse(nsec)
+    return buyer_keys
 
 
 @pytest.fixture
@@ -78,15 +121,13 @@ def buyer_profile_picture() -> str:
 
 
 @pytest.fixture
-def profile_event_id() -> EventId:
+def profile_event_id(merchant_keys: Keys) -> EventId:
     event_id = EventId(
-        public_key=PublicKey.parse(
-            "f68678dfc36c021de4127f08c1758fc68a49f21b723aba8e677c85b61455b22b"
-        ),
+        public_key=merchant_keys.public_key(),
         created_at=Timestamp.from_secs(1739580690),
         kind=Kind(0),
         tags=[],
-        content='{"name":"Test Profile","about":"A test profile","picture":"https://i.nostr.build/ocjZ5GlAKwrvgRhx.png"}',
+        content='{"name":"Merchant Test Profile","about":"A merchant test profile","picture":"https://i.nostr.build/ocjZ5GlAKwrvgRhx.png"}',
     )
     return event_id
 

@@ -10,9 +10,6 @@ from dotenv import load_dotenv
 from agentstr.models import AgentProfile, MerchantProduct, MerchantStall
 from agentstr.nostr import Keys, ShippingCost, ShippingMethod, generate_and_save_keys
 
-# Run this example to generate the data used by tests/*
-# This example will create a nsec private key in .env under MTP_AGENT_KEY.
-# Use this key in tests/conftest.py merchant_keys fixture to match the merchant profile.
 ENV_KEY = "MTP_AGENT_KEY"
 
 # Get directory where the script is located
