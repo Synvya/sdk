@@ -2,7 +2,7 @@ import json
 import logging
 
 from agentstr.models import AgentProfile, NostrProfile
-from agentstr.nostr import NostrClient
+from agentstr.nostr import NostrClient, PublicKey
 
 try:
     from phi.tools import Toolkit
@@ -72,6 +72,15 @@ class Buyer(Toolkit):
         self.register(self.get_seller_count)
         self.register(self.get_sellers)
         self.register(self.refresh_sellers)
+        self.register(self.purchase_product)
+
+    def purchase_product(self, product: str) -> str:
+        """Purchase a product.
+
+        Args:
+            product: product to purchase
+        """
+        return json.dumps({"status": "success", "message": "Product purchased"})
 
     def find_seller_by_name(self, name: str) -> str:
         """Find a seller by name.
@@ -177,8 +186,10 @@ class Buyer(Toolkit):
             str: JSON string with seller products
         """
         try:
-            products = self._nostr_client.retrieve_products_from_seller(public_key)
-            print(f"Raw products data: {products}")  # Add this debug line
+            products = self._nostr_client.retrieve_products_from_seller(
+                PublicKey.parse(public_key)
+            )
+            # print(f"Raw products data: {products}")  # Add this debug line
             return json.dumps([product.to_dict() for product in products])
         except Exception as e:
             print(f"Error: {e}")

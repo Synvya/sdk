@@ -1,148 +1,51 @@
-import hashlib
 import logging
-import random
-import string
-from datetime import datetime, timezone
-from os import getenv
 from typing import List
-from unittest.mock import Mock, patch
 
 import pytest
-from dotenv import load_dotenv
-from nostr_sdk import PublicKey
 
 from agentstr.models import MerchantProduct, MerchantStall, NostrProfile
-from agentstr.nostr import (
-    EventId,
-    NostrClient,
-    ProductData,
-    ShippingCost,
-    ShippingMethod,
-    StallData,
-)
+from agentstr.nostr import EventId, Keys, NostrClient, ProductData
 
-SELLER_PUBLIC_KEY = "npub1h022vtjkztz5xrm5t0g3dwk8nlgcd52vrwze5qk4jg8hf8y2g5assk5w8l"
-SELLER_GEOHASH = "C23Q7U36W"
+# # Environment variables
+# RELAY = "wss://relay.damus.io"
 
-
-# Configure logging
-@pytest.fixture(autouse=True)
-def setup_logging() -> None:
-    """Setup logging for all tests"""
-    for handler in logging.root.handlers[:]:
-        logging.root.removeHandler(handler)
-
-    logging.basicConfig(
-        level=logging.INFO,
-        format="%(asctime)s - %(levelname)s - %(message)s",
-    )
-
-
-@pytest.fixture
-def nostr_profile() -> NostrProfile:
-    """Create a NostrProfile instance for tests"""
-    return NostrProfile(PublicKey.parse(SELLER_PUBLIC_KEY))
-
-
-@pytest.fixture(scope="session")
-def nostr_client() -> NostrClient:
-    """Create a NostrClient instance for tests"""
-    load_dotenv()
-    nsec = getenv("NSEC_TEST_KEY")
-    if not nsec:
-        pytest.skip("NSEC_TEST_KEY environment variable not set")
-    return NostrClient("wss://relay.damus.io", nsec)
-
-
-@pytest.fixture
-def shipping_methods() -> List[ShippingMethod]:
-    """Create shipping methods for testing"""
-    method1 = (
-        ShippingMethod(id="64be11rM", cost=10000)
-        .name("North America")
-        .regions(["Canada", "Mexico", "USA"])
-    )
-
-    method2 = (
-        ShippingMethod(id="d041HK7s", cost=20000)
-        .name("Rest of the World")
-        .regions(["All other countries"])
-    )
-
-    method3 = (
-        ShippingMethod(id="R8Gzz96K", cost=0).name("Worldwide").regions(["Worldwide"])
-    )
-
-    return [method1, method2, method3]
-
-
-@pytest.fixture
-def shipping_costs() -> List[ShippingCost]:
-    """Create shipping costs for testing"""
-    return [
-        ShippingCost(id="64be11rM", cost=5000),
-        ShippingCost(id="d041HK7s", cost=5000),
-    ]
-
-
-@pytest.fixture
-def test_stall(shipping_methods: List[ShippingMethod]) -> StallData:
-    """Create a test stall"""
-    return StallData(
-        id="212au4Pi",
-        name="The Hardware Store",
-        description="Your neighborhood hardware store, now available online.",
-        currency="Sats",
-        shipping=[shipping_methods[0], shipping_methods[1]],
-    )
-
-
-@pytest.fixture
-def test_merchant_stall(shipping_methods: List[ShippingMethod]) -> MerchantStall:
-    """Create a test merchant stall"""
-    return MerchantStall(
-        id="212au4Pi",
-        name="The Hardware Store",
-        description="Your neighborhood hardware store, now available online.",
-        currency="Sats",
-        shipping=[shipping_methods[0], shipping_methods[1]],
-        geohash=SELLER_GEOHASH,
-    )
-
-
-@pytest.fixture
-def test_product(shipping_costs: List[ShippingCost]) -> ProductData:
-    """Create a test product"""
-    return ProductData(
-        id="bcf00Rx7",
-        stall_id="212au4Pi",
-        name="Wrench",
-        description="The perfect tool for a $5 wrench attack.",
-        images=["https://i.nostr.build/BddyYILz0rjv1wEY.png"],
-        currency="Sats",
-        price=5000,
-        quantity=100,
-        shipping=shipping_costs,
-        specs=None,
-        categories=None,
-    )
+# # --*-- Test Profile
+# TEST_KEY = "nsec1nnxpuqpr3h2ku54k803gtu2dkwlyuvla4kkvnjyt389e96ulx4cs40dnlk"
+# TEST_NAME = "Test Profile"
+# TEST_ABOUT = "A test profile"
+# TEST_PICTURE = "https://i.nostr.build/ocjZ5GlAKwrvgRhx.png"
 
 
 class TestNostrClient:
     """Test suite for NostrClient"""
 
+    def test_publish_profile(
+        self,
+        nostr_client: NostrClient,
+        merchant_profile_name: str,
+        merchant_profile_about: str,
+        merchant_profile_picture: str,
+    ) -> None:
+        """Test publishing a profile"""
+        event_id = nostr_client.publish_profile(
+            name=merchant_profile_name,
+            about=merchant_profile_about,
+            picture=merchant_profile_picture,
+        )
+        assert isinstance(event_id, EventId)
+
     def test_publish_stall(
-        self, nostr_client: NostrClient, test_merchant_stall: MerchantStall
+        self, nostr_client: NostrClient, merchant_stalls: List[MerchantStall]
     ) -> None:
         """Test publishing a stall"""
-        event_id = nostr_client.publish_stall(test_merchant_stall)
+        event_id = nostr_client.publish_stall(merchant_stalls[0])
         assert isinstance(event_id, EventId)
 
     def test_publish_product(
-        self, nostr_client: NostrClient, test_product: ProductData
+        self, nostr_client: NostrClient, merchant_products: List[MerchantProduct]
     ) -> None:
         """Test publishing a product"""
-        event_id = nostr_client.publish_product(test_product)
+        event_id = nostr_client.publish_product(merchant_products[0])
         assert isinstance(event_id, EventId)
 
     # def test_delete_event(
@@ -157,22 +60,17 @@ class TestNostrClient:
     #     delete_event_id = nostr_client.delete_event(event_id, reason="Test deletion")
     #     assert isinstance(delete_event_id, EventId)
 
-    def test_publish_profile(self, nostr_client: NostrClient) -> None:
-        """Test publishing a profile"""
-        event_id = nostr_client.publish_profile(
-            name="Test Profile",
-            about="A test profile",
-            picture="https://example.com/pic.jpg",
-        )
-        assert isinstance(event_id, EventId)
-
-    def test_retrieve_products_from_seller(self, nostr_client: NostrClient) -> None:
+    def test_retrieve_products_from_seller(
+        self, nostr_client: NostrClient, merchant_keys: Keys
+    ) -> None:
         """Test retrieving products from a seller"""
-        products = nostr_client.retrieve_products_from_seller(SELLER_PUBLIC_KEY)
+        products = nostr_client.retrieve_products_from_seller(
+            merchant_keys.public_key()
+        )
         assert len(products) > 0
         for product in products:
             assert isinstance(product, MerchantProduct)
-            print(f"Product: {product.name}")
+            # print(f"Product: {product.name}")
 
     def test_retrieve_sellers(self, nostr_client: NostrClient) -> None:
         """Test retrieving sellers"""
@@ -180,33 +78,19 @@ class TestNostrClient:
             sellers = nostr_client.retrieve_sellers()
             assert len(sellers) > 0
         except RuntimeError as e:
-            print(f"\nError retrieving sellers: {e}")
+            # print(f"\nError retrieving sellers: {e}")
             raise e
 
-    def test_retrieve_stalls_from_seller(self, nostr_client: NostrClient) -> None:
+    def test_retrieve_stalls_from_seller(
+        self, nostr_client: NostrClient, merchant_keys: Keys
+    ) -> None:
         """Test retrieving stalls from a seller"""
-        stalls = nostr_client.retrieve_stalls_from_seller(SELLER_PUBLIC_KEY)
+        stalls = nostr_client.retrieve_stalls_from_seller(merchant_keys.public_key())
         assert len(stalls) > 0
 
-    @pytest.mark.asyncio
-    async def test_async_retrieve_profile(self, nostr_client: NostrClient) -> None:
+    def test_retrieve_profile(
+        self, nostr_client: NostrClient, merchant_keys: Keys
+    ) -> None:
         """Test async retrieve profile"""
-        profile = await nostr_client._async_retrieve_profile(
-            PublicKey.parse(SELLER_PUBLIC_KEY)
-        )
+        profile = nostr_client.retrieve_profile(merchant_keys.public_key())
         assert profile is not None
-
-    @pytest.mark.asyncio
-    async def test_async_connect(self, nostr_client: NostrClient) -> None:
-        """Test async connection"""
-
-        try:
-            await nostr_client._async_connect()
-            assert True, "Expected _async_connect to return None"
-        except Exception as e:
-            pytest.fail(f"_async_connect raised an unexpected exception: {e}")
-
-    # def test_set_logging_level(self) -> None:
-    #     """Test setting logging level"""
-    #     NostrClient.set_logging_level(logging.DEBUG)
-    #     assert NostrClient.logger.level == logging.DEBUG

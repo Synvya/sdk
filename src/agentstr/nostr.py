@@ -129,7 +129,7 @@ class NostrClient:
         # Run the async publishing function synchronously
         return asyncio.run(self._async_publish_note(text))
 
-    def publish_product(self, product: ProductData) -> EventId:
+    def publish_product(self, product: MerchantProduct) -> EventId:
         """
         Create or update a NIP-15 Marketplace product with event kind 30018
 
@@ -143,7 +143,10 @@ class NostrClient:
             RuntimeError: if the product can't be published
         """
         # Run the async publishing function synchronously
-        return asyncio.run(self._async_publish_product(product))
+        try:
+            return asyncio.run(self._async_publish_product(product))
+        except Exception as e:
+            raise RuntimeError(f"Failed to publish product: {e}")
 
     def publish_profile(self, name: str, about: str, picture: str) -> EventId:
         """
@@ -180,21 +183,19 @@ class NostrClient:
         except Exception as e:
             raise RuntimeError(f"Failed to publish stall: {e}")
 
-    def retrieve_products_from_seller(self, public_key: str) -> List[MerchantProduct]:
+    def retrieve_products_from_seller(self, seller: PublicKey) -> List[MerchantProduct]:
         """
         Retrieve all products from a given seller.
 
         Args:
-            public_key: bech32 encoded public key of the seller
+            seller: PublicKey of the seller
 
         Returns:
             List[MerchantProduct]: list of products from the seller
         """
         products = []
         try:
-            events = asyncio.run(
-                self._async_retrieve_products_from_seller(PublicKey.parse(public_key))
-            )
+            events = asyncio.run(self._async_retrieve_products_from_seller(seller))
             events_list = events.to_vec()
             for event in events_list:
                 content = json.loads(event.content())
@@ -215,6 +216,24 @@ class NostrClient:
             return products
         except Exception as e:
             raise RuntimeError(f"Failed to retrieve products: {e}")
+
+    def retrieve_profile(self, public_key: PublicKey) -> NostrProfile:
+        """
+        Retrieve a Nostr profile from the relay.
+
+        Args:
+            public_key: bech32 encoded public key of the profile to retrieve
+
+        Returns:
+            NostrProfile: profile of the author
+
+        Raises:
+            RuntimeError: if the profile can't be retrieved
+        """
+        try:
+            return asyncio.run(self._async_retrieve_profile(public_key))
+        except Exception as e:
+            raise RuntimeError(f"Failed to retrieve profile: {e}")
 
     def retrieve_sellers(self) -> set[NostrProfile]:
         """
@@ -262,21 +281,19 @@ class NostrClient:
 
         return sellers
 
-    def retrieve_stalls_from_seller(self, public_key: str) -> List[StallData]:
+    def retrieve_stalls_from_seller(self, seller: PublicKey) -> List[StallData]:
         """
         Retrieve all stalls from a given seller.
 
         Args:
-            public_key: bech32 encoded public key of the seller
+            seller: PublicKey of the seller
 
         Returns:
             List[StallData]: list of stalls from the seller
         """
         stalls = []
         try:
-            events = asyncio.run(
-                self._async_retrieve_stalls_from_seller(PublicKey.parse(public_key))
-            )
+            events = asyncio.run(self._async_retrieve_stalls_from_seller(seller))
             events_list = events.to_vec()
             for event in events_list:
                 try:
@@ -383,7 +400,7 @@ class NostrClient:
         event_builder = EventBuilder.text_note(text)
         return await self._async_publish_event(event_builder)
 
-    async def _async_publish_product(self, product: ProductData) -> EventId:
+    async def _async_publish_product(self, product: MerchantProduct) -> EventId:
         """
         Asynchronous function to create or update a NIP-15 Marketplace product with event kind 30018
 
@@ -402,7 +419,7 @@ class NostrClient:
 
         # EventBuilder.product_data() has a bug with tag handling.
         # We use the function to create the content field and discard the eventbuilder
-        bad_event_builder = EventBuilder.product_data(product)
+        bad_event_builder = EventBuilder.product_data(product.to_product_data())
 
         # create an event from bad_event_builder to extract the content - not broadcasted
         bad_event = await self.client.sign_event_builder(bad_event_builder)
@@ -512,6 +529,7 @@ class NostrClient:
             raise RuntimeError("Unable to connect to the relay")
 
         try:
+            print(f"Retrieving products from seller: {seller}")
             filter = Filter().kind(Kind(30018)).authors([seller])
             events = await self.client.fetch_events_from(
                 urls=[self.relay], filter=filter, timeout=timedelta(seconds=2)
@@ -533,6 +551,11 @@ class NostrClient:
         Raises:
             RuntimeError: if the profile can't be retrieved
         """
+        try:
+            await self._async_connect()
+        except Exception as e:
+            raise RuntimeError("Unable to connect to the relay")
+
         try:
             metadata = await self.client.fetch_metadata(
                 public_key=author, timeout=timedelta(seconds=2)
@@ -569,7 +592,7 @@ class NostrClient:
             raise RuntimeError(f"Unable to retrieve stalls: {e}")
 
 
-def generate_and_save_keys(env_var: str, env_path: Optional[Path] = None) -> Keys:
+def generate_and_save_keys(env_var: str, env_path: Path) -> Keys:
     """Generate new nostr keys and save the private key to .env file.
 
     Args:

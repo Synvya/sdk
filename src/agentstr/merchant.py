@@ -140,9 +140,9 @@ class Merchant(Toolkit):
         for i, (product, _) in enumerate(self.product_db):
             try:
                 # Convert MerchantProduct to ProductData for nostr_client
-                product_data = product.to_product_data()
+                # product_data = product.to_product_data()
                 # Publish using the SDK's synchronous method
-                event_id = self._nostr_client.publish_product(product_data)
+                event_id = self._nostr_client.publish_product(product)
                 self.product_db[i] = (product, event_id)
                 results.append(
                     {
@@ -174,9 +174,9 @@ class Merchant(Toolkit):
 
         for i, (stall, _) in enumerate(self.stall_db):
             try:
-                # Convert MerchantStall to StallData for nostr_client
-                stall_data = stall.to_stall_data()
-                event_id = self._nostr_client.publish_stall(stall_data)
+                # We don't need to convert MerchantStall to StallData for nostr_client
+                # stall_data = stall.to_stall_data()
+                event_id = self._nostr_client.publish_stall(stall)
                 self.stall_db[i] = (stall, event_id)
                 results.append(
                     {
@@ -427,10 +427,10 @@ class Merchant(Toolkit):
             raise ValueError("NostrClient not initialized")
 
         try:
-            # Convert to StallData for SDK
-            stall_data = stall.to_stall_data()
-            # Publish using the SDK's synchronous method
-            event_id = self._nostr_client.publish_stall(stall_data)
+            # We don't ned to convert to StallData. nostr_client.publish_stall() accepts a MerchantStall
+            # stall_data = stall.to_stall_data()
+            # Publish using the  synchronous method
+            event_id = self._nostr_client.publish_stall(stall)
             # we need to add the stall event id to the stall db
             self.stall_db.append((stall, event_id))
             return json.dumps(
@@ -482,8 +482,9 @@ class Merchant(Toolkit):
             for i, (stall, _) in enumerate(self.stall_db):
                 if stall.name == stall_name:
                     try:
-                        stall_data = stall.to_stall_data()
-                        event_id = self._nostr_client.publish_stall(stall_data)
+                        # We are not passing StallData to nostr_client.publish_stall() anymore
+                        # stall_data = stall.to_stall_data()
+                        event_id = self._nostr_client.publish_stall(stall)
                         self.stall_db[i] = (stall, event_id)
                         return json.dumps(
                             {

@@ -14,7 +14,7 @@ from agentstr.nostr import Keys, generate_and_save_keys
 # Environment variables
 ENV_RELAY = "RELAY"
 DEFAULT_RELAY = "wss://relay.damus.io"
-ENV_KEY = "NSEC_BASIC_BUYER_KEY"
+ENV_KEY = "BUYER_AGENT_KEY"
 
 # Buyer profile constants
 NAME = "BusinessName"
@@ -22,15 +22,20 @@ DESCRIPTION = "I'm in the business of doing business."
 PICTURE = "https://i.nostr.build/ocjZ5GlAKwrvgRhx.png"
 DISPLAY_NAME = "Buyer Agent for Business Name Inc."
 
-# Load environment variables
-load_dotenv()
+# Get directory where the script is located
+script_dir = Path(__file__).parent
+# Load .env from the script's directory
+load_dotenv(script_dir / ".env")
 
 # Load or generate keys
 nsec = getenv(ENV_KEY)
 if nsec is None:
-    keys = generate_and_save_keys(env_var=ENV_KEY)
+    keys = generate_and_save_keys(env_var=ENV_KEY, env_path=script_dir / ".env")
 else:
     keys = Keys.parse(nsec)
+
+print(f"Private key: {keys.secret_key().to_bech32()}")
+print(f"Public key: {keys.public_key().to_bech32()}")
 
 # Load or use default relay
 relay = getenv(ENV_RELAY)
@@ -48,11 +53,19 @@ buyer_agent = Agent(  # type: ignore[call-arg]
     name="Buyer Assistant",
     model=OpenAIChat(id="gpt-4o"),
     tools=[Buyer(buyer_profile=buyer_profile, relay=relay)],
-    show_tool_calls=True,
-    debug_mode=True,
+    show_tool_calls=False,
+    debug_mode=False,
     async_mode=True,
     instructions=[
-        "The Buyer Toolkit functions return JSON arrays. Provide these JSON arrays back to the console as output."
+        """The Buyer Toolkit functions return JSON arrays.
+        Answer me in a friendly and engaging manner. When I ask you what can I do in a certain location, 
+        you should first look for sellers in that location, then retrieve their products, 
+        and then suggest that I purchase some of their products. Share all the information you have 
+        about the stalls, products and the sellers. Ignore sellers with the word "test" in their name.
+        When I tell you that I want to buy something, use the purchase_product function
+        to purchase the product. Just put together a string with what I'm asking to 
+        purchase and pass it to the purchase_product function.
+        """.strip(),
     ],
 )
 
