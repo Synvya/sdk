@@ -2,6 +2,7 @@ import json
 
 from agentstr.buyer import Buyer
 from agentstr.models import AgentProfile, NostrProfile
+from agentstr.nostr import Keys
 
 
 def test_buyer_profile_creation(
@@ -29,7 +30,7 @@ def test_find_seller_by_name(buyer: Buyer, merchant_profile_name: str) -> None:
     assert merchant_profile_name in result
 
 
-def test_find_seller_by_public_key(buyer: Buyer, merchant_keys) -> None:
+def test_find_seller_by_public_key(buyer: Buyer, merchant_keys: Keys) -> None:
     result = buyer.find_seller_by_public_key(merchant_keys.public_key().to_bech32())
     assert result is not None
     assert merchant_keys.public_key().to_bech32() in result

@@ -1,19 +1,8 @@
 import logging
 from typing import List
 
-import pytest
-
 from agentstr.models import MerchantProduct, MerchantStall, NostrProfile
 from agentstr.nostr import EventId, Keys, NostrClient, ProductData
-
-# # Environment variables
-# RELAY = "wss://relay.damus.io"
-
-# # --*-- Test Profile
-# TEST_KEY = "nsec1nnxpuqpr3h2ku54k803gtu2dkwlyuvla4kkvnjyt389e96ulx4cs40dnlk"
-# TEST_NAME = "Test Profile"
-# TEST_ABOUT = "A test profile"
-# TEST_PICTURE = "https://i.nostr.build/ocjZ5GlAKwrvgRhx.png"
 
 
 class TestNostrClient:

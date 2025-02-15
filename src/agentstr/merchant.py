@@ -3,15 +3,7 @@ import logging
 from typing import Any, List, Optional, Tuple, Union
 
 from agentstr.models import AgentProfile, MerchantProduct, MerchantStall
-from agentstr.nostr import (
-    EventId,
-    Keys,
-    NostrClient,
-    ProductData,
-    ShippingCost,
-    ShippingMethod,
-    StallData,
-)
+from agentstr.nostr import EventId, NostrClient
 
 try:
     from phi.tools import Toolkit
