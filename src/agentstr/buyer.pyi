@@ -6,7 +6,7 @@ from phi.tools import Toolkit
 from agentstr.models import AgentProfile, NostrProfile
 from agentstr.nostr import NostrClient
 
-class Buyer(Toolkit):
+class BuyerTools(Toolkit):
     logger: ClassVar[Logger]
     sellers: set[NostrProfile]
     relay: str

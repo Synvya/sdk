@@ -1,4 +1,4 @@
-## --*-- NorthWest Railway Museum Sample Data --*--
+## --*-- NorthWest Railway Museum Profile Sample Data --*--
 ################
 
 from os import getenv
@@ -272,10 +272,10 @@ nrm_3pm_senior_ticket = MerchantProduct(
     specs=[],
 )
 
-merchant = AgentProfile(keys=keys)
-merchant.set_name(NRM_NAME)
-merchant.set_about(NRM_DESCRIPTION)
-merchant.set_picture(NRM_PICTURE)
+profile = AgentProfile(keys=keys)
+profile.set_name(NRM_NAME)
+profile.set_about(NRM_DESCRIPTION)
+profile.set_picture(NRM_PICTURE)
 
 stalls = [nrm_stall_1, nrm_stall_2, nrm_stall_3]
 products = [

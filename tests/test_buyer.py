@@ -1,6 +1,6 @@
 import json
 
-from agentstr.buyer import Buyer
+from agentstr.buyer import BuyerTools
 from agentstr.models import AgentProfile, NostrProfile
 from agentstr.nostr import Keys
 
@@ -17,34 +17,42 @@ def test_buyer_profile_creation(
 
 
 def test_find_sellers_by_location(
-    buyer: Buyer, merchant_location: str, merchant_profile_name: str
+    buyer_tools: BuyerTools, merchant_location: str, merchant_profile_name: str
 ) -> None:
-    result = buyer.find_sellers_by_location(merchant_location)
+    result = buyer_tools.find_sellers_by_location(merchant_location)
     assert result is not None
     assert merchant_profile_name in result
 
 
-def test_find_seller_by_name(buyer: Buyer, merchant_profile_name: str) -> None:
-    result = buyer.find_seller_by_name(merchant_profile_name)
+def test_find_seller_by_name(
+    buyer_tools: BuyerTools, merchant_profile_name: str
+) -> None:
+    result = buyer_tools.find_seller_by_name(merchant_profile_name)
     assert result is not None
     assert merchant_profile_name in result
 
 
-def test_find_seller_by_public_key(buyer: Buyer, merchant_keys: Keys) -> None:
-    result = buyer.find_seller_by_public_key(merchant_keys.public_key().to_bech32())
+def test_find_seller_by_public_key(
+    buyer_tools: BuyerTools, merchant_keys: Keys
+) -> None:
+    result = buyer_tools.find_seller_by_public_key(
+        merchant_keys.public_key().to_bech32()
+    )
     assert result is not None
     assert merchant_keys.public_key().to_bech32() in result
 
 
 def test_get_seller_collections(
-    buyer: Buyer, seller_nostr_profile: NostrProfile
+    buyer_tools: BuyerTools, seller_nostr_profile: NostrProfile
 ) -> None:
-    result = buyer.get_seller_collections(seller_nostr_profile.get_public_key())
+    result = buyer_tools.get_seller_collections(seller_nostr_profile.get_public_key())
     assert result is not None
 
 
-def test_get_seller_products(buyer: Buyer, seller_nostr_profile: NostrProfile) -> None:
-    result = buyer.get_seller_products(seller_nostr_profile.get_public_key())
+def test_get_seller_products(
+    buyer_tools: BuyerTools, seller_nostr_profile: NostrProfile
+) -> None:
+    result = buyer_tools.get_seller_products(seller_nostr_profile.get_public_key())
     products = json.loads(result)  # Parse JSON string to list
     assert products is not None
 

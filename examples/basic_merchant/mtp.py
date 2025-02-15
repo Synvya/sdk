@@ -107,7 +107,7 @@ products = [
     ),
 ]
 
-merchant = AgentProfile(keys=keys)
-merchant.set_name(NAME)
-merchant.set_about(DESCRIPTION)
-merchant.set_picture(PICTURE)
+profile = AgentProfile(keys=keys)
+profile.set_name(NAME)
+profile.set_about(DESCRIPTION)
+profile.set_picture(PICTURE)

@@ -3,8 +3,8 @@ from typing import List
 import pytest
 from nostr_sdk import Keys, PublicKey
 
-from agentstr.buyer import Buyer
-from agentstr.merchant import Merchant
+from agentstr.buyer import BuyerTools
+from agentstr.merchant import MerchantTools
 from agentstr.models import AgentProfile, MerchantProduct, MerchantStall, NostrProfile
 from agentstr.nostr import (
     EventId,
@@ -238,25 +238,25 @@ def merchant_products(shipping_costs: List[ShippingCost]) -> List[MerchantProduc
 
 
 @pytest.fixture
-def merchant(
+def merchant_tools(
     merchant_profile: AgentProfile,
     relay: str,
     merchant_stalls: List[MerchantStall],
     merchant_products: List[MerchantProduct],
-) -> Merchant:
+) -> MerchantTools:
     """Create a Merchant instance for testing"""
-    return Merchant(merchant_profile, relay, merchant_stalls, merchant_products)
+    return MerchantTools(merchant_profile, relay, merchant_stalls, merchant_products)
 
 
 @pytest.fixture
-def buyer(
+def buyer_tools(
     buyer_profile: AgentProfile,
     relay: str,
-) -> Buyer:
+) -> BuyerTools:
     """Create a Buyer instance for testing"""
-    buyer = Buyer(buyer_profile, relay)
-    buyer.get_sellers()  # gets a new list since the Buyer instance is new
-    return buyer
+    buyer_tools = BuyerTools(buyer_profile, relay)
+    buyer_tools.get_sellers()  # gets a new list since the BuyerTools instance is new
+    return buyer_tools
 
 
 @pytest.fixture

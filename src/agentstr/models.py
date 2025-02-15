@@ -1,7 +1,6 @@
 import json
 import logging
-from dataclasses import dataclass
-from typing import TYPE_CHECKING, List, Optional
+from typing import List, Optional
 
 from nostr_sdk import (
     Keys,
@@ -89,7 +88,8 @@ class NostrProfile(Profile):
     """
     NostrProfile is a Profile that is used to represent a public Nostr profile.
 
-    Key difference between NostrProfile and AgentProfile is that NostrProfile represents a third party profile and therefore we only have its public key.
+    Key difference between NostrProfile and AgentProfile is that NostrProfile represents
+    a third party profile and therefore it only has a public key.
     """
 
     public_key: PublicKey

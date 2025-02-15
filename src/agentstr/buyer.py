@@ -27,9 +27,9 @@ def _map_location_to_geohash(location: str) -> str:
     return "C23Q7U36W"
 
 
-class Buyer(Toolkit):
+class BuyerTools(Toolkit):
     """
-    Buyer is a toolkit that allows an agent to find sellers and transact with them over Nostr.
+    BuyerTools is a toolkit that allows an agent to find sellers and transact with them over Nostr.
 
     Sellers are downloaded from the Nostr relay and cached.
     Sellers can be found by name or public key.

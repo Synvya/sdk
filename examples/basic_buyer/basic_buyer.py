@@ -1,13 +1,11 @@
 from os import getenv
 from pathlib import Path
-from typing import List, Tuple
 
-import httpx
 from dotenv import load_dotenv
 from phi.agent import Agent  # type: ignore
 from phi.model.openai import OpenAIChat  # type: ignore
 
-from agentstr.buyer import Buyer
+from agentstr.buyer import BuyerTools
 from agentstr.models import AgentProfile
 from agentstr.nostr import Keys, generate_and_save_keys
 
@@ -17,7 +15,7 @@ DEFAULT_RELAY = "wss://relay.damus.io"
 ENV_KEY = "BUYER_AGENT_KEY"
 
 # Buyer profile constants
-NAME = "BusinessName"
+NAME = "Business Name Inc."
 DESCRIPTION = "I'm in the business of doing business."
 PICTURE = "https://i.nostr.build/ocjZ5GlAKwrvgRhx.png"
 DISPLAY_NAME = "Buyer Agent for Business Name Inc."
@@ -43,16 +41,16 @@ if relay is None:
     relay = DEFAULT_RELAY
 
 # Initialize a buyer profile
-buyer_profile = AgentProfile(keys=keys)
-buyer_profile.set_name(NAME)
-buyer_profile.set_about(DESCRIPTION)
-buyer_profile.set_display_name(DISPLAY_NAME)
-buyer_profile.set_picture(PICTURE)
+profile = AgentProfile(keys=keys)
+profile.set_name(NAME)
+profile.set_about(DESCRIPTION)
+profile.set_display_name(DISPLAY_NAME)
+profile.set_picture(PICTURE)
 
-buyer_agent = Agent(  # type: ignore[call-arg]
-    name="Buyer Assistant",
+buyer = Agent(  # type: ignore[call-arg]
+    name=f"AI Agent for {profile.get_name()}",
     model=OpenAIChat(id="gpt-4o"),
-    tools=[Buyer(buyer_profile=buyer_profile, relay=relay)],
+    tools=[BuyerTools(buyer_profile=profile, relay=relay)],
     show_tool_calls=False,
     debug_mode=False,
     async_mode=True,
@@ -69,5 +67,5 @@ buyer_agent = Agent(  # type: ignore[call-arg]
     ],
 )
 
-# agent.print_response("List the products of the merchant")
-buyer_agent.cli_app(stream=False)
+# buyer.print_response("List the products of the merchant")
+buyer.cli_app(stream=False)

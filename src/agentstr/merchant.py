@@ -15,9 +15,9 @@ except ImportError:
 from pydantic import BaseModel, ConfigDict
 
 
-class Merchant(Toolkit):
+class MerchantTools(Toolkit):
     """
-    Merchant is a toolkit that allows a merchant to publish products and stalls to Nostr.
+    MerchantTools is a toolkit that allows a merchant to publish products and stalls to Nostr.
 
     TBD:
     - Better differentiation between products and stalls in the database and products and stalls published.

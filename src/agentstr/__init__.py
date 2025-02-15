@@ -4,7 +4,7 @@ AgentStr: Nostr extension for Phidata AI agents
 
 from nostr_sdk import ShippingCost, ShippingMethod  # type: ignore
 
-from .merchant import Merchant
+from .merchant import MerchantTools
 
 # Import main classes to make them available at package level
 from .models import AgentProfile, MerchantProduct, MerchantStall, NostrProfile
@@ -18,7 +18,7 @@ except Exception:
     __version__ = "unknown"
 
 __all__ = [
-    "Merchant",
+    "MerchantTools",
     "MerchantProduct",
     "MerchantStall",
     "ShippingCost",

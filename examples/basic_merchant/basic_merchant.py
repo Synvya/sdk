@@ -4,13 +4,13 @@ from os import getenv
 # Collect sample data from the merchant examples
 # Remove comment from the one you want to use
 # from nrm import merchant, products, stalls
-from mtp import merchant, products, stalls
+from mtp import products, profile, stalls
 
 # --***---
 from phi.agent import Agent  # type: ignore
 from phi.model.openai import OpenAIChat  # type: ignore
 
-from agentstr.merchant import Merchant
+from agentstr.merchant import MerchantTools
 
 # Environment variables
 ENV_RELAY = "RELAY"
@@ -23,12 +23,12 @@ if relay is None:
     relay = DEFAULT_RELAY
 
 
-agent = Agent(  # type: ignore[call-arg]
-    name=f"AI Agent for {merchant.get_name()}",
+merchant = Agent(  # type: ignore[call-arg]
+    name=f"AI Agent for {profile.get_name()}",
     model=OpenAIChat(id="gpt-4o"),
     tools=[
-        Merchant(
-            merchant_profile=merchant,
+        MerchantTools(
+            merchant_profile=profile,
             relay=relay,
             stalls=stalls,
             products=products,
@@ -47,5 +47,5 @@ agent = Agent(  # type: ignore[call-arg]
     ],
 )
 
-# agent.print_response("List the products of the merchant")
-agent.cli_app(stream=False)
+# merchant.print_response("List the products of the merchant")
+merchant.cli_app(stream=False)

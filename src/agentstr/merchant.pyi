@@ -1,17 +1,11 @@
-from typing import Any, List, Optional
+from typing import Any, List
 
 from nostr_sdk import NostrClient  # type: ignore
 from phi.tools import Toolkit
 
 from agentstr.models import AgentProfile, MerchantProduct, MerchantStall
-from agentstr.nostr import (  # NostrClient,
-    ProductData,
-    ShippingCost,
-    ShippingMethod,
-    StallData,
-)
 
-class Merchant(Toolkit):
+class MerchantTools(Toolkit):
     _nostr_client: NostrClient
     _profile: AgentProfile
     _stalls: List[MerchantStall]
