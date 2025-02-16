@@ -529,7 +529,7 @@ class NostrClient:
             raise RuntimeError("Unable to connect to the relay")
 
         try:
-            print(f"Retrieving products from seller: {seller}")
+            # print(f"Retrieving products from seller: {seller}")
             filter = Filter().kind(Kind(30018)).authors([seller])
             events = await self.client.fetch_events_from(
                 urls=[self.relay], filter=filter, timeout=timedelta(seconds=2)

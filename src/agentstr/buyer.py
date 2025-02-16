@@ -1,5 +1,9 @@
 import json
 import logging
+from uuid import uuid4
+
+from agno.agent import AgentKnowledge  # type: ignore
+from agno.document.base import Document
 
 from agentstr.models import AgentProfile, NostrProfile
 from agentstr.nostr import NostrClient, PublicKey
@@ -44,10 +48,16 @@ class BuyerTools(Toolkit):
     logger = logging.getLogger("Buyer")
     sellers: set[NostrProfile] = set()
 
-    def __init__(self, buyer_profile: AgentProfile, relay: str) -> None:
+    def __init__(
+        self,
+        knowledge_base: AgentKnowledge,
+        buyer_profile: AgentProfile,
+        relay: str,
+    ) -> None:
         """Initialize the Buyer toolkit.
 
         Args:
+            knowledge_base: knowledge base of the buyer agent
             buyer_profile: profile of the buyer using this agent
             relay: Nostr relay to use for communications
         """
@@ -55,7 +65,7 @@ class BuyerTools(Toolkit):
 
         self.relay = relay
         self.buyer_profile = buyer_profile
-
+        self.knowledge_base = knowledge_base
         # Initialize fields
         self._nostr_client = NostrClient(relay, buyer_profile.get_private_key())
 
@@ -76,7 +86,7 @@ class BuyerTools(Toolkit):
         """Purchase a product.
 
         Args:
-            product: product to purchase
+            product: JSON string with product to purchase
         """
         return json.dumps({"status": "success", "message": "Product purchased"})
 
@@ -87,12 +97,16 @@ class BuyerTools(Toolkit):
             name: name of the seller to find
 
         Returns:
-            str: seller profile json string or error message
+            str: JSON string with seller profile or error message
         """
         for seller in self.sellers:
             if seller.get_name() == name:
-                return seller.to_json()
-        return json.dumps({"status": "error", "message": "Seller not found"})
+                response = seller.to_json()
+                self._store_response_in_knowledge_base(response)
+                return response
+        response = json.dumps({"status": "error", "message": "Seller not found"})
+        self._store_response_in_knowledge_base(response)
+        return response
 
     def find_seller_by_public_key(self, public_key: str) -> str:
         """Find a seller by public key.
@@ -105,8 +119,12 @@ class BuyerTools(Toolkit):
         """
         for seller in self.sellers:
             if seller.get_public_key() == public_key:
-                return seller.to_json()
-        return json.dumps({"status": "error", "message": "Seller not found"})
+                response = seller.to_json()
+                self._store_response_in_knowledge_base(response)
+                return response
+        response = json.dumps({"status": "error", "message": "Seller not found"})
+        self._store_response_in_knowledge_base(response)
+        return response
 
     def find_sellers_by_location(self, location: str) -> str:
         """Find sellers by location.
@@ -121,7 +139,9 @@ class BuyerTools(Toolkit):
         geohash = _map_location_to_geohash(location)
 
         if not geohash:
-            return json.dumps({"status": "error", "message": "Invalid location"})
+            response = json.dumps({"status": "error", "message": "Invalid location"})
+            self._store_response_in_knowledge_base(response)
+            return response
 
         # Find sellers in the same geohash
         for seller in self.sellers:
@@ -129,11 +149,15 @@ class BuyerTools(Toolkit):
                 sellers.append(seller.to_json())
 
         if not sellers:
-            return json.dumps(
+            response = json.dumps(
                 {"status": "error", "message": f"No sellers found near {location}"}
             )
+            self._store_response_in_knowledge_base(response)
+            return response
 
-        return json.dumps(sellers)
+        response = json.dumps(sellers)
+        self._store_response_in_knowledge_base(response)
+        return response
 
     def get_profile(self) -> str:
         """Get the Nostr profile of the buyer agent.
@@ -141,7 +165,9 @@ class BuyerTools(Toolkit):
         Returns:
             str: buyer profile json string
         """
-        return self.buyer_profile.to_json()
+        response = self.buyer_profile.to_json()
+        self._store_response_in_knowledge_base(response)
+        return response
 
     def get_relay(self) -> str:
         """Get the Nostr relay that the buyer agent is using.
@@ -149,7 +175,9 @@ class BuyerTools(Toolkit):
         Returns:
             str: Nostr relay
         """
-        return self.relay
+        response = self.relay
+        self._store_response_in_knowledge_base(response)
+        return response
 
     def get_seller_collections(self, public_key: str) -> str:
         """Get the collections (NIP-15 stalls) from a seller.
@@ -161,10 +189,16 @@ class BuyerTools(Toolkit):
             str: JSON string with seller collections
         """
         try:
-            stalls = self._nostr_client.retrieve_stalls_from_seller(public_key)
-            return json.dumps([stall.as_json() for stall in stalls])
+            stalls = self._nostr_client.retrieve_stalls_from_seller(
+                PublicKey.parse(public_key)
+            )
+            response = json.dumps([stall.as_json() for stall in stalls])
+            self._store_response_in_knowledge_base(response)
+            return response
         except Exception as e:
-            return json.dumps({"status": "error", "message": str(e)})
+            response = json.dumps({"status": "error", "message": str(e)})
+            self._store_response_in_knowledge_base(response)
+            return response
 
     def get_seller_count(self) -> str:
         """Get the number of sellers.
@@ -172,7 +206,9 @@ class BuyerTools(Toolkit):
         Returns:
             str: JSON string with status and count of sellers
         """
-        return json.dumps({"status": "success", "count": len(self.sellers)})
+        response = json.dumps({"status": "success", "count": len(self.sellers)})
+        self._store_response_in_knowledge_base(response)
+        return response
 
     def get_seller_products(self, public_key: str) -> str:
         """Get the products from a seller
@@ -188,10 +224,13 @@ class BuyerTools(Toolkit):
                 PublicKey.parse(public_key)
             )
             # print(f"Raw products data: {products}")  # Add this debug line
-            return json.dumps([product.to_dict() for product in products])
+            response = json.dumps([product.to_dict() for product in products])
+            self._store_response_in_knowledge_base(response)
+            return response
         except Exception as e:
-            print(f"Error: {e}")
-            return json.dumps({"status": "error", "message": str(e)})
+            response = json.dumps({"status": "error", "message": str(e)})
+            self._store_response_in_knowledge_base(response)
+            return response
 
     def get_sellers(self) -> str:
         """Get the list of sellers.
@@ -204,7 +243,9 @@ class BuyerTools(Toolkit):
         """
         if not self.sellers:
             self._refresh_sellers()
-        return json.dumps([seller.to_json() for seller in self.sellers])
+        response = json.dumps([seller.to_json() for seller in self.sellers])
+        self._store_response_in_knowledge_base(response)
+        return response
 
     def refresh_sellers(self) -> str:
         """Refresh the list of sellers.
@@ -213,7 +254,9 @@ class BuyerTools(Toolkit):
             str: JSON string with status and count of sellers refreshed
         """
         self._refresh_sellers()
-        return json.dumps({"status": "success", "count": len(self.sellers)})
+        response = json.dumps({"status": "success", "count": len(self.sellers)})
+        self._store_response_in_knowledge_base(response)
+        return response
 
     def _refresh_sellers(self) -> None:
         """
@@ -230,3 +273,10 @@ class BuyerTools(Toolkit):
             self.logger.info(f"Found {len(sellers)} sellers")
 
         self.sellers = sellers
+
+    def _store_response_in_knowledge_base(self, response: str) -> None:
+        doc = Document(
+            id=str(uuid4()),
+            content=response,
+        )
+        self.knowledge_base.load_documents([doc])  # Store response in Cassandra

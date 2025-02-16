@@ -44,3 +44,5 @@ You can ask the merchant agent to:
 - List all products from a specific stall
 - Publish stalls and products to Nostr
 - Remove stalls and products from Nostr
+
+Ask the merchant `what tools do you have?` to see the available tools and their descriptions.

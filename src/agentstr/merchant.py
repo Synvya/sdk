@@ -78,7 +78,7 @@ class MerchantTools(Toolkit):
 
     def get_profile(self) -> str:
         """
-        Retrieves merchant profile in JSON format
+        Get the merchant profile in JSON format
 
         Returns:
             str: merchant profile in JSON format
@@ -87,7 +87,7 @@ class MerchantTools(Toolkit):
 
     def get_relay(self) -> str:
         """
-        Retrieves the Nostr relay the merchant is using
+        Get the Nostr relay the merchant is using
 
         Returns:
             str: Nostr relay
@@ -96,7 +96,7 @@ class MerchantTools(Toolkit):
 
     def get_products(self) -> str:
         """
-        Retrieves all the merchant products
+        Get all the merchant products
 
         Returns:
             str: JSON string containing all products
@@ -105,7 +105,7 @@ class MerchantTools(Toolkit):
 
     def get_stalls(self) -> str:
         """
-        Retrieves all the merchant stalls in JSON format
+        Get all the merchant stalls in JSON format
 
         Returns:
             str: JSON string containing all stalls
@@ -116,10 +116,13 @@ class MerchantTools(Toolkit):
         self,
     ) -> str:
         """
-        Publishes or updates all products in the Merchant's Product DB
+        Publishes or updates to Nostrall products in the Merchant's Product DB
 
         Returns:
             str: JSON array with status of all product publishing operations
+
+        Raises:
+            ValueError: if NostrClient is not initialized
         """
 
         if self._nostr_client is None:
@@ -153,10 +156,13 @@ class MerchantTools(Toolkit):
         self,
     ) -> str:
         """
-        Publishes or updates all stalls managed by the merchant and adds the corresponding EventId to the Stall DB
+        Publishes or updates to Nostr all stalls managed by the merchant and adds the corresponding EventId to the Stall DB
 
         Returns:
             str: JSON array with status of all stall publishing operations
+
+        Raises:
+            ValueError: if NostrClient is not initialized
         """
         if self._nostr_client is None:
             raise ValueError("NostrClient not initialized")
@@ -185,13 +191,16 @@ class MerchantTools(Toolkit):
 
     def publish_new_product(self, product: MerchantProduct) -> str:
         """
-        Publishes a new product that is not currently in the Merchant's Product DB and adds it to the Product DB
+        Publishes to Nostra new product that is not currently in the Merchant's Product DB and adds it to the Product DB
 
         Args:
             product: MerchantProduct to be published
 
         Returns:
             str: JSON string with status of the operation
+
+        Raises:
+            ValueError: if NostrClient is not initialized
         """
         if self._nostr_client is None:
             raise ValueError("NostrClient not initialized")
@@ -217,12 +226,15 @@ class MerchantTools(Toolkit):
 
     def publish_product_by_name(self, arguments: str) -> str:
         """
-        Publishes or updates a given product from the Merchant's Product DB
+        Publishes or updates to Nostra given product from the Merchant's Product DB
         Args:
             arguments: JSON string that may contain {"name": "product_name"} or just "product_name"
 
         Returns:
             str: JSON string with status of the operation
+
+        Raises:
+            ValueError: if NostrClient is not initialized
         """
         if self._nostr_client is None:
             raise ValueError("NostrClient not initialized")
@@ -277,7 +289,7 @@ class MerchantTools(Toolkit):
 
     def publish_products_by_stall_name(self, arguments: Union[str, dict]) -> str:
         """
-        Publishes or updates all products sold by the merchant in a given stall
+        Publishes or updates to Nostr all products sold by the merchant in a given stall
 
         Args:
             arguments: str or dict with the stall name. Can be in formats:
@@ -287,6 +299,9 @@ class MerchantTools(Toolkit):
 
         Returns:
             str: JSON array with status of all product publishing operations
+
+        Raises:
+            ValueError: if NostrClient is not initialized
         """
         if self._nostr_client is None:
             raise ValueError("NostrClient not initialized")
@@ -382,7 +397,7 @@ class MerchantTools(Toolkit):
 
     def publish_profile(self) -> str:
         """
-        Publishes the profile on Nostr
+        Publishes the profile to Nostr
 
         Returns:
             str: JSON of the event that published the profile
@@ -405,13 +420,16 @@ class MerchantTools(Toolkit):
 
     def publish_new_stall(self, stall: MerchantStall) -> str:
         """
-        Publishes a new stall that is not currently in the Merchant's Stall DB and adds it to the Stall DB
+        Publishes to Nostr a new stall that is not currently in the Merchant's Stall DB and adds it to the Stall DB
 
         Args:
             stall: MerchantStall to be published
 
         Returns:
             str: JSON string with status of the operation
+
+        Raises:
+            ValueError: if NostrClient is not initialized
         """
         if self._nostr_client is None:
             raise ValueError("NostrClient not initialized")
@@ -436,6 +454,21 @@ class MerchantTools(Toolkit):
             )
 
     def publish_stall_by_name(self, arguments: Union[str, dict]) -> str:
+        """
+        Publishes or updates to Nostr a given stall by name
+
+        Args:
+            arguments: str or dict with the stall name. Can be in formats:
+                - {"name": "stall_name"}
+                - {"arguments": "{\"name\": \"stall_name\"}"}
+                - "stall_name"
+
+        Returns:
+            str: JSON array with status of the operation
+
+        Raises:
+            ValueError: if NostrClient is not initialized
+        """
         if self._nostr_client is None:
             raise ValueError("NostrClient not initialized")
 
@@ -512,10 +545,13 @@ class MerchantTools(Toolkit):
 
     def remove_all_products(self) -> str:
         """
-        Removes all published products from Nostr
+        Removes from Nostr all products published by the merchant
 
         Returns:
             str: JSON array with status of all product removal operations
+
+        Raises:
+            ValueError: if NostrClient is not initialized
         """
         if self._nostr_client is None:
             raise ValueError("NostrClient not initialized")
@@ -557,10 +593,13 @@ class MerchantTools(Toolkit):
 
     def remove_all_stalls(self) -> str:
         """
-        Removes all stalls and their products from Nostr
+        Removes from Nostr all stalls from the merchant and their corresponding products
 
         Returns:
             str: JSON array with status of all removal operations
+
+        Raises:
+            ValueError: if NostrClient is not initialized
         """
         if self._nostr_client is None:
             raise ValueError("NostrClient not initialized")
@@ -644,13 +683,16 @@ class MerchantTools(Toolkit):
 
     def remove_product_by_name(self, arguments: str) -> str:
         """
-        Deletes a product with the given name from Nostr
+        Removes from Nostr a product with the given name
 
         Args:
             arguments: JSON string that may contain {"name": "product_name"} or just "product_name"
 
         Returns:
             str: JSON string with status of the operation
+
+        Raises:
+            ValueError: if NostrClient is not initialized
         """
         if self._nostr_client is None:
             raise ValueError("NostrClient not initialized")
@@ -710,7 +752,8 @@ class MerchantTools(Toolkit):
         )
 
     def remove_stall_by_name(self, arguments: Union[str, dict]) -> str:
-        """Remove a stall and its products by name
+        """
+        Remove from Nostr a stall and its products by name
 
         Args:
             arguments: str or dict with the stall name. Can be in formats:
@@ -720,6 +763,9 @@ class MerchantTools(Toolkit):
 
         Returns:
             str: JSON array with status of the operation
+
+        Raises:
+            ValueError: if NostrClient is not initialized
         """
         if self._nostr_client is None:
             raise ValueError("NostrClient not initialized")
@@ -855,15 +901,15 @@ class MerchantTools(Toolkit):
                 [{"status": "error", "message": str(e), "stall_name": "unknown"}]
             )
 
-    def get_event_id(self, response: Any) -> str:
-        """Convert any response to a string event ID.
+    # def get_event_id(self, response: Any) -> str:
+    #     """Convert any response to a string event ID.
 
-        Args:
-            response: Response that might contain an event ID
+    #     Args:
+    #         response: Response that might contain an event ID
 
-        Returns:
-            str: String representation of event ID or empty string if None
-        """
-        if response is None:
-            return ""
-        return str(response)
+    #     Returns:
+    #         str: String representation of event ID or empty string if None
+    #     """
+    #     if response is None:
+    #         return ""
+    #     return str(response)

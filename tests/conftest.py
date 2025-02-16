@@ -1,11 +1,13 @@
 from os import getenv
 from pathlib import Path
 from typing import Any, List
+from unittest.mock import Mock
 
 import pytest
 from _pytest.config import Config
 from _pytest.main import Session
 from _pytest.nodes import Item
+from agno.agent import AgentKnowledge
 from dotenv import load_dotenv
 
 from agentstr.buyer import BuyerTools
@@ -290,12 +292,19 @@ def merchant_tools(
 
 
 @pytest.fixture
+def mock_knowledge_base() -> Mock:
+    """Fixture to return a mocked AgentKnowledge object."""
+    return Mock(spec=AgentKnowledge)
+
+
+@pytest.fixture
 def buyer_tools(
+    mock_knowledge_base: Mock,
     buyer_profile: AgentProfile,
     relay: str,
 ) -> BuyerTools:
     """Create a Buyer instance for testing"""
-    buyer_tools = BuyerTools(buyer_profile, relay)
+    buyer_tools = BuyerTools(mock_knowledge_base, buyer_profile, relay)
     buyer_tools.get_sellers()  # gets a new list since the BuyerTools instance is new
     return buyer_tools
 

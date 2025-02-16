@@ -10,6 +10,16 @@
     - Displays the product details to the user
     - Interactive CLI interface
 
+    ## Prerequisites
+
+    The buyer agent uses an a Cassandra vector database for Retrieval Augmented Generation (RAG).
+    
+    Launch an instance of the Cassandra Docker official image locally before running the buyer agent.
+
+    ```bash
+    docker run -d --name cassandra-db -p 9042:9042 cassandra:latest
+    ```
+
     ## Setup
 
     1. Clone the repository and navigate to this example:
@@ -27,6 +37,10 @@
 
     3. Copy `.env.example` to `.env` and fill in your keys:
 
+    If you don't have keys, just skip this step: 
+        - The example will create a new private key for you and store it in the .env file for subsequent runs.
+        - The default relay wss://relay.damus.io will be used.
+
     ```bash
     cp .env.example .env
     ```
@@ -38,11 +52,11 @@
     ```
 
 ## Usage
-You can skip the RELAY and NSEC_BASIC_BUYER_KEY environment variables from the .env file:
- - The example will create a new private key for you and store it in the .env file for subsequent runs.
- - The default relay wss://relay.damus.io will be used.
+
 
  You can ask the buyer agent to:
  - Retrieve a list of sellers from the relay
  - Refresh the list of sellers from the relay
  - Find an specific seller by name or public key
+
+ Ask the buyer `what tools do you have?` to see the available tools and their descriptions.
