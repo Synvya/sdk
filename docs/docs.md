@@ -1,12 +1,12 @@
 # AgentStr Documentation
 
 ## Overview
-AgentStr is a Python library that provides tools for interacting with Nostr marketplaces. The main components are the `Merchant` class and supporting data structures for managing stalls and products.
+AgentStr is a Python library that provides tools for interacting with Nostr marketplaces. The main components are the `MerchantTools` class, the `BuyerTools` class, and supporting data structures for managing stalls and products.
 
 ## Core Components
 
-### Merchant Class
-The `Merchant` class is a toolkit that allows merchants to manage their marketplace presence on Nostr. It handles:
+### MerchantTools Class
+The `MerchantTools` class is a toolkit that allows merchants to manage their marketplace presence on Nostr. It handles:
 - Profile management
 - Stall management
 - Product management
@@ -14,92 +14,64 @@ The `Merchant` class is a toolkit that allows merchants to manage their marketpl
 
 #### Initialization
 ```python
-merchant = Merchant(
-    merchant_profile: Profile,  # Merchant's profile information
-    relay: str,                # Nostr relay URL
-    stalls: List[MerchantStall],   # List of stalls to manage
-    products: List[MerchantProduct]  # List of products to sell
+merchant = MerchantTools(
+    merchant_profile: AgentProfile,  # Merchant's profile information
+    relay: str,                     # Nostr relay URL
+    stalls: List[MerchantStall],    # List of stalls to manage
+    products: List[MerchantProduct] # List of products to sell
 )
 ```
 
-### Key Features
+#### Key Features
 
-#### Profile Management
 - `get_profile()`: Retrieves merchant profile in JSON format
-- `publish_profile()`: Publishes merchant profile to Nostr
-
-#### Stall Management
-- `publish_stall_by_name(name: str)`: Publishes a specific stall
-- `publish_all_stalls()`: Publishes all stalls
-- `remove_stall_by_name(name: str)`: Removes a stall and its products
-- `remove_all_stalls()`: Removes all stalls and their products
-
-#### Product Management
-- `publish_product_by_name(name: str)`: Publishes a specific product
+- `get_relay()`: Retrieves the relay URL
+- `get_products()`: Retrieves all products
+- `get_stalls()`: Retrieves all stalls
 - `publish_all_products()`: Publishes all products
+- `publish_all_stalls()`: Publishes all stalls
+- `publish_new_product(product: MerchantProduct)`: Publishes a new product
+- `publish_product_by_name(product_name: str)`: Publishes a specific product by name
 - `publish_products_by_stall_name(stall_name: str)`: Publishes all products in a stall
-- `remove_product_by_name(name: str)`: Removes a specific product
+- `publish_profile()`: Publishes merchant profile to Nostr
+- `publish_new_stall(stall: MerchantStall)`: Publishes a new stall
+- `publish_stall_by_name(stall_name: str)`: Publishes a specific stall by name
 - `remove_all_products()`: Removes all products
+- `remove_all_stalls()`: Removes all stalls
+- `remove_product_by_name(product_name: str)`: Removes a specific product by name
+- `remove_stall_by_name(stall_name: str)`: Removes a specific stall by name
+- `get_event_id(response: Any)`: Retrieves the event ID from a response
 
-### Data Structures
+### BuyerTools Class
+The `BuyerTools` class provides functionalities for buyers to interact with sellers on Nostr. It handles:
+- Seller discovery
+- Profile retrieval
+- Product and collection management
 
-#### Profile
+#### Initialization
 ```python
-Profile(
-    name: str,      # Merchant's name
-    about: str,     # Description
-    picture: str,   # URL to profile picture
-    nsec: str       # Optional private key
+buyer = BuyerTools(
+    knowledge_base: AgentKnowledge,  # Buyer's knowledge base
+    buyer_profile: AgentProfile,     # Buyer's profile information
+    relay: str                       # Nostr relay URL
 )
 ```
 
-#### MerchantProduct
-```python
-MerchantProduct(
-    id: str,
-    stall_id: str,
-    name: str,
-    description: str,
-    images: List[str],
-    currency: str,
-    price: float,
-    quantity: int,
-    shipping: List[ShippingCost],
-    categories: Optional[List[str]],
-    specs: Optional[List[List[str]]]
-)
-```
+#### Key Features
 
-#### MerchantStall
-```python
-MerchantStall(
-    id: str,
-    name: str,
-    description: str,
-    currency: str,
-    shipping: List[ShippingMethod]
-)
-```
-
-### Function Return Values
-All functions return JSON strings containing operation status and relevant information:
-
-Success example:
-```json
-{
-    "status": "success",
-    "message": "Operation completed",
-    "event_id": "event_id_here"
-}
-```
-
-Error example:
-```json
-{
-    "status": "error",
-    "message": "Error description here"
-}
-```
+- `find_seller_by_name(name: str)`: Finds a seller by name
+- `find_seller_by_public_key(public_key: str)`: Finds a seller by public key
+- `find_sellers_by_location(location: str)`: Finds sellers by location
+- `get_profile()`: Retrieves buyer profile in JSON format
+- `get_relay()`: Retrieves the relay URL
+- `get_seller_collections(public_key: str)`: Retrieves collections from a seller
+- `get_seller_count()`: Retrieves the count of sellers
+- `get_seller_products(public_key: str)`: Retrieves products from a seller
+- `get_sellers()`: Retrieves all sellers
+- `purchase_product(product: str)`: Purchases a product
+- `refresh_sellers()`: Refreshes the list of sellers
+- `_refresh_sellers()`: Internal method to refresh sellers
+- `_store_response_in_knowledge_base(response: str)`: Stores a response in the knowledge base
 
 ### Important Notes
 
@@ -125,7 +97,7 @@ Error example:
 
 ### Basic Usage
 ```python
-from agentstr.marketplace import Merchant, Profile
+from agentstr.marketplace import MerchantTools, Profile
 
 # Create a merchant profile
 profile = Profile(
@@ -134,17 +106,17 @@ profile = Profile(
     picture="https://example.com/pic.jpg"
 )
 
-# Initialize merchant
-merchant = Merchant(profile, "wss://relay.example.com", stalls, products)
+# Initialize merchant tools
+merchant_tools = MerchantTools(profile, "wss://relay.example.com", stalls, products)
 
 # Publish a stall
-merchant.publish_stall_by_name("My Stall")
+merchant_tools.publish_stall_by_name("My Stall")
 
 # Publish a product
-merchant.publish_product_by_name("My Product")
+merchant_tools.publish_product_by_name("My Product")
 
 # Remove a product
-merchant.remove_product_by_name("My Product")
+merchant_tools.remove_product_by_name("My Product")
 ```
 
 For more examples, check the `src/agentstr/examples/` directory in the repository.

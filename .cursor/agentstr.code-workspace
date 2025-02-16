@@ -18,7 +18,7 @@
 		},
 		"python.defaultInterpreterPath": "${env:HOME}/.venvs/aienv/bin/python",
 		"python.terminal.activateEnvironment": true,
-		"terminal.integrated.defaultProfile.osx": "zsh-with-env",
+		"terminal.integrated.defaultProfile.osx": "zsh",
 		"terminal.integrated.profiles.osx": {
 			"zsh-with-env": {
 				"path": "/bin/zsh",
