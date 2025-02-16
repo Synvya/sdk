@@ -14,7 +14,7 @@ The `MerchantTools` class is a toolkit that allows merchants to manage their mar
 
 #### Initialization
 ```python
-merchant = MerchantTools(
+merchant_tools = MerchantTools(
     merchant_profile: AgentProfile,  # Merchant's profile information
     relay: str,                     # Nostr relay URL
     stalls: List[MerchantStall],    # List of stalls to manage
@@ -50,7 +50,7 @@ The `BuyerTools` class provides functionalities for buyers to interact with sell
 
 #### Initialization
 ```python
-buyer = BuyerTools(
+buyer_tools = BuyerTools(
     knowledge_base: AgentKnowledge,  # Buyer's knowledge base
     buyer_profile: AgentProfile,     # Buyer's profile information
     relay: str                       # Nostr relay URL
