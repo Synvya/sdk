@@ -58,4 +58,4 @@ python basic_buyer.py
  - Refresh the list of sellers from the relay
  - Find an specific seller by name or public key
 
- Ask the buyer `what tools do you have?` to see the available tools and their descriptions.
+ Ask the buyer agent `what tools do you have?` to see the available tools and their descriptions.
