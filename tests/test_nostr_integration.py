@@ -1,7 +1,17 @@
 from typing import List
 
+import pytest
+
 from agentstr.models import MerchantProduct, MerchantStall
 from agentstr.nostr import EventId, Keys, NostrClient
+
+
+# used in test_nostr_integration.py
+@pytest.fixture(scope="session")
+def nostr_client(relay: str, merchant_keys: Keys) -> NostrClient:
+    """Fixture providing a NostrClient instance"""
+    nostr_client = NostrClient(relay, merchant_keys.secret_key().to_bech32())
+    return nostr_client
 
 
 class TestNostrClient:

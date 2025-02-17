@@ -1,7 +1,39 @@
-from typing import List
+from typing import Generator, List
+from unittest.mock import patch
 
-from agentstr.models import MerchantProduct, MerchantStall
-from agentstr.nostr import EventId, Keys, NostrClient
+import pytest
+
+from agentstr.models import AgentProfile, MerchantProduct, MerchantStall
+from agentstr.nostr import EventId, Keys, Kind, NostrClient, Timestamp
+
+
+# used in test_nostr_mocked.py
+@pytest.fixture()
+def mock_nostr_client(
+    profile_event_id: EventId,
+    stall_event_ids: List[EventId],
+    product_event_ids: List[EventId],
+    merchant_products: List[MerchantProduct],
+    merchant_stalls: List[MerchantStall],
+    merchant_profile: AgentProfile,
+) -> Generator[NostrClient, None, None]:
+    with patch("agentstr.nostr.NostrClient") as mock_client:
+        instance = mock_client.return_value
+        mock_event_id = EventId(
+            public_key=Keys.generate().public_key(),
+            created_at=Timestamp.from_secs(1739580690),
+            kind=Kind(0),
+            tags=[],
+            content="mock_content",
+        )
+        instance.publish_profile.return_value = profile_event_id
+        instance.publish_stall.return_value = stall_event_ids[0]
+        instance.publish_product.return_value = product_event_ids[0]
+        instance.retrieve_products_from_seller.return_value = merchant_products
+        instance.retrieve_sellers.return_value = [merchant_profile]
+        instance.retrieve_stalls_from_seller.return_value = merchant_stalls
+        instance.retrieve_profile.return_value = merchant_profile
+        yield instance
 
 
 class TestNostrClientMocked:

@@ -1,8 +1,8 @@
 import functools
 from os import getenv
 from pathlib import Path
-from typing import Generator, List
-from unittest.mock import Mock, patch
+from typing import List
+from unittest.mock import Mock
 
 import pytest
 from _pytest.config import Config
@@ -198,14 +198,6 @@ def buyer_profile(
     return profile
 
 
-# used in test_nostr_integration.py
-@pytest.fixture(scope="session")
-def nostr_client(relay: str, merchant_keys: Keys) -> NostrClient:
-    """Fixture providing a NostrClient instance"""
-    nostr_client = NostrClient(relay, merchant_keys.secret_key().to_bech32())
-    return nostr_client
-
-
 @pytest.fixture(scope="session")
 def shipping_methods() -> List[ShippingMethod]:
     """Create shipping methods for testing"""
@@ -367,32 +359,3 @@ def stall_event_ids() -> List[EventId]:
             "ecc04d51f124598abb7bd6830e169dbd4d97aef3bfc19a20ba07b99db709b893"
         ),
     ]
-
-
-# used in test_nostr_mocked.py
-@pytest.fixture()
-def mock_nostr_client(
-    profile_event_id: EventId,
-    stall_event_ids: List[EventId],
-    product_event_ids: List[EventId],
-    merchant_products: List[MerchantProduct],
-    merchant_stalls: List[MerchantStall],
-    merchant_profile: AgentProfile,
-) -> Generator[NostrClient, None, None]:
-    with patch("agentstr.nostr.NostrClient") as mock_client:
-        instance = mock_client.return_value
-        mock_event_id = EventId(
-            public_key=Keys.generate().public_key(),
-            created_at=Timestamp.from_secs(1739580690),
-            kind=Kind(0),
-            tags=[],
-            content="mock_content",
-        )
-        instance.publish_profile.return_value = profile_event_id
-        instance.publish_stall.return_value = stall_event_ids[0]
-        instance.publish_product.return_value = product_event_ids[0]
-        instance.retrieve_products_from_seller.return_value = merchant_products
-        instance.retrieve_sellers.return_value = [merchant_profile]
-        instance.retrieve_stalls_from_seller.return_value = merchant_stalls
-        instance.retrieve_profile.return_value = merchant_profile
-        yield instance
