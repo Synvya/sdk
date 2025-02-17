@@ -1,7 +1,7 @@
 from os import getenv
 from pathlib import Path
-from typing import Any, List
-from unittest.mock import Mock
+from typing import Generator, List
+from unittest.mock import Mock, patch
 
 import pytest
 from _pytest.config import Config
@@ -211,7 +211,7 @@ def shipping_costs() -> List[ShippingCost]:
 @pytest.fixture
 def geohashs() -> List[str]:
     """Fixture providing the test geohashs"""
-    return ["C23Q7U36W", "C23Q7U36W"]
+    return ["000000000,", "000000000"]
 
 
 @pytest.fixture
@@ -337,3 +337,31 @@ def stall_event_ids() -> List[EventId]:
             "ecc04d51f124598abb7bd6830e169dbd4d97aef3bfc19a20ba07b99db709b893"
         ),
     ]
+
+
+@pytest.fixture
+def mock_nostr_client(
+    profile_event_id: EventId,
+    stall_event_ids: List[EventId],
+    product_event_ids: List[EventId],
+    merchant_products: List[MerchantProduct],
+    merchant_stalls: List[MerchantStall],
+    merchant_profile: AgentProfile,
+) -> Generator[NostrClient, None, None]:
+    with patch("agentstr.nostr.NostrClient") as mock_client:
+        instance = mock_client.return_value
+        mock_event_id = EventId(
+            public_key=Keys.generate().public_key(),
+            created_at=Timestamp.from_secs(1739580690),
+            kind=Kind(0),
+            tags=[],
+            content="mock_content",
+        )
+        instance.publish_profile.return_value = profile_event_id
+        instance.publish_stall.return_value = stall_event_ids[0]
+        instance.publish_product.return_value = product_event_ids[0]
+        instance.retrieve_products_from_seller.return_value = merchant_products
+        instance.retrieve_sellers.return_value = [merchant_profile]
+        instance.retrieve_stalls_from_seller.return_value = merchant_stalls
+        instance.retrieve_profile.return_value = merchant_profile
+        yield instance
