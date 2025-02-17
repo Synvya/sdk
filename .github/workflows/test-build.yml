@@ -47,7 +47,7 @@ jobs:
       env:
         RELAY: ${{ secrets.RELAY }}
         NSEC_TEST_KEY: ${{ secrets.NSEC_TEST_KEY }}
-      run: pytest tests/ -v --log-cli-level=DEBUG --asyncio-mode=auto
+      run: pytest tests/ -v --log-cli-level=DEBUG --asyncio-mode=auto --ignore=tests/test_nostr_integration.py
 
   build:
     needs: test
