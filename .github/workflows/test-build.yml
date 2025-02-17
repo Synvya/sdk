@@ -15,12 +15,6 @@ jobs:
     steps:
     - uses: actions/checkout@v4 
 
-    - name: Check relay connectivity
-      run: |
-        curl -I $RELAY || echo "Relay is unreachable"
-      env:
-        RELAY: ${{ secrets.RELAY }}
-
     - name: Set up Python ${{ matrix.python-version }}
       uses: actions/setup-python@v5
       with:
