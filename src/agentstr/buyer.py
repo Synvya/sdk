@@ -75,7 +75,7 @@ class BuyerTools(Toolkit):
         self.register(self.find_sellers_by_location)
         self.register(self.get_profile)
         self.register(self.get_relay)
-        self.register(self.get_seller_collections)
+        self.register(self.get_seller_stalls)
         self.register(self.get_seller_products)
         self.register(self.get_seller_count)
         self.register(self.get_sellers)
@@ -179,8 +179,8 @@ class BuyerTools(Toolkit):
         self._store_response_in_knowledge_base(response)
         return response
 
-    def get_seller_collections(self, public_key: str) -> str:
-        """Get the collections (NIP-15 stalls) from a seller.
+    def get_seller_stalls(self, public_key: str) -> str:
+        """Get the stalls from a seller.
 
         Args:
             public_key: public key of the seller

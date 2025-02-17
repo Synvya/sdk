@@ -1,56 +1,7 @@
-from typing import Generator, List
-from unittest.mock import Mock, patch
+from typing import List
 
-import pytest
-
-from agentstr.models import MerchantProduct, MerchantStall, NostrProfile
-from agentstr.nostr import EventId, Keys, Kind, NostrClient, Timestamp
-
-
-@pytest.fixture
-def mock_nostr_client() -> Generator[NostrClient, None, None]:
-    with patch("agentstr.nostr.NostrClient") as mock_client:
-        instance = mock_client.return_value
-        mock_event_id = EventId(
-            public_key=Keys.generate().public_key(),
-            created_at=Timestamp.from_secs(1739580690),
-            kind=Kind(0),
-            tags=[],
-            content="mock_content",
-        )
-        instance.publish_profile.return_value = mock_event_id
-        instance.publish_stall.return_value = mock_event_id
-        instance.publish_product.return_value = mock_event_id
-        instance.retrieve_products_from_seller.return_value = [
-            MerchantProduct(
-                id="mock_id",
-                stall_id="mock_stall_id",
-                name="Mock Product",
-                description="Mock Description",
-                images=["http://example.com/image.png"],
-                currency="USD",
-                price=100,
-                quantity=10,
-                shipping=[],
-            )
-        ]
-        instance.retrieve_sellers.return_value = [
-            NostrProfile(Keys.generate().public_key())
-        ]
-        instance.retrieve_stalls_from_seller.return_value = [
-            MerchantStall(
-                id="mock_stall_id",
-                name="Mock Stall",
-                description="Mock Description",
-                currency="USD",
-                shipping=[],
-                geohash="mock_geohash",
-            )
-        ]
-        instance.retrieve_profile.return_value = NostrProfile(
-            Keys.generate().public_key()
-        )
-        yield instance
+from agentstr.models import MerchantProduct, MerchantStall
+from agentstr.nostr import EventId, Keys, NostrClient
 
 
 class TestNostrClientMocked:
