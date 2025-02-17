@@ -76,14 +76,10 @@ def test_get_seller_products(
         mock_get_seller_products.return_value = merchant_products
 
     result = buyer_tools.get_seller_products(seller_nostr_profile.get_public_key())
-    products = json.loads(result)  # Parse JSON string to list
-    assert products is not None
+    assert isinstance(result, str)  # Ensure it's a JSON string
 
-    # Check if we got an error response
-    if isinstance(products, dict) and "status" in products:
-        print(f"Got error response: {products['message']}")  # For debugging
-        assert False, f"Expected products list but got error: {products['message']}"
-
-    assert isinstance(products, list)
-    assert len(products) > 0
-    assert "name" in products[0]  # Check first product has name field
+    products = json.loads(result)  # Convert JSON string back to a Python list
+    assert isinstance(products, list)  # Ensure it's a list
+    assert len(products) > 0  # Ensure the list is not empty
+    assert isinstance(products[0], dict)  # Ensure the first item is a dictionary
+    assert "name" in products[0]  # Ensure "name" key exists in the first product

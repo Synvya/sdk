@@ -1,3 +1,4 @@
+import functools
 from os import getenv
 from pathlib import Path
 from typing import Generator, List
@@ -51,31 +52,59 @@ def pytest_collection_modifyitems(
     items.sort(key=lambda item: order_map.get(item.location[0], 100))
 
 
-@pytest.fixture
+@pytest.fixture(scope="session")
+@functools.lru_cache(maxsize=1)
 def merchant_keys() -> Keys:
+    """Cache keys for the merchant profile to prevent unnecessary generation."""
     nsec = getenv("TEST_MERCHANT_KEY")
-    if nsec is None:
-        merchant_keys = generate_and_save_keys(
+    return (
+        Keys.parse(nsec)
+        if nsec
+        else generate_and_save_keys(
             env_var="TEST_MERCHANT_KEY", env_path=script_dir / ".env"
         )
-    else:
-        merchant_keys = Keys.parse(nsec)
-    return merchant_keys
+    )
 
 
-@pytest.fixture
+# @pytest.fixture
+# def merchant_keys() -> Keys:
+#     nsec = getenv("TEST_MERCHANT_KEY")
+#     if nsec is None:
+#         merchant_keys = generate_and_save_keys(
+#             env_var="TEST_MERCHANT_KEY", env_path=script_dir / ".env"
+#         )
+#     else:
+#         merchant_keys = Keys.parse(nsec)
+#     return merchant_keys
+
+
+@pytest.fixture(scope="session")
+@functools.lru_cache(maxsize=1)
 def buyer_keys() -> Keys:
+    """Cache keys for the buyer profile."""
     nsec = getenv("TEST_BUYER_KEY")
-    if nsec is None:
-        buyer_keys = generate_and_save_keys(
+    return (
+        Keys.parse(nsec)
+        if nsec
+        else generate_and_save_keys(
             env_var="TEST_BUYER_KEY", env_path=script_dir / ".env"
         )
-    else:
-        buyer_keys = Keys.parse(nsec)
-    return buyer_keys
+    )
 
 
-@pytest.fixture
+# @pytest.fixture
+# def buyer_keys() -> Keys:
+#     nsec = getenv("TEST_BUYER_KEY")
+#     if nsec is None:
+#         buyer_keys = generate_and_save_keys(
+#             env_var="TEST_BUYER_KEY", env_path=script_dir / ".env"
+#         )
+#     else:
+#         buyer_keys = Keys.parse(nsec)
+#     return buyer_keys
+
+
+@pytest.fixture(scope="session")
 def relay() -> str:
     """Fixture providing the test relay"""
     return "wss://relay.damus.io"
@@ -87,31 +116,31 @@ def merchant_location() -> str:
     return "Snoqualmie, WA"
 
 
-@pytest.fixture
+@pytest.fixture(scope="session")
 def merchant_profile_name() -> str:
     """Fixture providing the test profile name"""
     return "Merchant Test Profile"
 
 
-@pytest.fixture
+@pytest.fixture(scope="session")
 def buyer_profile_name() -> str:
     """Fixture providing the test profile name"""
     return "Buyer Test Profile"
 
 
-@pytest.fixture
+@pytest.fixture(scope="session")
 def merchant_profile_about() -> str:
     """Fixture providing the test profile about"""
     return "A merchant test profile"
 
 
-@pytest.fixture
+@pytest.fixture(scope="session")
 def buyer_profile_about() -> str:
     """Fixture providing the test profile about"""
     return "A buyer test profile"
 
 
-@pytest.fixture
+@pytest.fixture(scope="session")
 def merchant_profile_picture() -> str:
     """Fixture providing the test profile picture"""
     return "https://i.nostr.build/ocjZ5GlAKwrvgRhx.png"
@@ -123,7 +152,7 @@ def buyer_profile_picture() -> str:
     return "https://i.nostr.build/ocjZ5GlAKwrvgRhx.png"
 
 
-@pytest.fixture
+@pytest.fixture(scope="session")
 def profile_event_id(merchant_keys: Keys) -> EventId:
     event_id = EventId(
         public_key=merchant_keys.public_key(),
@@ -141,7 +170,7 @@ def seller_nostr_profile(merchant_keys: Keys) -> NostrProfile:
     return NostrProfile(merchant_keys.public_key())
 
 
-@pytest.fixture
+@pytest.fixture(scope="session")
 def merchant_profile(
     merchant_keys: Keys,
     merchant_profile_name: str,
@@ -169,14 +198,15 @@ def buyer_profile(
     return profile
 
 
-@pytest.fixture
+# used in test_nostr_integration.py
+@pytest.fixture(scope="session")
 def nostr_client(relay: str, merchant_keys: Keys) -> NostrClient:
     """Fixture providing a NostrClient instance"""
     nostr_client = NostrClient(relay, merchant_keys.secret_key().to_bech32())
     return nostr_client
 
 
-@pytest.fixture
+@pytest.fixture(scope="session")
 def shipping_methods() -> List[ShippingMethod]:
     """Create shipping methods for testing"""
     method1 = (
@@ -198,7 +228,7 @@ def shipping_methods() -> List[ShippingMethod]:
     return [method1, method2, method3]
 
 
-@pytest.fixture
+@pytest.fixture(scope="session")
 def shipping_costs() -> List[ShippingCost]:
     """Create shipping costs for testing"""
     return [
@@ -208,13 +238,13 @@ def shipping_costs() -> List[ShippingCost]:
     ]
 
 
-@pytest.fixture
+@pytest.fixture(scope="session")
 def geohashs() -> List[str]:
     """Fixture providing the test geohashs"""
     return ["000000000,", "000000000"]
 
 
-@pytest.fixture
+@pytest.fixture(scope="session")
 def merchant_stalls(
     shipping_methods: List[ShippingMethod], geohashs: List[str]
 ) -> List[MerchantStall]:
@@ -239,7 +269,7 @@ def merchant_stalls(
     ]
 
 
-@pytest.fixture
+@pytest.fixture(scope="session")
 def merchant_products(shipping_costs: List[ShippingCost]) -> List[MerchantProduct]:
     """Create MerchantProduct test fixtures"""
     return [
@@ -310,7 +340,7 @@ def buyer_tools(
     return buyer_tools
 
 
-@pytest.fixture
+@pytest.fixture(scope="session")
 def product_event_ids() -> List[EventId]:
     # provide valid but dummy hex event id strings
     return [
@@ -326,7 +356,7 @@ def product_event_ids() -> List[EventId]:
     ]
 
 
-@pytest.fixture
+@pytest.fixture(scope="session")
 def stall_event_ids() -> List[EventId]:
     # provide valid but dummy hex event id strings
     return [
@@ -339,7 +369,8 @@ def stall_event_ids() -> List[EventId]:
     ]
 
 
-@pytest.fixture
+# used in test_nostr_mocked.py
+@pytest.fixture()
 def mock_nostr_client(
     profile_event_id: EventId,
     stall_event_ids: List[EventId],
