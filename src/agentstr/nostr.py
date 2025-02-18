@@ -271,10 +271,12 @@ class NostrClient:
                 authors_to_locations[author] = locations
 
         # Retrieve the profiles and build the set of merchants
+        # print(f"authors_to_locations: {authors_to_locations}")
         for author in authors_to_locations:
             try:
                 profile = asyncio.run(self._async_retrieve_profile(author))
-                profile.add_locations(authors_to_locations[author])
+                for location in authors_to_locations[author]:
+                    profile.add_location(location)
                 sellers.add(profile)
             except Exception as e:
                 # print(f"Skipping author - failed to retrieve metadata: {e}")
@@ -332,9 +334,6 @@ class NostrClient:
         Raises:
             RuntimeError: if the relay can't be connected to
         """
-
-        print("=== _async_connect() called ===")
-        traceback.print_stack()
 
         if not self.connected:
             try:

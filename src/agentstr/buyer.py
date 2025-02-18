@@ -147,7 +147,6 @@ class BuyerTools(Toolkit):
 
         # Find sellers in the same geohash
         for seller in self.sellers:
-            print(f"seller: {seller.to_json()}")
             if geohash in seller.get_locations():
                 sellers.append(seller.to_json())
 

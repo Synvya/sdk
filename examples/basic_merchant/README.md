@@ -46,3 +46,19 @@ You can ask the merchant agent to:
 - Remove stalls and products from Nostr
 
 Ask the merchant agent `what tools do you have?` to see the available tools and their descriptions.
+
+## Onboarding a new merchant
+
+Define the products and stalls in a `new_merchant.py` file (see `mtp.py` or `nrm.py` for examples)
+
+Run the example:
+
+```bash
+python basic_merchant.py
+```
+
+Ask the merchant agent to do the following for you:
+- Publish all stalls 
+- Publish all products
+
+Now the merchant is ready to go!

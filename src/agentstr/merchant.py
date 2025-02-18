@@ -1,5 +1,6 @@
 import json
 import logging
+import time
 from typing import Any, List, Optional, Tuple, Union
 
 from agentstr.models import AgentProfile, MerchantProduct, MerchantStall
@@ -144,6 +145,8 @@ class MerchantTools(Toolkit):
                         "product_name": product.name,
                     }
                 )
+                # Pause for 0.5 seconds to avoid rate limiting
+                time.sleep(0.5)
             except Exception as e:
                 logging.error(f"Unable to publish product {product}. Error {e}")
                 results.append(
@@ -181,6 +184,8 @@ class MerchantTools(Toolkit):
                         "stall_name": stall.name,
                     }
                 )
+                # Pause for 0.5 seconds to avoid rate limiting
+                time.sleep(0.5)
             except Exception as e:
                 logging.error(f"Unable to publish stall {stall}. Error {e}")
                 results.append(
@@ -257,9 +262,9 @@ class MerchantTools(Toolkit):
             if product.name == name:
                 try:
                     # Convert MerchantProduct to ProductData for nostr_client
-                    product_data = product.to_product_data()
+                    # product_data = product.to_product_data()
                     # Publish using the SDK's synchronous method
-                    event_id = self._nostr_client.publish_product(product_data)
+                    event_id = self._nostr_client.publish_product(product)
                     # Update the product_db with the new event_id
                     self.product_db[i] = (product, event_id)
                     return json.dumps(
@@ -269,6 +274,8 @@ class MerchantTools(Toolkit):
                             "product_name": product.name,
                         }
                     )
+                    # Pause for 0.5 seconds to avoid rate limiting
+                    time.sleep(0.5)
                 except Exception as e:
                     return json.dumps(
                         {
@@ -356,8 +363,8 @@ class MerchantTools(Toolkit):
             for i, (product, _) in enumerate(self.product_db):
                 if product.stall_id == stall_id:
                     try:
-                        product_data = product.to_product_data()
-                        event_id = self._nostr_client.publish_product(product_data)
+                        # product_data = product.to_product_data()
+                        event_id = self._nostr_client.publish_product(product)
                         self.product_db[i] = (product, event_id)
                         results.append(
                             {
@@ -367,6 +374,8 @@ class MerchantTools(Toolkit):
                                 "stall_name": stall_name,
                             }
                         )
+                        # Pause for 0.5 seconds to avoid rate limiting
+                        time.sleep(0.5)
                     except Exception as e:
                         results.append(
                             {
@@ -516,6 +525,8 @@ class MerchantTools(Toolkit):
                                 "stall_name": stall.name,
                             }
                         )
+                        # Pause for 0.5 seconds to avoid rate limiting
+                        time.sleep(0.5)
                     except Exception as e:
                         return json.dumps(
                             [
@@ -584,6 +595,8 @@ class MerchantTools(Toolkit):
                         "event_id": str(event_id),
                     }
                 )
+                # Pause for 0.5 seconds to avoid rate limiting
+                time.sleep(0.5)
             except Exception as e:
                 results.append(
                     {"status": "error", "message": str(e), "product_name": product.name}
@@ -674,6 +687,8 @@ class MerchantTools(Toolkit):
                             "event_id": str(stall_event_id),
                         }
                     )
+                    # Pause for 0.5 seconds to avoid rate limiting
+                    time.sleep(0.5)
                 except Exception as e:
                     results.append(
                         {"status": "error", "message": str(e), "stall_name": stall_name}
@@ -729,6 +744,8 @@ class MerchantTools(Toolkit):
                     )
                     # Remove the event_id, keeping the product in the database
                     self.product_db[i] = (product, None)
+                    # Pause for 0.5 seconds to avoid rate limiting
+                    time.sleep(0.5)
                     return json.dumps(
                         {
                             "status": "success",
@@ -847,6 +864,8 @@ class MerchantTools(Toolkit):
                                 "event_id": str(event_id),
                             }
                         )
+                        # Pause for 0.5 seconds to avoid rate limiting
+                        time.sleep(0.5)
                     except Exception as e:
                         results.append(
                             {

@@ -3,14 +3,17 @@ from os import getenv
 # --***---
 from agno.agent import Agent  # type: ignore
 from agno.models.openai import OpenAIChat  # type: ignore
+from dhb import products, profile, stalls
+
+from agentstr.merchant import MerchantTools
 
 # --***---
 # Collect sample data from the merchant examples
 # Remove comment from the one you want to use
-# from nrm import merchant, products, stalls
-from mtp import products, profile, stalls
 
-from agentstr.merchant import MerchantTools
+
+# from mtp import products, profile, stalls
+
 
 # Environment variables
 ENV_RELAY = "RELAY"
