@@ -174,8 +174,8 @@ class AgentProfile(Profile):
     def get_private_key(self) -> str:
         return str(self.keys.secret_key().to_bech32())
 
-    def get_public_key(self) -> str:
-        return str(self.keys.public_key().to_bech32())
+    # def get_public_key(self) -> str:
+    #     return str(self.keys.public_key().to_bech32())
 
     def to_json(self) -> str:
         # Parse parent's JSON string back to dict
