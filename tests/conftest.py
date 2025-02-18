@@ -325,10 +325,11 @@ def buyer_tools(
     mock_knowledge_base: Mock,
     buyer_profile: AgentProfile,
     relay: str,
+    seller_nostr_profile: NostrProfile,
 ) -> BuyerTools:
     """Create a Buyer instance for testing"""
     buyer_tools = BuyerTools(mock_knowledge_base, buyer_profile, relay)
-    buyer_tools.sellers = [seller_nostr_profile]
+    buyer_tools.sellers = {seller_nostr_profile}
     return buyer_tools
 
 
