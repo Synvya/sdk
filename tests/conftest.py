@@ -165,6 +165,12 @@ def profile_event_id(merchant_keys: Keys) -> EventId:
 
 
 @pytest.fixture(scope="session")
+def geohashs() -> List[str]:
+    """Fixture providing the test geohashs"""
+    return ["000000000", "000000000"]
+
+
+@pytest.fixture(scope="session")
 def merchant_profile(
     merchant_keys: Keys,
     merchant_profile_name: str,
@@ -179,12 +185,15 @@ def merchant_profile(
 
 
 @pytest.fixture
-def seller_nostr_profile(merchant_profile: AgentProfile) -> NostrProfile:
+def seller_nostr_profile(
+    merchant_keys: Keys, merchant_profile: AgentProfile, geohashs: List[str]
+) -> NostrProfile:
     """Create a NostrProfile instance for tests"""
-    nostr_profile = NostrProfile(merchant_profile.get_public_key())
+    nostr_profile = NostrProfile(merchant_keys.public_key())
     nostr_profile.set_name(merchant_profile.get_name())
     nostr_profile.set_about(merchant_profile.get_about())
     nostr_profile.set_picture(merchant_profile.get_picture())
+    nostr_profile.add_location(geohashs[0])
     return nostr_profile
 
 
@@ -232,12 +241,6 @@ def shipping_costs() -> List[ShippingCost]:
         ShippingCost(id="d041HK7s", cost=5000),
         ShippingCost(id="R8Gzz96K", cost=0),
     ]
-
-
-@pytest.fixture(scope="session")
-def geohashs() -> List[str]:
-    """Fixture providing the test geohashs"""
-    return ["000000000,", "000000000"]
 
 
 @pytest.fixture(scope="session")

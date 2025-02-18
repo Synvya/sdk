@@ -35,19 +35,12 @@ class Profile:
         self.name = ""
         self.picture = ""
         self.website = ""
-        self.locations = []
-
-    def add_locations(self, locations: List[str]) -> None:
-        self.locations.extend(locations)
 
     def get_about(self) -> str:
         return self.about
 
     def get_display_name(self) -> str:
         return self.display_name
-
-    def get_locations(self) -> List[str]:
-        return self.locations
 
     def get_name(self) -> str:
         return self.name
@@ -96,6 +89,7 @@ class NostrProfile(Profile):
     profile_url: str
     # zip_codes: List[str] = []
     WEB_URL: str = "https://primal.net/p/"
+    locations: set[str] = set()
 
     def __init__(self, public_key: PublicKey) -> None:
         super().__init__()
@@ -112,6 +106,14 @@ class NostrProfile(Profile):
         profile.set_website(metadata.get_website())
         return profile
 
+    def add_location(self, location: str) -> None:
+        """Add a location to the Nostr profile.
+
+        Args:
+            location: location to add
+        """
+        self.locations.add(location)
+
     def get_public_key(self) -> str:
         """Get the public key of the Nostr profile.
 
@@ -120,6 +122,14 @@ class NostrProfile(Profile):
         """
         return str(self.public_key.to_bech32())
 
+    def get_locations(self) -> set[str]:
+        """Get the locations of the Nostr profile.
+
+        Returns:
+            set[str]: set with locations of the Nostr profile
+        """
+        return self.locations
+
     def get_profile_url(self) -> str:
         return self.profile_url
 
@@ -127,15 +137,21 @@ class NostrProfile(Profile):
         return self.zip_codes
 
     def to_json(self) -> str:
-        # Parse parent's JSON string back to dict
-        data = json.loads(super().to_json())
+        # Ensure super().to_json() returns a dictionary
+        parent_json = super().to_json()
+        data = json.loads(parent_json) if isinstance(parent_json, str) else parent_json
+
         # Add NostrProfile-specific fields
         data.update(
             {
                 "profile_url": self.profile_url,
                 "public_key": self.public_key.to_bech32(),
+                "locations": list(
+                    self.locations or []
+                ),  # Ensure it's a list, even if None
             }
         )
+
         return json.dumps(data)
 
     def __eq__(self, other: object) -> bool:

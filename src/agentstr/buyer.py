@@ -37,6 +37,8 @@ class BuyerTools(Toolkit):
     Sellers can be found by name or public key.
     Sellers cache can be refreshed from the Nostr relay.
     Sellers can be retrieved as a list of Nostr profiles.
+
+    TBD: populate the sellers locations with info from stalls.
     """
 
     from pydantic import ConfigDict
@@ -145,6 +147,7 @@ class BuyerTools(Toolkit):
 
         # Find sellers in the same geohash
         for seller in self.sellers:
+            print(f"seller: {seller.to_json()}")
             if geohash in seller.get_locations():
                 sellers.append(seller.to_json())
 
