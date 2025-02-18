@@ -3,7 +3,7 @@ from os import getenv
 # --***---
 from agno.agent import Agent  # type: ignore
 from agno.models.openai import OpenAIChat  # type: ignore
-from dhb import products, profile, stalls
+from nrm import products, profile, stalls
 
 from agentstr.merchant import MerchantTools
 

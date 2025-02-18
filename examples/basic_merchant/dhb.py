@@ -34,7 +34,7 @@ DHB_GEOHASH = "C23Q7U36W"
 
 
 # --*-- Stall for ride at 11am
-DHB_STALL_NAME = "Snoqualmie"
+DHB_STALL_NAME = "Dark Horse Brew Coffee"
 DHB_STALL_ID = "dhb-stall-snoqualmie"  # "212a26qV"
 DHB_STALL_DESCRIPTION = """
 Dark Horse Brew is made up of a passionate team of coffee lovers who believe that great 
@@ -94,8 +94,14 @@ dhb_latte = MerchantProduct(
     price=DHB_PRODUCT_PRICE,
     quantity=DHB_QUANTITY,
     shipping=[shipping_cost_dhb],
-    categories=None,
-    specs=[],
+    categories=["coffee", "latte"],
+    specs=[
+        ["temperature", "hot"],
+        ["temperature", "cold"],
+        ["size", "small"],
+        ["size", "medium"],
+        ["size", "large"],
+    ],
 )
 
 profile = AgentProfile(keys=keys)

@@ -11,7 +11,7 @@ from nostr_sdk import (
     ShippingMethod,
     StallData,
 )
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 __all__ = [
     "Profile",
@@ -85,16 +85,14 @@ class NostrProfile(Profile):
     a third party profile and therefore it only has a public key.
     """
 
-    public_key: PublicKey
-    profile_url: str
-    # zip_codes: List[str] = []
     WEB_URL: str = "https://primal.net/p/"
-    locations: set[str] = set()
 
     def __init__(self, public_key: PublicKey) -> None:
         super().__init__()
         self.public_key = public_key
         self.profile_url = self.WEB_URL + self.public_key.to_bech32()
+        # Initialize the locations set here, per-instance
+        self.locations: set[str] = set()
 
     @classmethod
     def from_metadata(cls, metadata: Metadata, public_key: PublicKey) -> "NostrProfile":
@@ -146,9 +144,9 @@ class NostrProfile(Profile):
             {
                 "profile_url": self.profile_url,
                 "public_key": self.public_key.to_bech32(),
-                "locations": list(
-                    self.locations or []
-                ),  # Ensure it's a list, even if None
+                "locations": (
+                    list(self.locations) if self.locations else []
+                ),  # Convert set to list
             }
         )
 
@@ -162,6 +160,24 @@ class NostrProfile(Profile):
     def __hash__(self) -> int:
         return hash(str(self.public_key.to_bech32()))
 
+    def to_dict(self) -> dict:
+        """
+        Returns a dictionary representation of the NostrProfile.
+
+        Returns:
+            dict: dictionary representation of the NostrProfile
+        """
+        return {
+            "profile_url": self.profile_url,
+            "public_key": self.public_key.to_bech32(),
+            "locations": list(self.locations),  # Convert set to list
+            "name": self.name,
+            "display_name": self.display_name,
+            "about": self.about,
+            "picture": self.picture,
+            "website": self.website,
+        }
+
 
 class AgentProfile(Profile):
     """
@@ -169,8 +185,6 @@ class AgentProfile(Profile):
     """
 
     WEB_URL: str = "https://primal.net/p/"
-    profile_url: str
-    keys: Keys
 
     def __init__(self, keys: Keys) -> None:
         super().__init__()
@@ -219,8 +233,8 @@ class MerchantProduct(BaseModel):
     price: float
     quantity: int
     shipping: List[ShippingCost]
-    categories: Optional[List[str]] = []
-    specs: Optional[List[List[str]]] = []
+    categories: List[str] = Field(default_factory=list)
+    specs: List[List[str]] = Field(default_factory=list)
 
     @classmethod
     def from_product_data(cls, product_data: "ProductData") -> "MerchantProduct":

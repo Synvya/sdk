@@ -26,7 +26,10 @@ def _map_location_to_geohash(location: str) -> str:
     Returns:
         str: geohash of the location or empty string if location is not found
     """
-    return "C23Q7U36W"
+    if "snoqualmie" in location.lower():
+        return "C23Q7U36W"
+    else:
+        return ""
 
 
 class BuyerTools(Toolkit):
@@ -104,7 +107,7 @@ class BuyerTools(Toolkit):
         for seller in self.sellers:
             if seller.get_name() == name:
                 response = seller.to_json()
-                self._store_response_in_knowledge_base(response)
+                # self._store_response_in_knowledge_base(response)
                 return response
         response = json.dumps({"status": "error", "message": "Seller not found"})
         self._store_response_in_knowledge_base(response)
@@ -122,7 +125,7 @@ class BuyerTools(Toolkit):
         for seller in self.sellers:
             if seller.get_public_key() == public_key:
                 response = seller.to_json()
-                self._store_response_in_knowledge_base(response)
+                # self._store_response_in_knowledge_base(response)
                 return response
         response = json.dumps({"status": "error", "message": "Seller not found"})
         self._store_response_in_knowledge_base(response)
@@ -137,28 +140,32 @@ class BuyerTools(Toolkit):
         Returns:
             str: list of seller profile json strings or error message
         """
-        sellers = []
+        sellers: set[NostrProfile] = set()
         geohash = _map_location_to_geohash(location)
+        # print(f"find_sellers_by_location: geohash: {geohash}")
 
         if not geohash:
             response = json.dumps({"status": "error", "message": "Invalid location"})
-            self._store_response_in_knowledge_base(response)
             return response
 
         # Find sellers in the same geohash
         for seller in self.sellers:
             if geohash in seller.get_locations():
-                sellers.append(seller.to_json())
+                # print(
+                #     f"geohash {geohash} found in seller {seller.get_name()} with locations {seller.get_locations()}"
+                # )
+                sellers.add(seller)
 
         if not sellers:
             response = json.dumps(
                 {"status": "error", "message": f"No sellers found near {location}"}
             )
-            self._store_response_in_knowledge_base(response)
             return response
 
-        response = json.dumps(sellers)
+        response = json.dumps([seller.to_dict() for seller in sellers])
+        # print("find_sellers_by_location: storing response in knowledge base")
         self._store_response_in_knowledge_base(response)
+        # print(f"Found {len(sellers)} sellers near {location}")
         return response
 
     def get_profile(self) -> str:
@@ -178,7 +185,7 @@ class BuyerTools(Toolkit):
             str: Nostr relay
         """
         response = self.relay
-        self._store_response_in_knowledge_base(response)
+        # self._store_response_in_knowledge_base(response)
         return response
 
     def get_seller_stalls(self, public_key: str) -> str:
@@ -199,7 +206,6 @@ class BuyerTools(Toolkit):
             return response
         except Exception as e:
             response = json.dumps({"status": "error", "message": str(e)})
-            self._store_response_in_knowledge_base(response)
             return response
 
     def get_seller_count(self) -> str:
@@ -209,7 +215,6 @@ class BuyerTools(Toolkit):
             str: JSON string with status and count of sellers
         """
         response = json.dumps({"status": "success", "count": len(self.sellers)})
-        self._store_response_in_knowledge_base(response)
         return response
 
     def get_seller_products(self, public_key: str) -> str:
@@ -225,13 +230,12 @@ class BuyerTools(Toolkit):
             products = self._nostr_client.retrieve_products_from_seller(
                 PublicKey.parse(public_key)
             )
-            # print(f"Raw products data: {products}")  # Add this debug line
+
             response = json.dumps([product.to_dict() for product in products])
             self._store_response_in_knowledge_base(response)
             return response
         except Exception as e:
             response = json.dumps({"status": "error", "message": str(e)})
-            self._store_response_in_knowledge_base(response)
             return response
 
     def get_sellers(self) -> str:
@@ -246,7 +250,6 @@ class BuyerTools(Toolkit):
         if not self.sellers:
             self._refresh_sellers()
         response = json.dumps([seller.to_json() for seller in self.sellers])
-        self._store_response_in_knowledge_base(response)
         return response
 
     def refresh_sellers(self) -> str:
@@ -257,7 +260,6 @@ class BuyerTools(Toolkit):
         """
         self._refresh_sellers()
         response = json.dumps({"status": "success", "count": len(self.sellers)})
-        self._store_response_in_knowledge_base(response)
         return response
 
     def _refresh_sellers(self) -> None:
@@ -274,6 +276,10 @@ class BuyerTools(Toolkit):
         else:
             self.logger.info(f"Found {len(sellers)} sellers")
 
+        # Print the locations of the sellers
+        # for seller in sellers:
+        #     print(f"Seller {seller.get_name()} has locations {seller.get_locations()}")
+
         self.sellers = sellers
 
     def _store_response_in_knowledge_base(self, response: str) -> None:
@@ -281,4 +287,5 @@ class BuyerTools(Toolkit):
             id=str(uuid4()),
             content=response,
         )
+        print(f"Document length: {len(doc.content.split())} words")
         self.knowledge_base.load_documents([doc])  # Store response in Cassandra

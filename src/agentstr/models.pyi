@@ -1,5 +1,5 @@
 from logging import Logger
-from typing import ClassVar, List, Optional
+from typing import ClassVar, List, Optional, Set
 
 from nostr_sdk import (
     Keys,
@@ -23,7 +23,6 @@ class Profile:
     name: str
     picture: str
     website: str
-    locations: List[str]
 
     def __init__(self) -> None: ...
     def get_about(self) -> str: ...
@@ -54,52 +53,39 @@ class NostrProfile(Profile):
     public_key: PublicKey
     profile_url: str
     WEB_URL: ClassVar[str]
+    locations: Set[str]
 
     def __init__(self, public_key: PublicKey) -> None: ...
-    def add_location(self, location: str) -> None: ...
     @classmethod
     def from_metadata(
         cls, metadata: Metadata, public_key: PublicKey
     ) -> "NostrProfile": ...
-    def get_locations(self) -> set[str]: ...
+    def add_location(self, location: str) -> None: ...
     def get_public_key(self) -> str: ...
+    def get_locations(self) -> Set[str]: ...
     def get_profile_url(self) -> str: ...
     def get_zip_codes(self) -> List[str]: ...
     def to_json(self) -> str: ...
     def __eq__(self, other: object) -> bool: ...
     def __hash__(self) -> int: ...
 
-class MerchantProduct:
+class MerchantProduct(BaseModel):
     id: str
     stall_id: str
     name: str
     description: str
     images: List[str]
     currency: str
-    price: int
+    price: float
     quantity: int
     shipping: List[ShippingCost]
-    categories: Optional[List[str]]
-    specs: Optional[List[List[str]]]
+    categories: List[str]
+    specs: List[List[str]]
 
-    def __init__(
-        self,
-        id: str,
-        stall_id: str,
-        name: str,
-        description: str,
-        images: List[str],
-        currency: str,
-        price: int,
-        quantity: int,
-        shipping: List[ShippingCost],
-        categories: Optional[List[str]] = None,
-        specs: Optional[List[List[str]]] = None,
-    ) -> None: ...
-    def get_data(self) -> ProductData: ...
-    def to_dict(self) -> dict: ...
     @classmethod
     def from_product_data(cls, product_data: ProductData) -> "MerchantProduct": ...
+    def to_product_data(self) -> ProductData: ...
+    def to_dict(self) -> dict: ...
 
 class MerchantStall(BaseModel):
     id: str

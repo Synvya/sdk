@@ -3,7 +3,7 @@ import logging
 import traceback
 from datetime import timedelta
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 
 from agentstr.models import MerchantProduct, MerchantStall, NostrProfile
 
@@ -35,6 +35,7 @@ try:
         StallData,
         Tag,
         TagKind,
+        TagStandard,
         Timestamp,
     )
 
@@ -245,44 +246,61 @@ class NostrClient:
         Returns:
             set[NostrProfile]: set of seller profiles (skips authors with missing metadata)
         """
-        sellers = set()  # set of NostrProfiles
-        authors_to_locations: Dict[PublicKey, List[str]] = {}
+
+        sellers: set[NostrProfile] = set()
 
         # First we retrieve all stalls from the relay
+
         try:
             events = asyncio.run(self._async_retrieve_all_stalls())
         except Exception as e:
             raise RuntimeError(f"Failed to retrieve stalls: {e}")
 
         # Now we search for unique npubs from the list of stalls
-        # Locations are stored in the tags of the stall event so we need to extract them now
+
         events_list = events.to_vec()
+        authors: Dict[PublicKey, NostrProfile] = {}
 
         for event in events_list:
             if event.kind() == Kind(30017):
-                author = event.author()
-                locations = []
-                tags = event.tags().to_vec()
-                for tag in tags:
-                    if tag.kind() == TagKind.SINGLE_LETTER(
-                        SingleLetterTag.lowercase(Alphabet.G)
-                    ):
-                        locations.append(tag.content())
-                authors_to_locations[author] = locations
+                # Is this event the first time we see this author?
+                if event.author() not in authors:
+                    # First time we see this author. Let's add the profile to the dictionary
+                    try:
+                        profile = asyncio.run(
+                            self._async_retrieve_profile(event.author())
+                        )
+                        # Add the profile to the dictionary, associating it with the author's PublicKey
+                        authors[event.author()] = profile
+                    except Exception as e:
+                        # print(
+                        #     f"Failed to retrieve profile for {event.author().to_bech32()}: {e}"
+                        # )
+                        continue
 
-        # Retrieve the profiles and build the set of merchants
-        # print(f"authors_to_locations: {authors_to_locations}")
-        for author in authors_to_locations:
-            try:
-                profile = asyncio.run(self._async_retrieve_profile(author))
-                for location in authors_to_locations[author]:
-                    profile.add_location(location)
-                sellers.add(profile)
-            except Exception as e:
-                # print(f"Skipping author - failed to retrieve metadata: {e}")
-                continue
+                # Now we add locations from the event locations to the profile
 
-        return sellers
+                for tag in event.tags().to_vec():
+                    standardized_tag = tag.as_standardized()
+                    if isinstance(standardized_tag, TagStandard.GEOHASH):
+                        string_repr = str(standardized_tag)
+                        extracted_geohash = string_repr.split("=")[1].rstrip(
+                            ")"
+                        )  # Splitting and removing the closing parenthesis
+                        # print(
+                        #     f"Adding location {extracted_geohash} to profile {authors[event.author()].get_name()}"
+                        # )
+                        profile = authors[event.author()]
+                        profile.add_location(extracted_geohash)
+                        authors[event.author()] = profile
+                        # print(
+                        #     f"New locations for {authors[event.author()].get_name()}: {authors[event.author()].get_locations()}"
+                        # )
+                    # else:
+                    #     print(f"Unknown tag: {standardized_tag}")
+
+        # once we're done iterating over the events, we return the set of profiles
+        return set(authors.values())
 
     def retrieve_stalls_from_seller(self, seller: PublicKey) -> List[StallData]:
         """

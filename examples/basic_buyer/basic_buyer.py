@@ -1,14 +1,14 @@
 import logging
+import warnings
 from os import getenv
 from pathlib import Path
-from uuid import uuid4
 
 from agno.agent import Agent, AgentKnowledge  # type: ignore
-from agno.document.base import Document
 from agno.embedder.openai import OpenAIEmbedder
 from agno.models.openai import OpenAIChat  # type: ignore
 from agno.vectordb.cassandra import Cassandra
 from cassandra.cluster import Cluster
+from cassandra.policies import RoundRobinPolicy
 from dotenv import load_dotenv
 
 from agentstr.buyer import BuyerTools
@@ -17,6 +17,10 @@ from agentstr.nostr import Keys, generate_and_save_keys
 
 # Set logging to WARN level to suppress INFO logs
 logging.basicConfig(level=logging.WARN)
+
+# Configure logging first
+logging.getLogger("cassandra").setLevel(logging.ERROR)
+warnings.filterwarnings("ignore", category=UserWarning, module="cassandra")
 
 
 # Environment variables
@@ -60,9 +64,13 @@ profile.set_about(DESCRIPTION)
 profile.set_display_name(DISPLAY_NAME)
 profile.set_picture(PICTURE)
 
-# Set up Cassandra DB
-
-cluster = Cluster(["127.0.0.1"], port=9042)
+# Initialize Cluster with recommended settings
+cluster = Cluster(
+    ["127.0.0.1"],
+    port=9042,
+    protocol_version=5,  # Verify your Cassandra version
+    load_balancing_policy=RoundRobinPolicy(),
+)
 
 session = cluster.connect()
 
@@ -122,7 +130,7 @@ knowledge_base = AgentKnowledge(
 
 buyer = Agent(  # type: ignore[call-arg]
     name=f"AI Agent for {profile.get_name()}",
-    model=OpenAIChat(id="gpt-4o", api_key=openai_api_key),
+    model=OpenAIChat(id="gpt-4o-mini", api_key=openai_api_key),
     tools=[
         BuyerTools(knowledge_base=knowledge_base, buyer_profile=profile, relay=relay)
     ],
@@ -135,7 +143,28 @@ buyer = Agent(  # type: ignore[call-arg]
     debug_mode=False,
     # async_mode=True,
     instructions=[
-        """Search the knowledge base for the most relevant information to the query before using the tools.
+        """
+        You're an AI assistant for people visiting a place. You will help them find things
+        to do, places to go, and things to buy using exclusively the information provided by
+        BuyerTools and stored in your knowledge base.
+        
+        When I ask you to refresh your sellers, use the refresh_sellers tool.
+        
+        Search the knowledge base for the most relevant information to the query before using the tools.
+        
+        When possible, connect multiple activities to create an itinerary. The itinerary
+        can be for a few hours. It doesn't need to be a full day.
+
+        After using the tool find_sellers_by_location, always immediately call the tool 
+        get_seller_products to retrieve the products from the merchants in that location
+        and include the products in the itinerary.
+        
+        Only include in the itinerary merchants that are in your knowledge base.
+                
+        When including merchants from your knowledge base in your response, make sure to 
+        include their products and services in the itinerary with times providing also info
+        on the price. Offer to purchase the products or make a reservation and then include
+        this in your overall response.
         """.strip(),
     ],
 )
@@ -143,15 +172,15 @@ buyer = Agent(  # type: ignore[call-arg]
 
 # Command-line interface with response storage
 def buyer_cli() -> None:
-    print("\n🔹 Buyer Agent CLI (Type 'exit' to quit)\n")
+    print("\n🔹 Snoqualmie Valley Visitor Assistant (Type 'exit' to quit)\n")
     while True:
         user_query = input("💬 You: ")
         if user_query.lower() in ["exit", "quit"]:
-            print("\n👋 Exiting Buyer Agent CLI. Goodbye!\n")
+            print("\n👋 Goodbye!\n")
             break
 
         response = buyer.run(user_query)  # Get response from agent
-        print(f"\n🤖 Buyer Agent: {response.get_content_as_string()}\n")
+        print(f"\n🤖 Visitor Assistant: {response.get_content_as_string()}\n")
 
 
 # Run the CLI

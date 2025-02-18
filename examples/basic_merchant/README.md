@@ -58,7 +58,10 @@ python basic_merchant.py
 ```
 
 Ask the merchant agent to do the following for you:
+- Publish the merchant profile
 - Publish all stalls 
 - Publish all products
+
+Some times, network issues prevent the agent from pubilshing all products. If this happens, ask the agent to publish again the products that failed, waiting one second in between each product. 
 
 Now the merchant is ready to go!

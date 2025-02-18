@@ -29,7 +29,7 @@ NAME = "Merchant Test Profile"
 DESCRIPTION = "A merchant test profile"
 PICTURE = "https://i.nostr.build/ocjZ5GlAKwrvgRhx.png"
 CURRENCY = "Sats"
-GEOHASH = "C23Q7U36W"
+GEOHASH = "000000000"
 
 shipping_methods = [
     ShippingMethod(id="64be11rM", cost=10000)
@@ -77,8 +77,8 @@ products = [
         price=5000,
         quantity=100,
         shipping=[shipping_costs[0], shipping_costs[1]],
-        specs=None,
-        categories=None,
+        specs=[["length", "10cm"], ["material", "steel"]],
+        categories=["hardware", "tools"],
     ),
     MerchantProduct(
         id="bcf00Rx8",
@@ -90,6 +90,8 @@ products = [
         price=10000,
         quantity=10,
         shipping=[shipping_costs[0], shipping_costs[1]],
+        specs=[["length", "100 cm"], ["material", "steel"]],
+        categories=["hardware", "tools"],
     ),
     MerchantProduct(
         id="ccf00Rx1",
@@ -101,6 +103,8 @@ products = [
         price=1000,
         quantity=1000,
         shipping=[shipping_costs[2]],
+        specs=[["type", "online"], ["media", "video"]],
+        categories=["education", "hardware tools"],
     ),
 ]
 

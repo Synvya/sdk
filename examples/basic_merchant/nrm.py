@@ -31,14 +31,9 @@ NRM_CURRENCY = "USD"
 NRM_GEOHASH = "C23Q7U36W"
 
 # --*-- Stall for ride at 11am
-NRM_STALL_NAME = "Ride the Train"
+NRM_STALL_NAME = "Northwest Railway Museum"
 NRM_STALL_ID = "312au4Pi"  # "212a26qV"
 NRM_STALL_DESCRIPTION = """
-Welcome to the Northwest Railway Museum where you can experience 
-how The Railway Changed Everything. Snoqualmie Depot & Bookstore 
-open 10am-5pm, 7 days a week (closed Christmas and New Years Day). 
-No cost to visit the Depot and grounds. 
-
 Ride the Snoqualmie Valley Railroad aboard historic coaches through the Upper Snoqualmie
 Valley along 5.5 miles of the original 1880s Seattle, Lake Shore and Eastern Railway line.
 Enjoy a 2-hour round trip excursion from either Snoqualmie Depot or North Bend Depot.
@@ -119,8 +114,8 @@ nrm_11am_adult_ticket = MerchantProduct(
     price=NRM_ADULT_PRICE,
     quantity=NRM_QUANTITY,
     shipping=[shipping_cost_nrm],
-    categories=None,
-    specs=[],
+    categories=["tourism", "train"],
+    specs=[["11am"], ["adult"]],
 )
 
 nrm_1pm_adult_ticket = MerchantProduct(
@@ -133,8 +128,8 @@ nrm_1pm_adult_ticket = MerchantProduct(
     price=NRM_ADULT_PRICE,
     quantity=NRM_QUANTITY,
     shipping=[shipping_cost_nrm],
-    categories=None,
-    specs=[],
+    categories=["tourism", "train"],
+    specs=[["1pm"], ["adult"]],
 )
 
 nrm_3pm_adult_ticket = MerchantProduct(
@@ -147,9 +142,10 @@ nrm_3pm_adult_ticket = MerchantProduct(
     price=NRM_ADULT_PRICE,
     quantity=NRM_QUANTITY,
     shipping=[shipping_cost_nrm],
-    categories=None,
-    specs=[],
+    categories=["tourism", "train"],
+    specs=[["3pm"], ["adult"]],
 )
+
 nrm_11am_child_ticket = MerchantProduct(
     id=NRM_CHILD_ID + "_11am",
     stall_id=NRM_STALL_ID,
@@ -160,8 +156,8 @@ nrm_11am_child_ticket = MerchantProduct(
     price=NRM_CHILD_PRICE,
     quantity=NRM_QUANTITY,
     shipping=[shipping_cost_nrm],
-    categories=None,
-    specs=[],
+    categories=["tourism", "train"],
+    specs=[["11am"], ["child"]],
 )
 
 nrm_1pm_child_ticket = MerchantProduct(
@@ -174,8 +170,8 @@ nrm_1pm_child_ticket = MerchantProduct(
     price=NRM_CHILD_PRICE,
     quantity=NRM_QUANTITY,
     shipping=[shipping_cost_nrm],
-    categories=None,
-    specs=[],
+    categories=["tourism", "train"],
+    specs=[["1pm"], ["child"]],
 )
 
 nrm_3pm_child_ticket = MerchantProduct(
@@ -188,8 +184,8 @@ nrm_3pm_child_ticket = MerchantProduct(
     price=NRM_CHILD_PRICE,
     quantity=NRM_QUANTITY,
     shipping=[shipping_cost_nrm],
-    categories=None,
-    specs=[],
+    categories=["tourism", "train"],
+    specs=[["3pm"], ["child"]],
 )
 
 nrm_11am_senior_ticket = MerchantProduct(
@@ -202,8 +198,8 @@ nrm_11am_senior_ticket = MerchantProduct(
     price=NRM_SENIOR_PRICE,
     quantity=NRM_QUANTITY,
     shipping=[shipping_cost_nrm],
-    categories=None,
-    specs=[],
+    categories=["tourism", "train"],
+    specs=[["11am"], ["senior"]],
 )
 
 nrm_1pm_senior_ticket = MerchantProduct(
@@ -216,8 +212,8 @@ nrm_1pm_senior_ticket = MerchantProduct(
     price=NRM_SENIOR_PRICE,
     quantity=NRM_QUANTITY,
     shipping=[shipping_cost_nrm],
-    categories=None,
-    specs=[],
+    categories=["tourism", "train"],
+    specs=[["1pm"], ["senior"]],
 )
 
 nrm_3pm_senior_ticket = MerchantProduct(
@@ -230,8 +226,8 @@ nrm_3pm_senior_ticket = MerchantProduct(
     price=NRM_SENIOR_PRICE,
     quantity=NRM_QUANTITY,
     shipping=[shipping_cost_nrm],
-    categories=None,
-    specs=[],
+    categories=["tourism", "train"],
+    specs=[["3pm"], ["senior"]],
 )
 
 
