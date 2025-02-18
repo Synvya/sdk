@@ -27,7 +27,9 @@ def test_find_sellers_by_location(
 
 
 def test_find_seller_by_name(
-    buyer_tools: BuyerTools, merchant_profile_name: str
+    buyer_tools: BuyerTools,
+    merchant_profile_name: str,
+    seller_nostr_profile: NostrProfile,
 ) -> None:
     result = buyer_tools.find_seller_by_name(merchant_profile_name)
     assert result is not None

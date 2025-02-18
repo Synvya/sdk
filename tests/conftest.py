@@ -328,7 +328,7 @@ def buyer_tools(
 ) -> BuyerTools:
     """Create a Buyer instance for testing"""
     buyer_tools = BuyerTools(mock_knowledge_base, buyer_profile, relay)
-    buyer_tools.get_sellers()  # gets a new list since the BuyerTools instance is new
+    buyer_tools.sellers = [seller_nostr_profile]
     return buyer_tools
 
 

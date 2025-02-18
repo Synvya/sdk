@@ -1,5 +1,6 @@
 import json
 import logging
+import traceback
 from datetime import timedelta
 from pathlib import Path
 from typing import Dict, List, Optional
@@ -331,6 +332,10 @@ class NostrClient:
         Raises:
             RuntimeError: if the relay can't be connected to
         """
+
+        print("=== _async_connect() called ===")
+        traceback.print_stack()
+
         if not self.connected:
             try:
                 await self.client.add_relay(self.relay)
