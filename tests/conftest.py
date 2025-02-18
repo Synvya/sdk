@@ -167,7 +167,11 @@ def profile_event_id(merchant_keys: Keys) -> EventId:
 @pytest.fixture
 def seller_nostr_profile(merchant_keys: Keys) -> NostrProfile:
     """Create a NostrProfile instance for tests"""
-    return NostrProfile(merchant_keys.public_key())
+    nostr_profile = NostrProfile(merchant_keys.public_key())
+    nostr_profile.set_name(merchant_profile_name)
+    nostr_profile.set_about(merchant_profile_about)
+    nostr_profile.set_picture(merchant_profile_picture)
+    return nostr_profile
 
 
 @pytest.fixture(scope="session")

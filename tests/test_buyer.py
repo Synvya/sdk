@@ -21,8 +21,8 @@ def test_buyer_profile_creation(
 def test_find_sellers_by_location(
     buyer_tools: BuyerTools, merchant_location: str, merchant_profile_name: str
 ) -> None:
-    with patch.object(
-        buyer_tools, "_map_location_to_geohash"
+    with patch(
+        "agentstr.buyer._map_location_to_geohash"
     ) as mock_map_location_to_geohash:
         mock_map_location_to_geohash.return_value = "000000000"
 
