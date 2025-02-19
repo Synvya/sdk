@@ -162,8 +162,9 @@ buyer = Agent(  # type: ignore[call-arg]
         Only include in the itinerary merchants that are in your knowledge base.
                 
         When including merchants from your knowledge base in your response, make sure to 
-        include their products and services in the itinerary with times providing also info
-        on the price. Offer to purchase the products or make a reservation and then include
+        include their products and services in the itinerary with the current times based
+        on product information. Provide also the price of the products and services.
+        Offer to purchase the products or make a reservation and then include
         this in your overall response.
         """.strip(),
     ],
