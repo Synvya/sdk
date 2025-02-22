@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "agentstr"
-version = "0.1.12"
-description = "Nostr extension for Agno AI agents"
+version = "0.1.13"
+description = "Tools for a Nostr agentic ecosystem"
 readme = "README.md"
 requires-python = ">=3.9, <3.13"
 license = { text = "MIT" }

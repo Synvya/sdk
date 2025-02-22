@@ -1,0 +1,30 @@
+services:
+  cassandra-db:
+    image: cassandra:latest
+    container_name: cassandra-db
+    ports:
+      - "9042:9042"
+    # Optional volume for persistent data
+    volumes:
+      - cassandra_data:/var/lib/cassandra/data
+    healthcheck:
+      test: [ "CMD", "cqlsh", "-e", "describe keyspaces", "127.0.0.1" ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
+  buyer-app:
+    build: .
+    container_name: buyer-app
+    # Ensure the app starts after Cassandra is reachable
+    depends_on:
+      cassandra-db:
+        condition: service_healthy
+    env_file:
+      - .env
+    ports:
+      - "8000:8000"
+
+volumes:
+  cassandra_data:

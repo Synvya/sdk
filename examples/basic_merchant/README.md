@@ -35,7 +35,7 @@ python basic_merchant.py
 
 ## Usage
 
-You can skip the RELAY and NSEC_BASIC_MERCHANT_KEY environment variables from the .env file:
+You can skip the RELAY and MERCHANT_AGENT_KEY environment variables from the .env file:
 - The example will create a new private key for you and store it in the .env file for subsequent runs.
 - The default relay wss://relay.damus.io will be used.
 

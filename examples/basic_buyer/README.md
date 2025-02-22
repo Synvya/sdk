@@ -36,9 +36,11 @@ pip install -r requirements.txt
 
 3. Copy `.env.example` to `.env` and fill in your keys:
 
-If you don't have keys, just skip this step: 
+You can skip the RELAY and BUYER_AGENT_KEY environment variables from the .env file:
 - The example will create a new private key for you and store it in the .env file for subsequent runs.
 - The default relay wss://relay.damus.io will be used.
+
+You WILL need an OpenAI API key.
 
 ```bash
 cp .env.example .env

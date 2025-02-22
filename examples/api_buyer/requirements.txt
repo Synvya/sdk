@@ -1,0 +1,4 @@
+agentstr
+python-dotenv
+fastapi
+uvicorn
