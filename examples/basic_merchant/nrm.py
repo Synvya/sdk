@@ -1,13 +1,21 @@
-## --*-- NorthWest Railway Museum Profile Sample Data --*--
-################
+"""
+Sample data for the NorthWest Railway Museum merchant.
+"""
 
 from os import getenv
 from pathlib import Path
 
 from dotenv import load_dotenv
 
-from agentstr.models import AgentProfile, MerchantProduct, MerchantStall
-from agentstr.nostr import Keys, ShippingCost, ShippingMethod, generate_and_save_keys
+from agentstr import (
+    AgentProfile,
+    Keys,
+    MerchantProduct,
+    MerchantStall,
+    ShippingCost,
+    ShippingMethod,
+    generate_and_save_keys,
+)
 
 ENV_KEY = "NRM_AGENT_KEY"
 
@@ -17,16 +25,19 @@ script_dir = Path(__file__).parent
 load_dotenv(script_dir / ".env")
 
 # Load or generate keys
-nsec = getenv(ENV_KEY)
-if nsec is None:
+NSEC = getenv(ENV_KEY)
+if NSEC is None:
     keys = generate_and_save_keys(env_var=ENV_KEY, env_path=script_dir / ".env")
 else:
-    keys = Keys.parse(nsec)
+    keys = Keys.parse(NSEC)
 
 # --*-- Merchant info
 NRM_NAME = "Northwest Railway Museum"
-NRM_DESCRIPTION = "Welcome to the Northwest Railway Museum where you can experience how The Railway Changed Everything"
-NRM_PICTURE = "https://trainmuseum.org/wp-content/uploads/2023/08/nrm-logo.png"
+NRM_DESCRIPTION = (
+    "Welcome to the Northwest Railway Museum where you can experience "
+    "how The Railway Changed Everything"
+)
+NRM_PICTURE = "https://i.nostr.build/28hnTgnW4U4H8hRJ.png"
 NRM_CURRENCY = "USD"
 NRM_GEOHASH = "C23Q7U36W"
 
@@ -65,7 +76,7 @@ NRM_SHIPPING_ZONE_ID = "74be11rN"
 NRM_SHIPPING_ZONE_REGIONS = ["Pickup tickets at the Will Call window at the Depot"]
 
 # --*-- NRM Product info
-NRM_PRODUCT_IMAGE = "https://shop.trainmuseum.org/ItemImages/E1000066_1.jpg"
+NRM_PRODUCT_IMAGE = "https://i.nostr.build/srxfrslKwn5AgZzX.png"
 NRM_QUANTITY = 90
 
 NRM_ADULT_NAME = "Ride the Train Adult Ticket"

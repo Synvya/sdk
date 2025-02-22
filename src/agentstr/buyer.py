@@ -1,17 +1,24 @@
+"""
+Module implementing the BuyerTools Toolkit for Agno agents.
+"""
+
 import json
 import logging
 from uuid import uuid4
 
-from agno.agent import AgentKnowledge  # type: ignore
-from agno.document.base import Document
+from pydantic import ConfigDict
 
 from agentstr.models import AgentProfile, NostrProfile
 from agentstr.nostr import NostrClient, PublicKey
 
 try:
+    from agno.agent import AgentKnowledge  # type: ignore
+    from agno.document.base import Document
     from agno.tools import Toolkit
-except ImportError:
-    raise ImportError("`agno` not installed. Please install using `pip install agno`")
+except ImportError as exc:
+    raise ImportError(
+        "`agno` not installed. Please install using `pip install agno`"
+    ) from exc
 
 
 def _map_location_to_geohash(location: str) -> str:
@@ -21,20 +28,22 @@ def _map_location_to_geohash(location: str) -> str:
     TBD: Implement this function. Returning a fixed geohash for now.
 
     Args:
-        location: location to map to a geohash. Can be a zip code, city, state, country, or latitude and longitude.
+        location: location to map to a geohash. Can be a zip code, city,
+        state, country, or latitude and longitude.
 
     Returns:
         str: geohash of the location or empty string if location is not found
     """
     if "snoqualmie" in location.lower():
         return "C23Q7U36W"
-    else:
-        return ""
+
+    return ""
 
 
 class BuyerTools(Toolkit):
     """
-    BuyerTools is a toolkit that allows an agent to find sellers and transact with them over Nostr.
+    BuyerTools is a toolkit that allows an agent to find sellers and
+    transact with them over Nostr.
 
     Sellers are downloaded from the Nostr relay and cached.
     Sellers can be found by name or public key.
@@ -43,8 +52,6 @@ class BuyerTools(Toolkit):
 
     TBD: populate the sellers locations with info from stalls.
     """
-
-    from pydantic import ConfigDict
 
     model_config = ConfigDict(
         arbitrary_types_allowed=True, extra="allow", validate_assignment=True
@@ -92,8 +99,13 @@ class BuyerTools(Toolkit):
 
         Args:
             product: JSON string with product to purchase
+
+        Returns:
+            str: JSON string with status and message
         """
-        return json.dumps({"status": "success", "message": "Product purchased"})
+        return json.dumps(
+            {"status": "success", "message": f"Product {product} purchased"}
+        )
 
     def find_seller_by_name(self, name: str) -> str:
         """Find a seller by name.
@@ -151,9 +163,6 @@ class BuyerTools(Toolkit):
         # Find sellers in the same geohash
         for seller in self.sellers:
             if geohash in seller.get_locations():
-                # print(
-                #     f"geohash {geohash} found in seller {seller.get_name()} with locations {seller.get_locations()}"
-                # )
                 sellers.add(seller)
 
         if not sellers:
@@ -165,8 +174,16 @@ class BuyerTools(Toolkit):
         response = json.dumps([seller.to_dict() for seller in sellers])
         # print("find_sellers_by_location: storing response in knowledge base")
         self._store_response_in_knowledge_base(response)
-        # print(f"Found {len(sellers)} sellers near {location}")
+        self.logger.info("Found %d sellers", len(sellers))
         return response
+
+    def get_nostr_client(self) -> NostrClient:
+        """Get the Nostr client.
+
+        Returns:
+            NostrClient: Nostr client
+        """
+        return self._nostr_client
 
     def get_profile(self) -> str:
         """Get the Nostr profile of the buyer agent.
@@ -204,7 +221,7 @@ class BuyerTools(Toolkit):
             response = json.dumps([stall.as_json() for stall in stalls])
             self._store_response_in_knowledge_base(response)
             return response
-        except Exception as e:
+        except RuntimeError as e:
             response = json.dumps({"status": "error", "message": str(e)})
             return response
 
@@ -234,7 +251,7 @@ class BuyerTools(Toolkit):
             response = json.dumps([product.to_dict() for product in products])
             self._store_response_in_knowledge_base(response)
             return response
-        except Exception as e:
+        except RuntimeError as e:
             response = json.dumps({"status": "error", "message": str(e)})
             return response
 
@@ -265,7 +282,8 @@ class BuyerTools(Toolkit):
     def _refresh_sellers(self) -> None:
         """
         Internal fucntion to retrieve a new list of sellers from the Nostr relay.
-        The old list is discarded and the new list only contains unique sellers currently stored at the relay.
+        The old list is discarded and the new list only contains unique sellers
+        currently stored at the relay.
 
         Returns:
             List[NostrProfile]: List of Nostr profiles of all sellers.
@@ -274,11 +292,7 @@ class BuyerTools(Toolkit):
         if len(sellers) == 0:
             self.logger.info("No sellers found")
         else:
-            self.logger.info(f"Found {len(sellers)} sellers")
-
-        # Print the locations of the sellers
-        # for seller in sellers:
-        #     print(f"Seller {seller.get_name()} has locations {seller.get_locations()}")
+            self.logger.info("Found %d sellers", len(sellers))
 
         self.sellers = sellers
 

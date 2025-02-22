@@ -1,3 +1,7 @@
+"""
+Basic buyer agent example.
+"""
+
 import logging
 import warnings
 from os import getenv
@@ -11,9 +15,7 @@ from cassandra.cluster import Cluster
 from cassandra.policies import RoundRobinPolicy
 from dotenv import load_dotenv
 
-from agentstr.buyer import BuyerTools
-from agentstr.models import AgentProfile
-from agentstr.nostr import Keys, generate_and_save_keys
+from agentstr import AgentProfile, BuyerTools, Keys, generate_and_save_keys
 
 # Set logging to WARN level to suppress INFO logs
 logging.basicConfig(level=logging.WARN)
@@ -40,20 +42,20 @@ script_dir = Path(__file__).parent
 load_dotenv(script_dir / ".env")
 
 # Load or generate keys
-nsec = getenv(ENV_KEY)
-if nsec is None:
+NSEC = getenv(ENV_KEY)
+if NSEC is None:
     keys = generate_and_save_keys(env_var=ENV_KEY, env_path=script_dir / ".env")
 else:
-    keys = Keys.parse(nsec)
+    keys = Keys.parse(NSEC)
 
 
 # Load or use default relay
-relay = getenv(ENV_RELAY)
-if relay is None:
-    relay = DEFAULT_RELAY
+RELAY = getenv(ENV_RELAY)
+if RELAY is None:
+    RELAY = DEFAULT_RELAY
 
-openai_api_key = getenv("OPENAI_API_KEY")
-if openai_api_key is None:
+OPENAI_API_KEY = getenv("OPENAI_API_KEY")
+if OPENAI_API_KEY is None:
     raise ValueError("OPENAI_API_KEY is not set")
 # print(f"OpenAI API key: {openai_api_key}")
 
@@ -101,8 +103,15 @@ session.execute(
       AND caching = {'keys': 'ALL', 'rows_per_partition': 'NONE'}
       AND cdc = false
       AND comment = ''
-      AND compaction = {'class': 'org.apache.cassandra.db.compaction.SizeTieredCompactionStrategy', 'max_threshold': '32', 'min_threshold': '4'}
-      AND compression = {'chunk_length_in_kb': '16', 'class': 'org.apache.cassandra.io.compress.LZ4Compressor'}
+      AND compaction = {
+          'class': 'org.apache.cassandra.db.compaction.SizeTieredCompactionStrategy',
+          'max_threshold': '32',
+          'min_threshold': '4'
+      }
+      AND compression = {
+          'chunk_length_in_kb': '16',
+          'class': 'org.apache.cassandra.io.compress.LZ4Compressor'
+      }
       AND memtable = 'default'
       AND crc_check_chance = 1.0
       AND default_time_to_live = 0
@@ -130,9 +139,9 @@ knowledge_base = AgentKnowledge(
 
 buyer = Agent(  # type: ignore[call-arg]
     name=f"AI Agent for {profile.get_name()}",
-    model=OpenAIChat(id="gpt-4o-mini", api_key=openai_api_key),
+    model=OpenAIChat(id="gpt-4o-mini", api_key=OPENAI_API_KEY),
     tools=[
-        BuyerTools(knowledge_base=knowledge_base, buyer_profile=profile, relay=relay)
+        BuyerTools(knowledge_base=knowledge_base, buyer_profile=profile, relay=RELAY)
     ],
     add_history_to_messages=True,
     num_history_responses=10,
@@ -144,16 +153,18 @@ buyer = Agent(  # type: ignore[call-arg]
     # async_mode=True,
     instructions=[
         """
-        You're an AI assistant for people visiting a place. You will help them find things
-        to do, places to go, and things to buy using exclusively the information provided by
-        BuyerTools and stored in your knowledge base.
+        You're an AI assistant for people visiting a place. You will
+        help them find things to do, places to go, and things to buy
+        using exclusively the information provided by BuyerTools and
+        stored in your knowledge base.
         
         When I ask you to refresh your sellers, use the refresh_sellers tool.
         
-        Search the knowledge base for the most relevant information to the query before using the tools.
+        Search the knowledge base for the most relevant information to
+        the query before using the tools.
         
-        When possible, connect multiple activities to create an itinerary. The itinerary
-        can be for a few hours. It doesn't need to be a full day.
+        When possible, connect multiple activities to create an itinerary.
+        The itinerary can be for a few hours. It doesn't need to be a full day.
 
         After using the tool find_sellers_by_location, always immediately call the tool 
         get_seller_products to retrieve the products from the merchants in that location
@@ -162,8 +173,9 @@ buyer = Agent(  # type: ignore[call-arg]
         Only include in the itinerary merchants that are in your knowledge base.
                 
         When including merchants from your knowledge base in your response, make sure to 
-        include their products and services in the itinerary with the current times based
-        on product information. Provide also the price of the products and services.
+        include their products and services in the itinerary with the current times
+        based on product information. Provide also the price of the products and
+        services.
         Offer to purchase the products or make a reservation and then include
         this in your overall response.
         """.strip(),
@@ -171,8 +183,10 @@ buyer = Agent(  # type: ignore[call-arg]
 )
 
 
-# Command-line interface with response storage
 def buyer_cli() -> None:
+    """
+    Command-line interface for the buyer agent.
+    """
     print("\n🔹 Snoqualmie Valley Visitor Assistant (Type 'exit' to quit)\n")
     while True:
         user_query = input("💬 You: ")
@@ -186,6 +200,3 @@ def buyer_cli() -> None:
 
 # Run the CLI
 buyer_cli()
-
-# buyer.print_response("List the products of the merchant")
-# buyer.cli_app(stream=False)

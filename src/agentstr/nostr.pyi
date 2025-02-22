@@ -1,3 +1,13 @@
+"""
+Type stubs for the Nostr module.
+
+This file provides type annotations for the Nostr module, enabling better
+type checking and autocompletion in IDEs. It defines the expected types
+for classes, functions, and variables used within the Nostr module.
+
+Note: This is a type stub file and does not contain any executable code.
+"""
+
 from logging import Logger
 from pathlib import Path
 from typing import ClassVar, List, Optional
@@ -17,7 +27,6 @@ from nostr_sdk import (  # type: ignore
     ShippingCost,
     ShippingMethod,
     StallData,
-    Tag,
     Timestamp,
 )
 
@@ -41,6 +50,11 @@ __all__ = [
 ]
 
 class NostrClient:
+    """
+    NostrClient implements the set of Nostr utilities required for higher level functions
+    implementations like the Marketplace.
+    """
+
     logger: ClassVar[Logger]
     relay: str
     keys: Keys

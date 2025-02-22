@@ -1,5 +1,5 @@
 from logging import Logger
-from typing import ClassVar, List, Optional, Set
+from typing import ClassVar, List, Set
 
 from nostr_sdk import (
     Keys,

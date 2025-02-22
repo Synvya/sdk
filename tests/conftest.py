@@ -1,3 +1,7 @@
+"""
+This module contains the conftest file for the tests.
+"""
+
 import functools
 from os import getenv
 from pathlib import Path
@@ -5,20 +9,20 @@ from typing import List
 from unittest.mock import Mock
 
 import pytest
-from _pytest.config import Config
-from _pytest.main import Session
 from _pytest.nodes import Item
 from agno.agent import AgentKnowledge
 from dotenv import load_dotenv
 
-from agentstr.buyer import BuyerTools
-from agentstr.merchant import MerchantTools
-from agentstr.models import AgentProfile, MerchantProduct, MerchantStall, NostrProfile
-from agentstr.nostr import (
+from agentstr import (
+    AgentProfile,
+    BuyerTools,
     EventId,
     Keys,
     Kind,
-    NostrClient,
+    MerchantProduct,
+    MerchantStall,
+    MerchantTools,
+    NostrProfile,
     ShippingCost,
     ShippingMethod,
     Timestamp,
@@ -33,9 +37,7 @@ load_dotenv(script_dir / ".env")
 # Load or generate keys for test profiles
 
 
-def pytest_collection_modifyitems(
-    session: Session, config: Config, items: List[Item]
-) -> None:
+def pytest_collection_modifyitems(items: List[Item]) -> None:
     """Define the desired execution order of test files"""
     # Define the desired execution order of test files
     ordered_files = [
@@ -52,9 +54,9 @@ def pytest_collection_modifyitems(
     items.sort(key=lambda item: order_map.get(item.location[0], 100))
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture(scope="session", name="merchant_keys")
 @functools.lru_cache(maxsize=1)
-def merchant_keys() -> Keys:
+def merchant_keys_fixture() -> Keys:
     """Cache keys for the merchant profile to prevent unnecessary generation."""
     nsec = getenv("TEST_MERCHANT_KEY")
     return (
@@ -66,21 +68,9 @@ def merchant_keys() -> Keys:
     )
 
 
-# @pytest.fixture
-# def merchant_keys() -> Keys:
-#     nsec = getenv("TEST_MERCHANT_KEY")
-#     if nsec is None:
-#         merchant_keys = generate_and_save_keys(
-#             env_var="TEST_MERCHANT_KEY", env_path=script_dir / ".env"
-#         )
-#     else:
-#         merchant_keys = Keys.parse(nsec)
-#     return merchant_keys
-
-
-@pytest.fixture(scope="session")
+@pytest.fixture(scope="session", name="buyer_keys")
 @functools.lru_cache(maxsize=1)
-def buyer_keys() -> Keys:
+def buyer_keys_fixture() -> Keys:
     """Cache keys for the buyer profile."""
     nsec = getenv("TEST_BUYER_KEY")
     return (
@@ -92,91 +82,85 @@ def buyer_keys() -> Keys:
     )
 
 
-# @pytest.fixture
-# def buyer_keys() -> Keys:
-#     nsec = getenv("TEST_BUYER_KEY")
-#     if nsec is None:
-#         buyer_keys = generate_and_save_keys(
-#             env_var="TEST_BUYER_KEY", env_path=script_dir / ".env"
-#         )
-#     else:
-#         buyer_keys = Keys.parse(nsec)
-#     return buyer_keys
-
-
-@pytest.fixture(scope="session")
-def relay() -> str:
+@pytest.fixture(scope="session", name="relay")
+def relay_fixture() -> str:
     """Fixture providing the test relay"""
     return "wss://relay.damus.io"
 
 
-@pytest.fixture
-def merchant_location() -> str:
+@pytest.fixture(scope="session", name="merchant_location")
+def merchant_location_fixture() -> str:
     """Fixture providing the test location"""
     return "Snoqualmie, WA"
 
 
-@pytest.fixture(scope="session")
-def merchant_profile_name() -> str:
+@pytest.fixture(scope="session", name="merchant_profile_name")
+def merchant_profile_name_fixture() -> str:
     """Fixture providing the test profile name"""
     return "Merchant Test Profile"
 
 
-@pytest.fixture(scope="session")
-def buyer_profile_name() -> str:
+@pytest.fixture(scope="session", name="buyer_profile_name")
+def buyer_profile_name_fixture() -> str:
     """Fixture providing the test profile name"""
     return "Buyer Test Profile"
 
 
-@pytest.fixture(scope="session")
-def merchant_profile_about() -> str:
+@pytest.fixture(scope="session", name="merchant_profile_about")
+def merchant_profile_about_fixture() -> str:
     """Fixture providing the test profile about"""
     return "A merchant test profile"
 
 
-@pytest.fixture(scope="session")
-def buyer_profile_about() -> str:
+@pytest.fixture(scope="session", name="buyer_profile_about")
+def buyer_profile_about_fixture() -> str:
     """Fixture providing the test profile about"""
     return "A buyer test profile"
 
 
-@pytest.fixture(scope="session")
-def merchant_profile_picture() -> str:
+@pytest.fixture(scope="session", name="merchant_profile_picture")
+def merchant_profile_picture_fixture() -> str:
     """Fixture providing the test profile picture"""
     return "https://i.nostr.build/ocjZ5GlAKwrvgRhx.png"
 
 
-@pytest.fixture
-def buyer_profile_picture() -> str:
+@pytest.fixture(scope="session", name="buyer_profile_picture")
+def buyer_profile_picture_fixture() -> str:
     """Fixture providing the test profile picture"""
     return "https://i.nostr.build/ocjZ5GlAKwrvgRhx.png"
 
 
-@pytest.fixture(scope="session")
-def profile_event_id(merchant_keys: Keys) -> EventId:
+@pytest.fixture(scope="session", name="profile_event_id")
+def profile_event_id_fixture(merchant_keys: Keys) -> EventId:
+    """Fixture providing the test profile event id"""
     event_id = EventId(
         public_key=merchant_keys.public_key(),
         created_at=Timestamp.from_secs(1739580690),
         kind=Kind(0),
         tags=[],
-        content='{"name":"Merchant Test Profile","about":"A merchant test profile","picture":"https://i.nostr.build/ocjZ5GlAKwrvgRhx.png"}',
+        content=(
+            '{"name":"Merchant Test Profile",'
+            '"about":"A merchant test profile",'
+            '"picture":"https://i.nostr.build/ocjZ5GlAKwrvgRhx.png"}'
+        ),
     )
     return event_id
 
 
-@pytest.fixture(scope="session")
-def geohashs() -> List[str]:
+@pytest.fixture(scope="session", name="geohashs")
+def geohashs_fixture() -> List[str]:
     """Fixture providing the test geohashs"""
     return ["000000000", "000000000"]
 
 
-@pytest.fixture(scope="session")
-def merchant_profile(
+@pytest.fixture(scope="session", name="merchant_profile")
+def merchant_profile_fixture(
     merchant_keys: Keys,
     merchant_profile_name: str,
     merchant_profile_about: str,
     merchant_profile_picture: str,
 ) -> AgentProfile:
+    """Fixture providing the test merchant profile"""
     profile = AgentProfile(keys=merchant_keys)
     profile.set_name(merchant_profile_name)
     profile.set_about(merchant_profile_about)
@@ -184,8 +168,8 @@ def merchant_profile(
     return profile
 
 
-@pytest.fixture
-def seller_nostr_profile(
+@pytest.fixture(scope="session", name="seller_nostr_profile")
+def seller_nostr_profile_fixture(
     merchant_keys: Keys, merchant_profile: AgentProfile, geohashs: List[str]
 ) -> NostrProfile:
     """Create a NostrProfile instance for tests"""
@@ -197,13 +181,14 @@ def seller_nostr_profile(
     return nostr_profile
 
 
-@pytest.fixture
-def buyer_profile(
+@pytest.fixture(scope="session", name="buyer_profile")
+def buyer_profile_fixture(
     buyer_keys: Keys,
     buyer_profile_name: str,
     buyer_profile_about: str,
     buyer_profile_picture: str,
 ) -> AgentProfile:
+    """Fixture providing the test buyer profile"""
     profile = AgentProfile(keys=buyer_keys)
     profile.set_name(buyer_profile_name)
     profile.set_about(buyer_profile_about)
@@ -211,8 +196,8 @@ def buyer_profile(
     return profile
 
 
-@pytest.fixture(scope="session")
-def shipping_methods() -> List[ShippingMethod]:
+@pytest.fixture(scope="session", name="shipping_methods")
+def shipping_methods_fixture() -> List[ShippingMethod]:
     """Create shipping methods for testing"""
     method1 = (
         ShippingMethod(id="64be11rM", cost=10000)
@@ -233,8 +218,8 @@ def shipping_methods() -> List[ShippingMethod]:
     return [method1, method2, method3]
 
 
-@pytest.fixture(scope="session")
-def shipping_costs() -> List[ShippingCost]:
+@pytest.fixture(scope="session", name="shipping_costs")
+def shipping_costs_fixture() -> List[ShippingCost]:
     """Create shipping costs for testing"""
     return [
         ShippingCost(id="64be11rM", cost=5000),
@@ -243,8 +228,8 @@ def shipping_costs() -> List[ShippingCost]:
     ]
 
 
-@pytest.fixture(scope="session")
-def merchant_stalls(
+@pytest.fixture(scope="session", name="merchant_stalls")
+def merchant_stalls_fixture(
     shipping_methods: List[ShippingMethod], geohashs: List[str]
 ) -> List[MerchantStall]:
     """Create MerchantStall test fixtures"""
@@ -268,8 +253,10 @@ def merchant_stalls(
     ]
 
 
-@pytest.fixture(scope="session")
-def merchant_products(shipping_costs: List[ShippingCost]) -> List[MerchantProduct]:
+@pytest.fixture(scope="session", name="merchant_products")
+def merchant_products_fixture(
+    shipping_costs: List[ShippingCost],
+) -> List[MerchantProduct]:
     """Create MerchantProduct test fixtures"""
     return [
         MerchantProduct(
@@ -314,8 +301,8 @@ def merchant_products(shipping_costs: List[ShippingCost]) -> List[MerchantProduc
     ]
 
 
-@pytest.fixture
-def merchant_tools(
+@pytest.fixture(scope="session", name="merchant_tools")
+def merchant_tools_fixture(
     merchant_profile: AgentProfile,
     relay: str,
     merchant_stalls: List[MerchantStall],
@@ -325,14 +312,14 @@ def merchant_tools(
     return MerchantTools(merchant_profile, relay, merchant_stalls, merchant_products)
 
 
-@pytest.fixture
-def mock_knowledge_base() -> Mock:
+@pytest.fixture(scope="session", name="mock_knowledge_base")
+def mock_knowledge_base_fixture() -> Mock:
     """Fixture to return a mocked AgentKnowledge object."""
     return Mock(spec=AgentKnowledge)
 
 
-@pytest.fixture
-def buyer_tools(
+@pytest.fixture(scope="session", name="buyer_tools")
+def buyer_tools_fixture(
     mock_knowledge_base: Mock,
     buyer_profile: AgentProfile,
     relay: str,
@@ -344,9 +331,9 @@ def buyer_tools(
     return buyer_tools
 
 
-@pytest.fixture(scope="session")
-def product_event_ids() -> List[EventId]:
-    # provide valid but dummy hex event id strings
+@pytest.fixture(scope="session", name="product_event_ids")
+def product_event_ids_fixture() -> List[EventId]:
+    """Fixture providing  valid but dummy hex test product event ids"""
     return [
         EventId.parse(
             "d1441f3532a44772fba7c57eb7c71c94c3971246722ae6e372cf50c198af784a"
@@ -360,9 +347,9 @@ def product_event_ids() -> List[EventId]:
     ]
 
 
-@pytest.fixture(scope="session")
-def stall_event_ids() -> List[EventId]:
-    # provide valid but dummy hex event id strings
+@pytest.fixture(scope="session", name="stall_event_ids")
+def stall_event_ids_fixture() -> List[EventId]:
+    """Fixture providing valid but dummy hex test stall event ids"""
     return [
         EventId.parse(
             "c12fed92c3dd928fcce4a5d0a5ec608aa52687f4ac45fad6ef1b4895c19fec75"

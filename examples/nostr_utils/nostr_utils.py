@@ -1,10 +1,14 @@
+"""
+Nostr utility functions.
+"""
+
 from os import getenv
 from pathlib import Path
 from typing import List
 
 from dotenv import load_dotenv
 
-from agentstr.nostr import EventId, Keys, NostrClient, generate_and_save_keys
+from agentstr import EventId, Keys, NostrClient, generate_and_save_keys
 
 ENV_KEY = "NOSTR_UTILS_KEY"
 
@@ -17,15 +21,15 @@ ENV_RELAY = "RELAY"
 DEFAULT_RELAY = "wss://relay.damus.io"
 
 # Load or use default relay
-relay = getenv(ENV_RELAY)
-if relay is None:
-    relay = DEFAULT_RELAY
+RELAY = getenv(ENV_RELAY)
+if RELAY is None:
+    RELAY = DEFAULT_RELAY
 # Load or generate keys
-nsec = getenv(ENV_KEY)
-if nsec is None:
+NSEC = getenv(ENV_KEY)
+if NSEC is None:
     keys = generate_and_save_keys(env_var=ENV_KEY, env_path=script_dir / ".env")
 else:
-    keys = Keys.parse(nsec)
+    keys = Keys.parse(NSEC)
 
 print(f"Private Key: {keys.secret_key().to_bech32()}")
 print(f"Public Key: {keys.public_key().to_bech32()}")
@@ -38,7 +42,7 @@ event_list: List[str] = [
     "5f787ee08638e5d40ddb3513c08c7c4765cb76cd0858823a1dff8c2d8a6463fa",
 ]
 
-nostr_client = NostrClient(relay=relay, nsec=keys.secret_key().to_bech32())
+nostr_client = NostrClient(relay=RELAY, nsec=keys.secret_key().to_bech32())
 
 for event in event_list:
     event_id = EventId.parse(event)

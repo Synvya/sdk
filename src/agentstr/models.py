@@ -1,6 +1,6 @@
 import json
 import logging
-from typing import List, Optional
+from typing import List
 
 from nostr_sdk import (
     Keys,
@@ -130,9 +130,6 @@ class NostrProfile(Profile):
 
     def get_profile_url(self) -> str:
         return self.profile_url
-
-    def get_zip_codes(self) -> List[str]:
-        return self.zip_codes
 
     def to_json(self) -> str:
         # Ensure super().to_json() returns a dictionary
@@ -287,14 +284,15 @@ class MerchantProduct(BaseModel):
                 specs=self.specs,
             )
         except Exception as e:
-            logging.error(f"Failed to convert to ProductData: {e}")
-            logging.error(f"Shipping data: {self.shipping}")
+            logging.error("Failed to convert to ProductData: %s", e)
+            logging.error("Shipping data: %s", self.shipping)
             raise
 
     def to_dict(self) -> dict:
         """
         Returns a dictionary representation of the MerchantProduct.
-        ShippingCost class is not serializable, so we need to convert it to a dictionary.
+        ShippingCost class is not serializable, so we need to convert it
+        to a dictionary.
 
         Returns:
             dict: dictionary representation of the MerchantProduct
@@ -347,8 +345,9 @@ class MerchantStall(BaseModel):
     def to_dict(self) -> dict:
         """
         Returns a dictionary representation of the MerchantStall.
-        ShippingMethod class is not serializable, so we need to convert it to a dictionary.
-        We can only access cost and id from the ShippingMethod class. We can't access name or regions.
+        ShippingMethod class is not serializable, so we need to convert
+        it to a dictionary. We can only access cost and id from the
+        ShippingMethod class. We can't access name or regions.
 
         Returns:
             dict: dictionary representation of the MerchantStall

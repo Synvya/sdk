@@ -1,14 +1,21 @@
-## --*-- Merchant Test Profile Sample Data --*--
-## Matches the Merchant Test Profile used in tests/*. See tests/conftest.py for details.
-#####################################
+"""
+Sample data for the Merchant Test Profile merchant.
+"""
 
 from os import getenv
 from pathlib import Path
 
 from dotenv import load_dotenv
 
-from agentstr.models import AgentProfile, MerchantProduct, MerchantStall
-from agentstr.nostr import Keys, ShippingCost, ShippingMethod, generate_and_save_keys
+from agentstr import (
+    AgentProfile,
+    Keys,
+    MerchantProduct,
+    MerchantStall,
+    ShippingCost,
+    ShippingMethod,
+    generate_and_save_keys,
+)
 
 ENV_KEY = "MTP_AGENT_KEY"
 
@@ -18,11 +25,11 @@ script_dir = Path(__file__).parent
 load_dotenv(script_dir / ".env")
 
 # Load or generate keys
-nsec = getenv(ENV_KEY)
-if nsec is None:
+NSEC = getenv(ENV_KEY)
+if NSEC is None:
     keys = generate_and_save_keys(env_var=ENV_KEY, env_path=script_dir / ".env")
 else:
-    keys = Keys.parse(nsec)
+    keys = Keys.parse(NSEC)
 
 # --*-- Merchant info
 NAME = "Merchant Test Profile"

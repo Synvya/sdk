@@ -10,16 +10,13 @@ readme = "README.md"
 requires-python = ">=3.9, <3.13"
 license = { text = "MIT" }
 authors = [
-    {name = "Synvya", email = "info@synvya.com"}
+    {name = "Synvya", email = "synvya@synvya.com"}
 ]
 dependencies = [
     "agno>=1.1.1",
     "openai>=1.50.0",
-    "packaging>=24.0",
     "nostr_sdk>=0.39.0",
-    "pydantic>=2.0.0",
-    "cassandra-driver>=3.29.2",
-    "cassio>=0.1.10",
+    "pydantic>=2.0.0",   
 ]
 
 [project.optional-dependencies]
@@ -29,7 +26,14 @@ dev = [
     "black>=23.0",
     "isort>=5.0",
     "mypy>=1.0",
+    "pylint>=3.0",
+]
+examples = [
     "python-dotenv>=1.0",
+    "cassandra-driver>=3.29.2",
+    "cassio>=0.1.10",
+    "fastapi>=0.110.0",
+    "uvicorn>=0.30.0",
 ]
 
 [project.urls]

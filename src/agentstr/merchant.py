@@ -1,29 +1,35 @@
+"""
+Module implementing the MerchantTools Toolkit for Agno agents.
+"""
+
 import json
 import logging
 import time
 from typing import Any, List, Optional, Tuple, Union
+
+from pydantic import ConfigDict
 
 from agentstr.models import AgentProfile, MerchantProduct, MerchantStall
 from agentstr.nostr import EventId, NostrClient
 
 try:
     from agno.tools import Toolkit
-except ImportError:
-    raise ImportError("`agno` not installed. Please install using `pip install agno`")
-
-from pydantic import BaseModel, ConfigDict
+except ImportError as exc:
+    raise ImportError(
+        "`agno` not installed. Please install using `pip install agno`"
+    ) from exc
 
 
 class MerchantTools(Toolkit):
     """
-    MerchantTools is a toolkit that allows a merchant to publish products and stalls to Nostr.
+    MerchantTools is a toolkit that allows a merchant to publish
+    products and stalls to Nostr.
 
     TBD:
-    - Better differentiation between products and stalls in the database and products and stalls published.
+    - Better differentiation between products and stalls in the database
+    and products and stalls published.
 
     """
-
-    from pydantic import ConfigDict
 
     model_config = ConfigDict(
         arbitrary_types_allowed=True, extra="allow", validate_assignment=True
@@ -76,6 +82,12 @@ class MerchantTools(Toolkit):
         self.register(self.remove_all_stalls)
         self.register(self.remove_product_by_name)
         self.register(self.remove_stall_by_name)
+
+    def get_nostr_client(self) -> NostrClient:
+        """
+        Get the NostrClient instance
+        """
+        return self._nostr_client
 
     def get_profile(self) -> str:
         """
@@ -147,8 +159,8 @@ class MerchantTools(Toolkit):
                 )
                 # Pause for 0.5 seconds to avoid rate limiting
                 time.sleep(0.5)
-            except Exception as e:
-                logging.error(f"Unable to publish product {product}. Error {e}")
+            except RuntimeError as e:
+                logging.error("Unable to publish product %s. Error %s", product, e)
                 results.append(
                     {"status": "error", "message": str(e), "product_name": product.name}
                 )
@@ -159,7 +171,8 @@ class MerchantTools(Toolkit):
         self,
     ) -> str:
         """
-        Publishes or updates to Nostr all stalls managed by the merchant and adds the corresponding EventId to the Stall DB
+        Publishes or updates to Nostr all stalls managed by the merchant and adds
+        the corresponding EventId to the Stall DB
 
         Returns:
             str: JSON array with status of all stall publishing operations
@@ -186,8 +199,8 @@ class MerchantTools(Toolkit):
                 )
                 # Pause for 0.5 seconds to avoid rate limiting
                 time.sleep(0.5)
-            except Exception as e:
-                logging.error(f"Unable to publish stall {stall}. Error {e}")
+            except RuntimeError as e:
+                logging.error("Unable to publish stall %s. Error %s", stall, e)
                 results.append(
                     {"status": "error", "message": str(e), "stall_name": stall.name}
                 )
@@ -196,7 +209,8 @@ class MerchantTools(Toolkit):
 
     def publish_new_product(self, product: MerchantProduct) -> str:
         """
-        Publishes to Nostra new product that is not currently in the Merchant's Product DB and adds it to the Product DB
+        Publishes to Nostra new product that is not currently in the Merchant's
+        Product DB and adds it to the Product DB
 
         Args:
             product: MerchantProduct to be published
@@ -224,7 +238,7 @@ class MerchantTools(Toolkit):
                     "product_name": product.name,
                 }
             )
-        except Exception as e:
+        except RuntimeError as e:
             return json.dumps(
                 {"status": "error", "message": str(e), "product_name": product.name}
             )
@@ -233,7 +247,8 @@ class MerchantTools(Toolkit):
         """
         Publishes or updates to Nostra given product from the Merchant's Product DB
         Args:
-            arguments: JSON string that may contain {"name": "product_name"} or just "product_name"
+            arguments: JSON string that may contain
+            {"name": "product_name"} or just "product_name"
 
         Returns:
             str: JSON string with status of the operation
@@ -267,6 +282,8 @@ class MerchantTools(Toolkit):
                     event_id = self._nostr_client.publish_product(product)
                     # Update the product_db with the new event_id
                     self.product_db[i] = (product, event_id)
+                    # Pause for 0.5 seconds to avoid rate limiting
+                    time.sleep(0.5)
                     return json.dumps(
                         {
                             "status": "success",
@@ -274,9 +291,7 @@ class MerchantTools(Toolkit):
                             "product_name": product.name,
                         }
                     )
-                    # Pause for 0.5 seconds to avoid rate limiting
-                    time.sleep(0.5)
-                except Exception as e:
+                except RuntimeError as e:
                     return json.dumps(
                         {
                             "status": "error",
@@ -376,7 +391,7 @@ class MerchantTools(Toolkit):
                         )
                         # Pause for 0.5 seconds to avoid rate limiting
                         time.sleep(0.5)
-                    except Exception as e:
+                    except RuntimeError as e:
                         results.append(
                             {
                                 "status": "error",
@@ -399,7 +414,7 @@ class MerchantTools(Toolkit):
 
             return json.dumps(results)
 
-        except Exception as e:
+        except RuntimeError as e:
             return json.dumps(
                 [{"status": "error", "message": str(e), "arguments": str(arguments)}]
             )
@@ -424,12 +439,13 @@ class MerchantTools(Toolkit):
                 self.merchant_profile.get_picture(),
             )
             return json.dumps(event_id.__dict__)
-        except Exception as e:
-            raise RuntimeError(f"Unable to publish the profile: {e}")
+        except RuntimeError as e:
+            raise RuntimeError(f"Unable to publish the profile: {e}") from e
 
     def publish_new_stall(self, stall: MerchantStall) -> str:
         """
-        Publishes to Nostr a new stall that is not currently in the Merchant's Stall DB and adds it to the Stall DB
+        Publishes to Nostr a new stall that is not currently in the Merchant's
+        Stall DB and adds it to the Stall DB
 
         Args:
             stall: MerchantStall to be published
@@ -444,7 +460,8 @@ class MerchantTools(Toolkit):
             raise ValueError("NostrClient not initialized")
 
         try:
-            # We don't ned to convert to StallData. nostr_client.publish_stall() accepts a MerchantStall
+            # We don't ned to convert to StallData.
+            # nostr_client.publish_stall() accepts a MerchantStall
             # stall_data = stall.to_stall_data()
             # Publish using the  synchronous method
             event_id = self._nostr_client.publish_stall(stall)
@@ -457,7 +474,7 @@ class MerchantTools(Toolkit):
                     "stall_name": stall.name,
                 }
             )
-        except Exception as e:
+        except RuntimeError as e:
             return json.dumps(
                 {"status": "error", "message": str(e), "stall_name": stall.name}
             )
@@ -514,10 +531,10 @@ class MerchantTools(Toolkit):
             for i, (stall, _) in enumerate(self.stall_db):
                 if stall.name == stall_name:
                     try:
-                        # We are not passing StallData to nostr_client.publish_stall() anymore
-                        # stall_data = stall.to_stall_data()
                         event_id = self._nostr_client.publish_stall(stall)
                         self.stall_db[i] = (stall, event_id)
+                        # Pause for 0.5 seconds to avoid rate limiting
+                        time.sleep(0.5)
                         return json.dumps(
                             {
                                 "status": "success",
@@ -525,9 +542,8 @@ class MerchantTools(Toolkit):
                                 "stall_name": stall.name,
                             }
                         )
-                        # Pause for 0.5 seconds to avoid rate limiting
-                        time.sleep(0.5)
-                    except Exception as e:
+
+                    except RuntimeError as e:
                         return json.dumps(
                             [
                                 {
@@ -549,7 +565,7 @@ class MerchantTools(Toolkit):
                 ]
             )
 
-        except Exception as e:
+        except RuntimeError as e:
             return json.dumps(
                 [{"status": "error", "message": str(e), "stall_name": "unknown"}]
             )
@@ -574,7 +590,9 @@ class MerchantTools(Toolkit):
                 results.append(
                     {
                         "status": "skipped",
-                        "message": f"Product '{product.name}' has not been published yet",
+                        "message": (
+                            f"Product '{product.name}' has not been published yet"
+                        ),
                         "product_name": product.name,
                     }
                 )
@@ -597,7 +615,7 @@ class MerchantTools(Toolkit):
                 )
                 # Pause for 0.5 seconds to avoid rate limiting
                 time.sleep(0.5)
-            except Exception as e:
+            except RuntimeError as e:
                 results.append(
                     {"status": "error", "message": str(e), "product_name": product.name}
                 )
@@ -606,7 +624,8 @@ class MerchantTools(Toolkit):
 
     def remove_all_stalls(self) -> str:
         """
-        Removes from Nostr all stalls from the merchant and their corresponding products
+        Removes from Nostr all stalls from the merchant and their
+        corresponding products
 
         Returns:
             str: JSON array with status of all removal operations
@@ -631,7 +650,7 @@ class MerchantTools(Toolkit):
                         results.append(
                             {
                                 "status": "skipped",
-                                "message": f"Product '{product.name}' has not been published yet",
+                                "message": "Unpublished product",
                                 "product_name": product.name,
                                 "stall_name": stall_name,
                             }
@@ -653,7 +672,7 @@ class MerchantTools(Toolkit):
                                 "event_id": str(event_id),
                             }
                         )
-                    except Exception as e:
+                    except RuntimeError as e:
                         results.append(
                             {
                                 "status": "error",
@@ -669,7 +688,7 @@ class MerchantTools(Toolkit):
                 results.append(
                     {
                         "status": "skipped",
-                        "message": f"Stall '{stall_name}' has not been published yet",
+                        "message": (f"Stall '{stall_name}' has not been published yet"),
                         "stall_name": stall_name,
                     }
                 )
@@ -689,7 +708,7 @@ class MerchantTools(Toolkit):
                     )
                     # Pause for 0.5 seconds to avoid rate limiting
                     time.sleep(0.5)
-                except Exception as e:
+                except RuntimeError as e:
                     results.append(
                         {"status": "error", "message": str(e), "stall_name": stall_name}
                     )
@@ -701,7 +720,8 @@ class MerchantTools(Toolkit):
         Removes from Nostr a product with the given name
 
         Args:
-            arguments: JSON string that may contain {"name": "product_name"} or just "product_name"
+            arguments: JSON string that may contain {"name": "product_name"}
+            or just "product_name"
 
         Returns:
             str: JSON string with status of the operation
@@ -754,7 +774,7 @@ class MerchantTools(Toolkit):
                             "event_id": str(event_id),
                         }
                     )
-                except Exception as e:
+                except RuntimeError as e:
                     return json.dumps(
                         {"status": "error", "message": str(e), "product_name": name}
                     )
@@ -843,7 +863,7 @@ class MerchantTools(Toolkit):
                         results.append(
                             {
                                 "status": "skipped",
-                                "message": f"Product '{product.name}' has not been published yet",
+                                "message": "Unpublished product",
                                 "product_name": product.name,
                                 "stall_name": stall_name,
                             }
@@ -866,7 +886,7 @@ class MerchantTools(Toolkit):
                         )
                         # Pause for 0.5 seconds to avoid rate limiting
                         time.sleep(0.5)
-                    except Exception as e:
+                    except RuntimeError as e:
                         results.append(
                             {
                                 "status": "error",
@@ -883,7 +903,9 @@ class MerchantTools(Toolkit):
                     results.append(
                         {
                             "status": "skipped",
-                            "message": f"Stall '{stall_name}' has not been published yet",
+                            "message": (
+                                f"Stall '{stall_name}' has not been published yet"
+                            ),
                             "stall_name": stall_name,
                         }
                     )
@@ -904,7 +926,7 @@ class MerchantTools(Toolkit):
                                 "event_id": str(stall_event_id),
                             }
                         )
-                    except Exception as e:
+                    except RuntimeError as e:
                         results.append(
                             {
                                 "status": "error",
@@ -915,20 +937,7 @@ class MerchantTools(Toolkit):
 
             return json.dumps(results)
 
-        except Exception as e:
+        except RuntimeError as e:
             return json.dumps(
                 [{"status": "error", "message": str(e), "stall_name": "unknown"}]
             )
-
-    # def get_event_id(self, response: Any) -> str:
-    #     """Convert any response to a string event ID.
-
-    #     Args:
-    #         response: Response that might contain an event ID
-
-    #     Returns:
-    #         str: String representation of event ID or empty string if None
-    #     """
-    #     if response is None:
-    #         return ""
-    #     return str(response)

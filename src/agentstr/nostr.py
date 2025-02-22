@@ -1,18 +1,15 @@
+"""
+Core Nostr utilities for agentstr.
+"""
+
+import asyncio
 import json
 import logging
-import traceback
 from datetime import timedelta
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional
 
 from agentstr.models import MerchantProduct, MerchantStall, NostrProfile
-
-try:
-    import asyncio
-except ImportError:
-    raise ImportError(
-        "`asyncio` not installed. Please install using `pip install asyncio`"
-    )
 
 try:
     from nostr_sdk import (
@@ -29,29 +26,26 @@ try:
         NostrSigner,
         ProductData,
         PublicKey,
-        ShippingCost,
-        ShippingMethod,
         SingleLetterTag,
         StallData,
         Tag,
         TagKind,
         TagStandard,
-        Timestamp,
     )
-
-except ImportError:
+except ImportError as exc:
     raise ImportError(
         "`nostr_sdk` not installed. Please install using `pip install nostr_sdk`"
-    )
+    ) from exc
 
 
 class NostrClient:
     """
-    NostrClient implements the set of Nostr utilities required for higher level functions implementing
-    like the Marketplace.
+    NostrClient implements the set of Nostr utilities required for
+    higher level functions implementations like the Marketplace.
 
-    Nostr is an asynchronous communication protocol. To hide this, NostrClient exposes synchronous functions.
-    Users of the NostrClient should ignore `_async_` functions which are for internal purposes only.
+    Nostr is an asynchronous communication protocol. To hide this,
+    NostrClient exposes synchronous functions. Users of the NostrClient
+    should ignore `_async_` functions which are for internal purposes only.
     """
 
     logger = logging.getLogger("NostrClient")
@@ -148,7 +142,7 @@ class NostrClient:
         try:
             return asyncio.run(self._async_publish_product(product))
         except Exception as e:
-            raise RuntimeError(f"Failed to publish product: {e}")
+            raise RuntimeError(f"Failed to publish product: {e}") from e
 
     def publish_profile(self, name: str, about: str, picture: str) -> EventId:
         """
@@ -183,7 +177,7 @@ class NostrClient:
         try:
             return asyncio.run(self._async_publish_stall(stall))
         except Exception as e:
-            raise RuntimeError(f"Failed to publish stall: {e}")
+            raise RuntimeError(f"Failed to publish stall: {e}") from e
 
     def retrieve_products_from_seller(self, seller: PublicKey) -> List[MerchantProduct]:
         """
@@ -217,7 +211,7 @@ class NostrClient:
                 products.append(MerchantProduct.from_product_data(product_data))
             return products
         except Exception as e:
-            raise RuntimeError(f"Failed to retrieve products: {e}")
+            raise RuntimeError(f"Failed to retrieve products: {e}") from e
 
     def retrieve_profile(self, public_key: PublicKey) -> NostrProfile:
         """
@@ -235,7 +229,7 @@ class NostrClient:
         try:
             return asyncio.run(self._async_retrieve_profile(public_key))
         except Exception as e:
-            raise RuntimeError(f"Failed to retrieve profile: {e}")
+            raise RuntimeError(f"Failed to retrieve profile: {e}") from e
 
     def retrieve_sellers(self) -> set[NostrProfile]:
         """
@@ -244,17 +238,18 @@ class NostrClient:
         Return set may be empty if metadata can't be retrieved for any author.
 
         Returns:
-            set[NostrProfile]: set of seller profiles (skips authors with missing metadata)
+            set[NostrProfile]: set of seller profiles
+            (skips authors with missing metadata)
         """
 
-        sellers: set[NostrProfile] = set()
+        # sellers: set[NostrProfile] = set()
 
         # First we retrieve all stalls from the relay
 
         try:
             events = asyncio.run(self._async_retrieve_all_stalls())
         except Exception as e:
-            raise RuntimeError(f"Failed to retrieve stalls: {e}")
+            raise RuntimeError(f"Failed to retrieve stalls: {e}") from e
 
         # Now we search for unique npubs from the list of stalls
 
@@ -265,17 +260,16 @@ class NostrClient:
             if event.kind() == Kind(30017):
                 # Is this event the first time we see this author?
                 if event.author() not in authors:
-                    # First time we see this author. Let's add the profile to the dictionary
+                    # First time we see this author.
+                    # Let's add the profile to the dictionary
                     try:
                         profile = asyncio.run(
                             self._async_retrieve_profile(event.author())
                         )
-                        # Add the profile to the dictionary, associating it with the author's PublicKey
+                        # Add profile to the dictionary
+                        # associated with the author's PublicKey
                         authors[event.author()] = profile
-                    except Exception as e:
-                        # print(
-                        #     f"Failed to retrieve profile for {event.author().to_bech32()}: {e}"
-                        # )
+                    except RuntimeError:
                         continue
 
                 # Now we add locations from the event locations to the profile
@@ -287,15 +281,10 @@ class NostrClient:
                         extracted_geohash = string_repr.split("=")[1].rstrip(
                             ")"
                         )  # Splitting and removing the closing parenthesis
-                        # print(
-                        #     f"Adding location {extracted_geohash} to profile {authors[event.author()].get_name()}"
-                        # )
+
                         profile = authors[event.author()]
                         profile.add_location(extracted_geohash)
                         authors[event.author()] = profile
-                        # print(
-                        #     f"New locations for {authors[event.author()].get_name()}: {authors[event.author()].get_locations()}"
-                        # )
                     # else:
                     #     print(f"Unknown tag: {standardized_tag}")
 
@@ -311,6 +300,9 @@ class NostrClient:
 
         Returns:
             List[StallData]: list of stalls from the seller
+
+        Raises:
+            RuntimeError: if the stalls can't be retrieved
         """
         stalls = []
         try:
@@ -322,12 +314,12 @@ class NostrClient:
                     content = event.content()
                     stall = StallData.from_json(content)
                     stalls.append(stall)
-                except Exception as e:
-                    self.logger.warning(f"Failed to parse stall data: {e}")
+                except RuntimeError as e:
+                    self.logger.warning("Failed to parse stall data: %s", e)
                     continue
             return stalls
         except Exception as e:
-            raise RuntimeError(f"Failed to retrieve stalls: {e}")
+            raise RuntimeError(f"Failed to retrieve stalls: {e}") from e
 
     @classmethod
     def set_logging_level(cls, logging_level: int) -> None:
@@ -339,15 +331,18 @@ class NostrClient:
         cls.logger.setLevel(logging_level)
         for handler in cls.logger.handlers:
             handler.setLevel(logging_level)
-        cls.logger.info(f"Logging level set to {logging.getLevelName(logging_level)}")
+        cls.logger.info("Logging level set to %s", logging.getLevelName(logging_level))
 
-    # ----------------------------------------------------------------------------------------------
-    # --*-- async functions for internal use only. Developers should use synchronous functions above
-    # ----------------------------------------------------------------------------------------------
+    # ----------------------------------------------------------------
+    # internal async functions.
+    # Developers should use synchronous functions above
+    # ----------------------------------------------------------------
 
     async def _async_connect(self) -> None:
-        """Asynchronous function to add relay to the NostrClient instance and connect to it.
-        TBD: refactor to not return anything if successful and raise an exception if not
+        """
+        Asynchronous function to add relay to the NostrClient
+        instance and connect to it.
+
 
         Raises:
             RuntimeError: if the relay can't be connected to
@@ -356,7 +351,7 @@ class NostrClient:
         if not self.connected:
             try:
                 await self.client.add_relay(self.relay)
-                NostrClient.logger.info(f"Relay {self.relay} succesfully added.")
+                NostrClient.logger.info("Relay %s successfully added.", self.relay)
                 await self.client.connect()
                 await asyncio.sleep(2)  # give time for slower connections
                 NostrClient.logger.info("Connected to relay.")
@@ -364,7 +359,7 @@ class NostrClient:
             except Exception as e:
                 raise RuntimeError(
                     f"Unable to connect to relay {self.relay}. Exception: {e}."
-                )
+                ) from e
 
     async def _async_publish_event(self, event_builder: EventBuilder) -> EventId:
         """
@@ -380,9 +375,9 @@ class NostrClient:
             await self._async_connect()
 
             # Add debug logging
-            NostrClient.logger.debug(f"Attempting to publish event: {event_builder}")
+            NostrClient.logger.debug("Attempting to publish event: %s", event_builder)
             NostrClient.logger.debug(
-                f"Using keys: {self.keys.public_key().to_bech32()}"
+                "Using keys: %s", self.keys.public_key().to_bech32()
             )
 
             # Wait for connection and try to publish
@@ -392,19 +387,18 @@ class NostrClient:
             if not output:
                 raise RuntimeError("No output received from send_event_builder")
             if len(output.success) == 0:
-                raise RuntimeError(
-                    f"Event rejected by relay. Reason: {output.message if hasattr(output, 'message') else 'unknown'}"
-                )
+                reason = getattr(output, "message", "unknown")
+                raise RuntimeError(f"Event rejected by relay. Reason: {reason}")
 
             NostrClient.logger.info(
-                f"Event published with event id: {output.id.to_bech32()}"
+                "Event published with event id: %s", output.id.to_bech32()
             )
             return output.id
 
         except Exception as e:
-            NostrClient.logger.error(f"Failed to publish event: {str(e)}")
+            NostrClient.logger.error("Failed to publish event: %s", str(e))
             NostrClient.logger.debug("Event details:", exc_info=True)
-            raise RuntimeError(f"Unable to publish event: {str(e)}")
+            raise RuntimeError(f"Unable to publish event: {str(e)}") from e
 
     async def _async_publish_note(self, text: str) -> EventId:
         """
@@ -424,7 +418,8 @@ class NostrClient:
 
     async def _async_publish_product(self, product: MerchantProduct) -> EventId:
         """
-        Asynchronous function to create or update a NIP-15 Marketplace product with event kind 30018
+        Asynchronous function to create or update a NIP-15
+        Marketplace product with event kind 30018
 
         Args:
             product: product to publish
@@ -443,7 +438,8 @@ class NostrClient:
         # We use the function to create the content field and discard the eventbuilder
         bad_event_builder = EventBuilder.product_data(product.to_product_data())
 
-        # create an event from bad_event_builder to extract the content - not broadcasted
+        # create an event from bad_event_builder to extract the content -
+        # not broadcasted
         bad_event = await self.client.sign_event_builder(bad_event_builder)
         content = bad_event.content()
 
@@ -451,7 +447,7 @@ class NostrClient:
         good_event_builder = EventBuilder(Kind(30018), content).tags(
             [Tag.identifier(product.id), Tag.coordinate(coordinate_tag)]
         )
-        self.logger.info("Product event: " + str(good_event_builder))
+        NostrClient.logger.info("Product event: %s", good_event_builder)
         return await self._async_publish_event(good_event_builder)
 
     async def _async_publish_profile(
@@ -480,7 +476,8 @@ class NostrClient:
 
     async def _async_publish_stall(self, stall: MerchantStall) -> EventId:
         """
-        Asynchronous function to create or update a NIP-15 Marketplace stall with event kind 30017
+        Asynchronous function to create or update a NIP-15
+        Marketplace stall with event kind 30017
 
         Args:
             stall: stall to be published
@@ -496,7 +493,7 @@ class NostrClient:
         #     [Tag.identifier(product.id), Tag.coordinate(coordinate_tag)]
         # )
 
-        self.logger.info(f" Merchant Stall: {stall}")
+        NostrClient.logger.info("Merchant Stall: %s", stall)
         event_builder = EventBuilder.stall_data(stall.to_stall_data()).tags(
             [
                 Tag.custom(
@@ -521,16 +518,16 @@ class NostrClient:
         try:
             await self._async_connect()
         except Exception as e:
-            raise RuntimeError("Unable to connect to the relay")
+            raise RuntimeError("Unable to connect to the relay") from e
 
         try:
-            filter = Filter().kind(Kind(30017))
+            events_filter = Filter().kind(Kind(30017))
             events = await self.client.fetch_events_from(
-                urls=[self.relay], filter=filter, timeout=timedelta(seconds=2)
+                urls=[self.relay], filter=events_filter, timeout=timedelta(seconds=2)
             )
             return events
         except Exception as e:
-            raise RuntimeError(f"Unable to retrieve stalls: {e}")
+            raise RuntimeError(f"Unable to retrieve stalls: {e}") from e
 
     async def _async_retrieve_products_from_seller(self, seller: PublicKey) -> Events:
         """
@@ -548,17 +545,17 @@ class NostrClient:
         try:
             await self._async_connect()
         except Exception as e:
-            raise RuntimeError("Unable to connect to the relay")
+            raise RuntimeError("Unable to connect to the relay") from e
 
         try:
             # print(f"Retrieving products from seller: {seller}")
-            filter = Filter().kind(Kind(30018)).authors([seller])
+            events_filter = Filter().kind(Kind(30018)).authors([seller])
             events = await self.client.fetch_events_from(
-                urls=[self.relay], filter=filter, timeout=timedelta(seconds=2)
+                urls=[self.relay], filter=events_filter, timeout=timedelta(seconds=2)
             )
             return events
         except Exception as e:
-            raise RuntimeError(f"Unable to retrieve stalls: {e}")
+            raise RuntimeError(f"Unable to retrieve stalls: {e}") from e
 
     async def _async_retrieve_profile(self, author: PublicKey) -> NostrProfile:
         """
@@ -576,7 +573,7 @@ class NostrClient:
         try:
             await self._async_connect()
         except Exception as e:
-            raise RuntimeError("Unable to connect to the relay")
+            raise RuntimeError("Unable to connect to the relay") from e
 
         try:
             metadata = await self.client.fetch_metadata(
@@ -584,7 +581,7 @@ class NostrClient:
             )
             return NostrProfile.from_metadata(metadata, author)
         except Exception as e:
-            raise RuntimeError(f"Unable to retrieve metadata: {e}")
+            raise RuntimeError(f"Unable to retrieve metadata: {e}") from e
 
     async def _async_retrieve_stalls_from_seller(self, seller: PublicKey) -> Events:
         """
@@ -602,16 +599,16 @@ class NostrClient:
         try:
             await self._async_connect()
         except Exception as e:
-            raise RuntimeError("Unable to connect to the relay")
+            raise RuntimeError("Unable to connect to the relay") from e
 
         try:
-            filter = Filter().kind(Kind(30017)).authors([seller])
+            events_filter = Filter().kind(Kind(30017)).authors([seller])
             events = await self.client.fetch_events_from(
-                urls=[self.relay], filter=filter, timeout=timedelta(seconds=2)
+                urls=[self.relay], filter=events_filter, timeout=timedelta(seconds=2)
             )
             return events
         except Exception as e:
-            raise RuntimeError(f"Unable to retrieve stalls: {e}")
+            raise RuntimeError(f"Unable to retrieve stalls: {e}") from e
 
 
 def generate_and_save_keys(env_var: str, env_path: Path) -> Keys:
@@ -635,7 +632,7 @@ def generate_and_save_keys(env_var: str, env_path: Path) -> Keys:
     # Read existing .env content
     env_content = ""
     if env_path.exists():
-        with open(env_path, "r") as f:
+        with open(env_path, "r", encoding="utf-8") as f:
             env_content = f.read()
 
     # Check if the env var already exists
@@ -655,7 +652,7 @@ def generate_and_save_keys(env_var: str, env_path: Path) -> Keys:
         new_lines.append(f"{env_var}={nsec}")
 
     # Write back to .env
-    with open(env_path, "w") as f:
+    with open(env_path, "w", encoding="utf-8") as f:
         f.write("\n".join(new_lines))
         if new_lines:  # Add final newline if there's content
             f.write("\n")

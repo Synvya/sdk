@@ -1,13 +1,21 @@
-## --*-- Dark Horse Brew Coffee Profile Sample Data --*--
-################
+"""
+Sample data for the Dark Horse Brew Coffee merchant.
+"""
 
 from os import getenv
 from pathlib import Path
 
 from dotenv import load_dotenv
 
-from agentstr.models import AgentProfile, MerchantProduct, MerchantStall
-from agentstr.nostr import Keys, ShippingCost, ShippingMethod, generate_and_save_keys
+from agentstr import (
+    AgentProfile,
+    Keys,
+    MerchantProduct,
+    MerchantStall,
+    ShippingCost,
+    ShippingMethod,
+    generate_and_save_keys,
+)
 
 ENV_KEY = "DHB_AGENT_KEY"
 
@@ -17,18 +25,18 @@ script_dir = Path(__file__).parent
 load_dotenv(script_dir / ".env")
 
 # Load or generate keys
-nsec = getenv(ENV_KEY)
-if nsec is None:
+NSEC = getenv(ENV_KEY)
+if NSEC is None:
     keys = generate_and_save_keys(env_var=ENV_KEY, env_path=script_dir / ".env")
 else:
-    keys = Keys.parse(nsec)
+    keys = Keys.parse(NSEC)
 
 # --*-- Merchant info
 DHB_NAME = "Dark Horse Brew Coffee"
 DHB_DESCRIPTION = (
     "Great tasting coffee should be accessible to our locals all year round"
 )
-DHB_PICTURE = "https://darkhorsebrew.coffee/wp-content/uploads/2018/09/DHBC-Logo-White-Intro-page.png"
+DHB_PICTURE = "https://i.nostr.build/XbsM7zc1hBHSZKhn.png"
 DHB_CURRENCY = "USD"
 DHB_GEOHASH = "C23Q7U36W"
 
@@ -54,9 +62,7 @@ DHB_SHIPPING_ZONE_REGIONS = ["Drive Thru"]
 
 # --*-- NRM Product info
 DHB_PRODUCT_ID = "dhb-latte"
-DHB_PRODUCT_IMAGE = (
-    "https://darkhorsebrew.coffee/wp-content/uploads/2018/05/c-sl-0126-800x540.jpg"
-)
+DHB_PRODUCT_IMAGE = "https://i.nostr.build/53rGnQg7R9HcvjWY.png"
 DHB_QUANTITY = 90
 DHB_PRODUCT_NAME = "Dark Horse Brew Latte"
 DHB_PRODUCT_DESCRIPTION = "A latte with a shot of espresso and a layer of foam."

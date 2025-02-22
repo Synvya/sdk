@@ -1,3 +1,7 @@
+"""
+This module contains tests for the MerchantTools class.
+"""
+
 import itertools
 import json
 from typing import List
@@ -32,7 +36,9 @@ def test_publish_product_by_name(
     merchant_products: List[MerchantProduct],
 ) -> None:
     """Test publishing a product by name"""
-    with patch.object(merchant_tools._nostr_client, "publish_product") as mock_publish:
+    with patch.object(
+        merchant_tools.get_nostr_client(), "publish_product"
+    ) as mock_publish:
         mock_publish.return_value = product_event_ids[0]
 
         result = json.loads(
@@ -56,7 +62,9 @@ def test_publish_stall_by_name(
     merchant_stalls: List[MerchantStall],
 ) -> None:
     """Test publishing a stall by name"""
-    with patch.object(merchant_tools._nostr_client, "publish_stall") as mock_publish:
+    with patch.object(
+        merchant_tools.get_nostr_client(), "publish_stall"
+    ) as mock_publish:
         mock_publish.return_value = stall_event_ids[0]
 
         result = json.loads(
@@ -72,7 +80,9 @@ def test_publish_products_by_stall_name(
     merchant_stalls: List[MerchantStall],
 ) -> None:
     """Test publishing all products in a stall"""
-    with patch.object(merchant_tools._nostr_client, "publish_product") as mock_publish:
+    with patch.object(
+        merchant_tools.get_nostr_client(), "publish_product"
+    ) as mock_publish:
         mock_publish.side_effect = itertools.cycle(product_event_ids)
 
         results = json.loads(
@@ -86,7 +96,9 @@ def test_publish_all_products(
     merchant_tools: MerchantTools, product_event_ids: List[EventId]
 ) -> None:
     """Test publishing all products"""
-    with patch.object(merchant_tools._nostr_client, "publish_product") as mock_publish:
+    with patch.object(
+        merchant_tools.get_nostr_client(), "publish_product"
+    ) as mock_publish:
         mock_publish.side_effect = itertools.cycle(product_event_ids)
 
         results = json.loads(merchant_tools.publish_all_products())
@@ -97,7 +109,9 @@ def test_publish_all_stalls(
     merchant_tools: MerchantTools, stall_event_ids: List[EventId]
 ) -> None:
     """Test publishing all stalls"""
-    with patch.object(merchant_tools._nostr_client, "publish_stall") as mock_publish:
+    with patch.object(
+        merchant_tools.get_nostr_client(), "publish_stall"
+    ) as mock_publish:
         mock_publish.side_effect = itertools.cycle(stall_event_ids)
 
         results = json.loads(merchant_tools.publish_all_stalls())
@@ -132,7 +146,9 @@ def test_profile_operations(
     assert profile["name"] == merchant_profile_name
     assert profile["about"] == merchant_profile_about
 
-    with patch.object(merchant_tools._nostr_client, "publish_profile") as mock_publish:
+    with patch.object(
+        merchant_tools.get_nostr_client(), "publish_profile"
+    ) as mock_publish:
         mock_publish.return_value = profile_event_id
         result = json.loads(merchant_tools.publish_profile())
         assert isinstance(result, dict)

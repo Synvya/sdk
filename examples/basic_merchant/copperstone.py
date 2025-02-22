@@ -1,13 +1,21 @@
-## --*-- Dark Horse Brew Coffee Profile Sample Data --*--
-################
+"""
+Sample data for the Copperstone merchant.
+"""
 
 from os import getenv
 from pathlib import Path
 
 from dotenv import load_dotenv
 
-from agentstr.models import AgentProfile, MerchantProduct, MerchantStall
-from agentstr.nostr import Keys, ShippingCost, ShippingMethod, generate_and_save_keys
+from agentstr import (
+    AgentProfile,
+    Keys,
+    MerchantProduct,
+    MerchantStall,
+    ShippingCost,
+    ShippingMethod,
+    generate_and_save_keys,
+)
 
 ENV_KEY = "COPPERSTONE_AGENT_KEY"
 
@@ -26,7 +34,7 @@ else:
 # --*-- Merchant info
 COPPERSTONE_NAME = "Copperstone"
 COPPERSTONE_DESCRIPTION = "Copperstone Family Spaguetti Restaurant"
-COPPERSTONE_PICTURE = "https://static.wixstatic.com/media/02af2a_fd5dfdf15fbe45fa9188b7744e0ddec7.png/v1/fill/w_600,h_300,al_c,q_85,usm_0.66_1.00_0.01,enc_avif,quality_auto/02af2a_fd5dfdf15fbe45fa9188b7744e0ddec7.png"
+COPPERSTONE_PICTURE = "https://i.nostr.build/TL0QeUTb2TItb03y.png"
 COPPERSTONE_CURRENCY = "USD"
 COPPERSTONE_GEOHASH = "C23Q7U36W"
 
@@ -53,7 +61,7 @@ COPPERSTONE_SHIPPING_ZONE_REGIONS = ["Eat Here", "Take Out"]
 
 # --*-- NRM Product info
 COPPERSTONE_PRODUCT_ID = "copperstone-reservation"
-COPPERSTONE_PRODUCT_IMAGE = "https://static.wixstatic.com/media/02af2a_6a451c2f302e47c8a9a1607ec691fff8.jpg/v1/fill/w_968,h_239,al_c,q_80,enc_avif,quality_auto/02af2a_6a451c2f302e47c8a9a1607ec691fff8.jpg"
+COPPERSTONE_PRODUCT_IMAGE = "https://i.nostr.build/pqRHZy6dTFplHwkQ.png"
 COPPERSTONE_QUANTITY = 90
 COPPERSTONE_PRODUCT_NAME = "Dine in reservation"
 COPPERSTONE_PRODUCT_DESCRIPTION = (

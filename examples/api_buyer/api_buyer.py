@@ -1,3 +1,7 @@
+"""
+Example FastAPI wrapper for the buyer agent.
+"""
+
 import logging
 import warnings
 from os import getenv
@@ -13,9 +17,7 @@ from dotenv import load_dotenv
 from fastapi import FastAPI
 from pydantic import BaseModel
 
-from agentstr.buyer import BuyerTools
-from agentstr.models import AgentProfile
-from agentstr.nostr import Keys, generate_and_save_keys
+from agentstr import AgentProfile, BuyerTools, Keys, generate_and_save_keys
 
 # Set logging to WARN level to suppress INFO logs
 logging.basicConfig(level=logging.WARN)
@@ -42,21 +44,21 @@ script_dir = Path(__file__).parent
 load_dotenv(script_dir / ".env")
 
 # Load or generate keys
-nsec = getenv(ENV_KEY)
-print(f"NSEC: {nsec}")
-if nsec is None:
+NSEC = getenv(ENV_KEY)
+print(f"NSEC: {NSEC}")
+if NSEC is None:
     keys = generate_and_save_keys(env_var=ENV_KEY, env_path=script_dir / ".env")
 else:
-    keys = Keys.parse(nsec)
+    keys = Keys.parse(NSEC)
 
 
 # Load or use default relay
-relay = getenv(ENV_RELAY)
-if relay is None:
-    relay = DEFAULT_RELAY
+RELAY = getenv(ENV_RELAY)
+if RELAY is None:
+    RELAY = DEFAULT_RELAY
 
-openai_api_key = getenv("OPENAI_API_KEY")
-if openai_api_key is None:
+OPENAI_API_KEY = getenv("OPENAI_API_KEY")
+if OPENAI_API_KEY is None:
     raise ValueError("OPENAI_API_KEY is not set")
 # print(f"OpenAI API key: {openai_api_key}")
 
@@ -104,8 +106,15 @@ session.execute(
       AND caching = {'keys': 'ALL', 'rows_per_partition': 'NONE'}
       AND cdc = false
       AND comment = ''
-      AND compaction = {'class': 'org.apache.cassandra.db.compaction.SizeTieredCompactionStrategy', 'max_threshold': '32', 'min_threshold': '4'}
-      AND compression = {'chunk_length_in_kb': '16', 'class': 'org.apache.cassandra.io.compress.LZ4Compressor'}
+      AND compaction = {
+          'class': 'org.apache.cassandra.db.compaction.SizeTieredCompactionStrategy',
+          'max_threshold': '32',
+          'min_threshold': '4'
+      }
+      AND compression = {
+          'chunk_length_in_kb': '16',
+          'class': 'org.apache.cassandra.io.compress.LZ4Compressor'
+      }
       AND memtable = 'default'
       AND crc_check_chance = 1.0
       AND default_time_to_live = 0
@@ -133,9 +142,9 @@ knowledge_base = AgentKnowledge(
 
 buyer = Agent(  # type: ignore[call-arg]
     name="Virtual Guide for the Snoqualmie Valley",
-    model=OpenAIChat(id="gpt-4o", api_key=openai_api_key),
+    model=OpenAIChat(id="gpt-4o", api_key=OPENAI_API_KEY),
     tools=[
-        BuyerTools(knowledge_base=knowledge_base, buyer_profile=profile, relay=relay)
+        BuyerTools(knowledge_base=knowledge_base, buyer_profile=profile, relay=RELAY)
     ],
     add_history_to_messages=True,
     num_history_responses=10,
@@ -153,7 +162,8 @@ buyer = Agent(  # type: ignore[call-arg]
         
         When I ask you to refresh your sellers, use the refresh_sellers tool.
         
-        Search the knowledge base for the most relevant information to the query before using the tools.
+        Search the knowledge base for the most relevant information to the query before using
+        the tools.
         
         When possible, connect multiple activities to create an itinerary. The itinerary
         can be for a few hours. It doesn't need to be a full day.
@@ -178,13 +188,16 @@ buyer = Agent(  # type: ignore[call-arg]
 app = FastAPI()
 
 
-# Simple request model
 class QueryRequest(BaseModel):
+    """
+    Simple request model for the buyer agent.
+    """
+
     query: str
 
 
 @app.get("/")
-def read_root():
+def read_root() -> dict:
     """
     Simple health-check or root endpoint.
     """
@@ -192,7 +205,7 @@ def read_root():
 
 
 @app.post("/query")
-def query_buyer(request: QueryRequest):
+def query_buyer(request: QueryRequest) -> dict:
     """
     POST an object like {"query": "Hi, what can I do in Snoqualmie, WA?"}
     and get back the agent's response.

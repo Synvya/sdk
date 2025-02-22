@@ -1,3 +1,7 @@
+"""
+This example shows how to create a basic merchant agent.
+"""
+
 from os import getenv
 
 # --***---
@@ -5,7 +9,7 @@ from agno.agent import Agent  # type: ignore
 from agno.models.openai import OpenAIChat  # type: ignore
 from nrm import products, profile, stalls
 
-from agentstr.merchant import MerchantTools
+from agentstr import MerchantTools
 
 # --***---
 # Collect sample data from the merchant examples
@@ -21,22 +25,22 @@ DEFAULT_RELAY = "wss://relay.damus.io"
 
 
 # Load or use default relay
-relay = getenv(ENV_RELAY)
-if relay is None:
-    relay = DEFAULT_RELAY
+RELAY = getenv(ENV_RELAY)
+if RELAY is None:
+    RELAY = DEFAULT_RELAY
 
-openai_api_key = getenv("OPENAI_API_KEY")
-if openai_api_key is None:
+OPENAI_API_KEY = getenv("OPENAI_API_KEY")
+if OPENAI_API_KEY is None:
     raise ValueError("OPENAI_API_KEY is not set")
 # print(f"OpenAI API key: {openai_api_key}")
 
 merchant = Agent(  # type: ignore[call-arg]
     name=f"AI Agent for {profile.get_name()}",
-    model=OpenAIChat(id="gpt-4o", api_key=openai_api_key),
+    model=OpenAIChat(id="gpt-4o", api_key=OPENAI_API_KEY),
     tools=[
         MerchantTools(
             merchant_profile=profile,
-            relay=relay,
+            relay=RELAY,
             stalls=stalls,
             products=products,
         )
@@ -50,20 +54,21 @@ merchant = Agent(  # type: ignore[call-arg]
     # async_mode=True,
     instructions=[
         """
-        The Merchant Toolkit functions return JSON arrays. Provide output as conversational
-        text and not JSON or markup language. You are publishing a merchant profile and
-        products to the Nostr network. If you encounter any errors, first try again,
-        then, let me know with specific details for each error message.
+        The Merchant Toolkit functions return JSON arrays. Provide output
+        as conversational text and not JSON or markup language. You are
+        publishing a merchant profile and products to the Nostr network.
+        If you encounter any errors, first try again, then, let me know
+        with specific details for each error message.
         """.strip(),
     ],
 )
 
-# merchant.print_response("List the products of the merchant")
-# merchant.cli_app(stream=False)
-
 
 # Command-line interface with response storage
 def merchant_cli() -> None:
+    """
+    Command-line interface for example merchant agent.
+    """
     print("\n🔹 Merchant Agent CLI (Type 'exit' to quit)\n")
     while True:
         user_query = input("💬 You: ")

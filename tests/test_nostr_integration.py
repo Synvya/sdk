@@ -1,3 +1,7 @@
+"""
+This module contains tests for the NostrClient class using a real Nostr relay.
+"""
+
 from typing import List
 
 import pytest
@@ -7,8 +11,8 @@ from agentstr.nostr import EventId, Keys, NostrClient
 
 
 # used in test_nostr_integration.py
-@pytest.fixture(scope="session")
-def nostr_client(relay: str, merchant_keys: Keys) -> NostrClient:
+@pytest.fixture(scope="session", name="nostr_client")
+def nostr_client_fixture(relay: str, merchant_keys: Keys) -> NostrClient:
     """Fixture providing a NostrClient instance"""
     nostr_client = NostrClient(relay, merchant_keys.secret_key().to_bech32())
     return nostr_client
