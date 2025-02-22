@@ -7,8 +7,8 @@ from typing import List
 from unittest.mock import patch
 
 from agentstr.buyer import BuyerTools
-from agentstr.models import AgentProfile, MerchantStall, NostrProfile
-from agentstr.nostr import Keys
+from agentstr.models import AgentProfile, MerchantProduct, MerchantStall, NostrProfile
+from agentstr.nostr import Keys, PublicKey
 
 
 def test_buyer_profile_creation(
@@ -86,18 +86,25 @@ def test_get_seller_stalls(
 def test_get_seller_products(
     buyer_tools: BuyerTools,
     seller_nostr_profile: NostrProfile,
+    merchant_products: List[MerchantProduct],
 ) -> None:
     """Test the retrieval of a seller's products"""
-    # with patch.object(
-    #     buyer_tools.get_nostr_client(),
-    #     "retrieve_products_from_seller",
-    #     return_value=merchant_products,
-    # ) as mock_get_seller_products:
-    result = buyer_tools.get_seller_products(seller_nostr_profile.get_public_key())
-    assert isinstance(result, str)  # Ensure it's a JSON string
+    with patch.object(
+        buyer_tools.get_nostr_client(),
+        "retrieve_products_from_seller",
+        return_value=merchant_products,
+    ) as mock_get_seller_products:
+        result = buyer_tools.get_seller_products(seller_nostr_profile.get_public_key())
+        assert isinstance(result, str)  # Ensure it's a JSON string
 
-    products = json.loads(result)  # Convert JSON string back to a Python list
-    assert isinstance(products, list)  # Ensure it's a list
-    assert len(products) > 0  # Ensure the list is not empty
-    assert isinstance(products[0], dict)  # Ensure the first item is a dictionary
-    assert "name" in products[0]  # Ensure "name" key exists in the first product
+        # ✅ Verify that the mocked method was called
+        mock_get_seller_products.assert_called_once_with(
+            PublicKey.parse(seller_nostr_profile.get_public_key())
+        )
+
+        products = json.loads(result)  # Convert JSON string back to a Python list
+        products = json.loads(result)  # Convert JSON string back to a Python list
+        assert isinstance(products, list)  # Ensure it's a list
+        assert len(products) > 0  # Ensure the list is not empty
+        assert isinstance(products[0], dict)  # Ensure the first item is a dictionary
+        assert "name" in products[0]  # Ensure "name" key exists in the first product
