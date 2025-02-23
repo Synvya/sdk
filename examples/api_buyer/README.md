@@ -25,14 +25,16 @@ You WILL need an OpenAI API key.
 cp .env.example .env
 ```
 
-4. Run the example:
+3. Build the Docker image and run the example:
 
 ```bash
-docker-compose up --build
+docker-compose build --no-cache
+docker-compose up -d
 ```
 
 ## Usage
 
+The API is now available at `http://localhost:8000/query` and you can inspect it at `http://localhost:8000/docs`.
 
  You can ask the buyer agent to:
  - Retrieve a list of sellers from the relay

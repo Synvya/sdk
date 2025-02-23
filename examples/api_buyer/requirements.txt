@@ -1,4 +1,6 @@
-agentstr
+agentstr==0.1.13
 python-dotenv
 fastapi
 uvicorn
+cassandra-driver
+cassio

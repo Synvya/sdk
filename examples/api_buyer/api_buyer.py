@@ -34,7 +34,7 @@ ENV_KEY = "BUYER_AGENT_KEY"
 
 # Buyer profile constants
 NAME = "Snoqualmie Valley Chamber of Commerce"
-DESCRIPTION = "I'm in the business of doing business."
+DESCRIPTION = "Supporting the Snoqualmie Valley business community."
 PICTURE = "https://i.nostr.build/ocjZ5GlAKwrvgRhx.png"
 DISPLAY_NAME = "Snoqualmie Valley Chamber of Commerce"
 
