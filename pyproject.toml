@@ -45,6 +45,8 @@ BugTracker = "https://github.com/synvya/agentstr/issues"
 [tool.setuptools]
 package-dir = {"" = "src"}
 packages = ["agentstr"]
+exclude-package-data = {"*" = ["tests/*", "tests/**/*"]}
+
 
 [tool.black]
 line-length = 88

@@ -2,12 +2,15 @@
 Example FastAPI wrapper for the buyer agent.
 """
 
+import asyncio
 import logging
 import warnings
 from os import getenv
 from pathlib import Path
+from typing import Iterator
 
-from agno.agent import Agent, AgentKnowledge  # type: ignore
+import nest_asyncio
+from agno.agent import Agent, AgentKnowledge, RunResponse  # type: ignore
 from agno.embedder.openai import OpenAIEmbedder
 from agno.models.openai import OpenAIChat  # type: ignore
 from agno.vectordb.cassandra import Cassandra
@@ -15,10 +18,12 @@ from cassandra.cluster import Cluster
 from cassandra.policies import RoundRobinPolicy
 from dotenv import load_dotenv
 from fastapi import FastAPI
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
 from agentstr import AgentProfile, BuyerTools, Keys, generate_and_save_keys
 
+nest_asyncio.apply()
 # Set logging to WARN level to suppress INFO logs
 logging.basicConfig(level=logging.WARN)
 
@@ -156,14 +161,14 @@ buyer = Agent(  # type: ignore[call-arg]
     # async_mode=True,
     instructions=[
         """
-        You're an AI assistant for people visiting a place. You will help them find things
-        to do, places to go, and things to buy using exclusively the information provided by
-        BuyerTools and stored in your knowledge base.
+        You're an AI assistant for people visiting a place. You will help them find
+        things to do, places to go, and things to buy using exclusively the information
+        provided by BuyerTools and stored in your knowledge base.
         
         When I ask you to refresh your sellers, use the refresh_sellers tool.
         
-        Search the knowledge base for the most relevant information to the query before using
-        the tools.
+        Search the knowledge base for the most relevant information to the query before
+        using the tools.
         
         When possible, connect multiple activities to create an itinerary. The itinerary
         can be for a few hours. It doesn't need to be a full day.
@@ -175,8 +180,9 @@ buyer = Agent(  # type: ignore[call-arg]
         Only include in the itinerary merchants that are in your knowledge base.
                 
         When including merchants from your knowledge base in your response, make sure to 
-        include their products and services in the itinerary with the current times based
-        on product information. Provide also the price of the products and services.
+        include their products and services in the itinerary with the current times
+        based on product information. Provide also the price of the products and
+        services.
         Offer to purchase the products or make a reservation and then include
         this in your overall response.
         """.strip(),
@@ -196,6 +202,52 @@ class QueryRequest(BaseModel):
     query: str
 
 
+async def async_wrapper(sync_iter: Iterator[RunResponse]):
+    while True:
+        try:
+            # Handle synchronous iterator in async context
+            yield await asyncio.to_thread(next, sync_iter)
+        except StopIteration:
+            break
+        except RuntimeError as e:
+            if "StopIteration" in str(e):
+                break
+            else:
+                raise
+
+
+async def event_stream(response_stream: Iterator[RunResponse]):
+    response_iter = async_wrapper(response_stream)
+    first_chunk_event = asyncio.Event()
+
+    async def fetch_first_chunk():
+        try:
+            return await anext(response_iter)
+        except StopAsyncIteration:
+            first_chunk_event.set()
+            return None
+        finally:
+            first_chunk_event.set()
+
+    first_chunk_task = asyncio.create_task(fetch_first_chunk())
+
+    # Heartbeat phase
+    while not first_chunk_event.is_set():
+        yield "Processing...\n"
+        await asyncio.sleep(1)
+
+    # Data streaming phase
+    try:
+        if first_response := await first_chunk_task:
+            yield f"{first_response.get_content_as_string()}\n"
+
+        async for response in response_iter:
+            yield f"{response.get_content_as_string()}\n"
+
+    except asyncio.CancelledError:
+        print("Client disconnected")
+
+
 @app.get("/")
 def read_root() -> dict:
     """
@@ -205,10 +257,9 @@ def read_root() -> dict:
 
 
 @app.post("/query")
-def query_buyer(request: QueryRequest) -> dict:
-    """
-    POST an object like {"query": "Hi, what can I do in Snoqualmie, WA?"}
-    and get back the agent's response.
-    """
-    response = buyer.run(request.query)
-    return {"response": response.get_content_as_string()}
+async def query_buyer(request: QueryRequest):
+    response_stream: Iterator[RunResponse] = buyer.run(request.query, stream=True)
+
+    return StreamingResponse(
+        event_stream(response_stream), media_type="text/event-stream"
+    )
