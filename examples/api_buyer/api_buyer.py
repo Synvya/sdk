@@ -5,17 +5,21 @@ Example FastAPI wrapper for the buyer agent.
 import asyncio
 import logging
 import warnings
+
+# from builtins import anext
 from os import getenv
 from pathlib import Path
-from typing import Iterator
+from typing import AsyncGenerator, Iterator, Optional
 
 import nest_asyncio
 from agno.agent import Agent, AgentKnowledge, RunResponse  # type: ignore
 from agno.embedder.openai import OpenAIEmbedder
 from agno.models.openai import OpenAIChat  # type: ignore
-from agno.vectordb.cassandra import Cassandra
-from cassandra.cluster import Cluster
-from cassandra.policies import RoundRobinPolicy
+
+# from agno.vectordb.cassandra import Cassandra
+# from cassandra.cluster import Cluster
+# from cassandra.policies import RoundRobinPolicy
+from agno.vectordb.pgvector import PgVector, SearchType
 from dotenv import load_dotenv
 from fastapi import FastAPI
 from fastapi.responses import StreamingResponse
@@ -74,75 +78,85 @@ profile.set_about(DESCRIPTION)
 profile.set_display_name(DISPLAY_NAME)
 profile.set_picture(PICTURE)
 
-# Initialize Cluster with recommended settings
-cluster = Cluster(
-    ["cassandra-db"],
-    port=9042,
-    protocol_version=5,  # Verify your Cassandra version
-    load_balancing_policy=RoundRobinPolicy(),
+# # Initialize Cluster with recommended settings
+# cluster = Cluster(
+#     ["cassandra-db"],
+#     port=9042,
+#     protocol_version=5,  # Verify your Cassandra version
+#     load_balancing_policy=RoundRobinPolicy(),
+# )
+
+# session = cluster.connect()
+
+# # Create the keyspace
+# session.execute(
+#     """
+#     CREATE KEYSPACE IF NOT EXISTS synvya
+#     WITH REPLICATION = { 'class' : 'SimpleStrategy', 'replication_factor' : 1 }
+#     """
+# )
+
+# # Drop existing table (if needed)
+# session.execute("DROP TABLE IF EXISTS synvya.sellers")
+
+# # Create the table with 1536-dimensional vector for OpenAI
+# session.execute(
+#     """
+#     CREATE TABLE synvya.sellers (
+#         row_id text PRIMARY KEY,
+#         attributes_blob text,
+#         body_blob text,
+#         document_name text,
+#         vector vector<float, 1536>,
+#         metadata_s map<text, text>
+#     ) WITH additional_write_policy = '99p'
+#       AND allow_auto_snapshot = true
+#       AND bloom_filter_fp_chance = 0.01
+#       AND caching = {'keys': 'ALL', 'rows_per_partition': 'NONE'}
+#       AND cdc = false
+#       AND comment = ''
+#       AND compaction = {
+#           'class': 'org.apache.cassandra.db.compaction.SizeTieredCompactionStrategy',
+#           'max_threshold': '32',
+#           'min_threshold': '4'
+#       }
+#       AND compression = {
+#           'chunk_length_in_kb': '16',
+#           'class': 'org.apache.cassandra.io.compress.LZ4Compressor'
+#       }
+#       AND memtable = 'default'
+#       AND crc_check_chance = 1.0
+#       AND default_time_to_live = 0
+#       AND extensions = {}
+#       AND gc_grace_seconds = 864000
+#       AND incremental_backups = true
+#       AND max_index_interval = 2048
+#       AND memtable_flush_period_in_ms = 0
+#       AND min_index_interval = 128
+#       AND read_repair = 'BLOCKING'
+#       AND speculative_retry = '99p';
+#     """
+# )
+
+
+# knowledge_base = AgentKnowledge(
+#     vector_db=Cassandra(
+#         table_name="sellers",
+#         keyspace="synvya",
+#         session=session,
+#         embedder=OpenAIEmbedder(),
+#     ),
+# )
+
+db_url = "postgresql+psycopg://ai:ai@pgvector-db:5432/ai"
+vector_db = PgVector(
+    table_name="sellers",
+    db_url=db_url,
+    search_type=SearchType.vector,
+    embedder=OpenAIEmbedder(),
 )
 
-session = cluster.connect()
-
-# Create the keyspace
-session.execute(
-    """
-    CREATE KEYSPACE IF NOT EXISTS synvya
-    WITH REPLICATION = { 'class' : 'SimpleStrategy', 'replication_factor' : 1 }
-    """
-)
-
-# Drop existing table (if needed)
-session.execute("DROP TABLE IF EXISTS synvya.sellers")
-
-# Create the table with 1536-dimensional vector for OpenAI
-session.execute(
-    """
-    CREATE TABLE synvya.sellers (
-        row_id text PRIMARY KEY,
-        attributes_blob text,
-        body_blob text,
-        document_name text,
-        vector vector<float, 1536>,
-        metadata_s map<text, text>
-    ) WITH additional_write_policy = '99p'
-      AND allow_auto_snapshot = true
-      AND bloom_filter_fp_chance = 0.01
-      AND caching = {'keys': 'ALL', 'rows_per_partition': 'NONE'}
-      AND cdc = false
-      AND comment = ''
-      AND compaction = {
-          'class': 'org.apache.cassandra.db.compaction.SizeTieredCompactionStrategy',
-          'max_threshold': '32',
-          'min_threshold': '4'
-      }
-      AND compression = {
-          'chunk_length_in_kb': '16',
-          'class': 'org.apache.cassandra.io.compress.LZ4Compressor'
-      }
-      AND memtable = 'default'
-      AND crc_check_chance = 1.0
-      AND default_time_to_live = 0
-      AND extensions = {}
-      AND gc_grace_seconds = 864000
-      AND incremental_backups = true
-      AND max_index_interval = 2048
-      AND memtable_flush_period_in_ms = 0
-      AND min_index_interval = 128
-      AND read_repair = 'BLOCKING'
-      AND speculative_retry = '99p';
-    """
-)
-
-
-knowledge_base = AgentKnowledge(
-    vector_db=Cassandra(
-        table_name="sellers",
-        keyspace="synvya",
-        session=session,
-        embedder=OpenAIEmbedder(),
-    ),
-)
+knowledge_base = AgentKnowledge(vector_db=vector_db)
 
 
 buyer = Agent(  # type: ignore[call-arg]
@@ -202,7 +216,12 @@ class QueryRequest(BaseModel):
     query: str
 
 
-async def async_wrapper(sync_iter: Iterator[RunResponse]):
+async def async_wrapper(
+    sync_iter: Iterator[RunResponse],
+) -> AsyncGenerator[RunResponse, None]:
+    """
+    Wraps a synchronous iterator in an asynchronous generator.
+    """
     while True:
         try:
             # Handle synchronous iterator in async context
@@ -216,11 +235,16 @@ async def async_wrapper(sync_iter: Iterator[RunResponse]):
                 raise
 
 
-async def event_stream(response_stream: Iterator[RunResponse]):
+async def event_stream(
+    response_stream: Iterator[RunResponse],
+) -> AsyncGenerator[str, None]:
+    """
+    Streams the response from the buyer agent.
+    """
     response_iter = async_wrapper(response_stream)
     first_chunk_event = asyncio.Event()
 
-    async def fetch_first_chunk():
+    async def fetch_first_chunk() -> Optional[RunResponse]:
         try:
             return await anext(response_iter)
         except StopAsyncIteration:
@@ -257,7 +281,10 @@ def read_root() -> dict:
 
 
 @app.post("/query")
-async def query_buyer(request: QueryRequest):
+async def query_buyer(request: QueryRequest) -> StreamingResponse:
+    """
+    FastAPI endpoint to query the buyer agent and stream the response.
+    """
     response_stream: Iterator[RunResponse] = buyer.run(request.query, stream=True)
 
     return StreamingResponse(

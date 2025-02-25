@@ -7,7 +7,7 @@ name = "agentstr"
 version = "0.1.14"
 description = "Tools for a Nostr agentic ecosystem"
 readme = "README.md"
-requires-python = ">=3.9, <3.13"
+requires-python = ">=3.10, <3.13"
 license = { text = "MIT" }
 authors = [
     {name = "Synvya", email = "synvya@synvya.com"}
@@ -60,7 +60,7 @@ src_paths = ["src", "tests", "examples"]
 multi_line_output = 3
 
 [tool.mypy]
-python_version = "3.9"
+python_version = "3.10"
 warn_return_any = true
 warn_unused_configs = true
 mypy_path = "src"

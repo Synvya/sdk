@@ -10,9 +10,12 @@ from pathlib import Path
 from agno.agent import Agent, AgentKnowledge  # type: ignore
 from agno.embedder.openai import OpenAIEmbedder
 from agno.models.openai import OpenAIChat  # type: ignore
-from agno.vectordb.cassandra import Cassandra
-from cassandra.cluster import Cluster
-from cassandra.policies import RoundRobinPolicy
+
+# from agno.vectordb.cassandra import Cassandra
+from agno.vectordb.pgvector import PgVector, SearchType
+
+# from cassandra.cluster import Cluster
+# from cassandra.policies import RoundRobinPolicy
 from dotenv import load_dotenv
 
 from agentstr import AgentProfile, BuyerTools, Keys, generate_and_save_keys
@@ -67,74 +70,83 @@ profile.set_display_name(DISPLAY_NAME)
 profile.set_picture(PICTURE)
 
 # Initialize Cluster with recommended settings
-cluster = Cluster(
-    ["127.0.0.1"],
-    port=9042,
-    protocol_version=5,  # Verify your Cassandra version
-    load_balancing_policy=RoundRobinPolicy(),
+# cluster = Cluster(
+#     ["127.0.0.1"],
+#     port=9042,
+#     protocol_version=5,  # Verify your Cassandra version
+#     load_balancing_policy=RoundRobinPolicy(),
+# )
+
+# session = cluster.connect()
+
+# # Create the keyspace
+# session.execute(
+#     """
+#     CREATE KEYSPACE IF NOT EXISTS synvya
+#     WITH REPLICATION = { 'class' : 'SimpleStrategy', 'replication_factor' : 1 }
+#     """
+# )
+
+# # Drop existing table (if needed)
+# session.execute("DROP TABLE IF EXISTS synvya.sellers")
+
+# # Create the table with 1536-dimensional vector for OpenAI
+# session.execute(
+#     """
+#     CREATE TABLE synvya.sellers (
+#         row_id text PRIMARY KEY,
+#         attributes_blob text,
+#         body_blob text,
+#         document_name text,
+#         vector vector<float, 1536>,
+#         metadata_s map<text, text>
+#     ) WITH additional_write_policy = '99p'
+#       AND allow_auto_snapshot = true
+#       AND bloom_filter_fp_chance = 0.01
+#       AND caching = {'keys': 'ALL', 'rows_per_partition': 'NONE'}
+#       AND cdc = false
+#       AND comment = ''
+#       AND compaction = {
+#           'class': 'org.apache.cassandra.db.compaction.SizeTieredCompactionStrategy',
+#           'max_threshold': '32',
+#           'min_threshold': '4'
+#       }
+#       AND compression = {
+#           'chunk_length_in_kb': '16',
+#           'class': 'org.apache.cassandra.io.compress.LZ4Compressor'
+#       }
+#       AND memtable = 'default'
+#       AND crc_check_chance = 1.0
+#       AND default_time_to_live = 0
+#       AND extensions = {}
+#       AND gc_grace_seconds = 864000
+#       AND incremental_backups = true
+#       AND max_index_interval = 2048
+#       AND memtable_flush_period_in_ms = 0
+#       AND min_index_interval = 128
+#       AND read_repair = 'BLOCKING'
+#       AND speculative_retry = '99p';
+#     """
+# )
+
+# knowledge_base = AgentKnowledge(
+#     vector_db=Cassandra(
+#         table_name="sellers",
+#         keyspace="synvya",
+#         session=session,
+#         embedder=OpenAIEmbedder(),
+#     ),
+# )
+
+db_url = "postgresql+psycopg://ai:ai@localhost:5532/ai"
+vector_db = PgVector(
+    table_name="sellers",
+    db_url=db_url,
+    search_type=SearchType.vector,
+    embedder=OpenAIEmbedder(),
 )
 
-session = cluster.connect()
-
-# Create the keyspace
-session.execute(
-    """
-    CREATE KEYSPACE IF NOT EXISTS synvya
-    WITH REPLICATION = { 'class' : 'SimpleStrategy', 'replication_factor' : 1 }
-    """
-)
-
-# Drop existing table (if needed)
-session.execute("DROP TABLE IF EXISTS synvya.sellers")
-
-# Create the table with 1536-dimensional vector for OpenAI
-session.execute(
-    """
-    CREATE TABLE synvya.sellers (
-        row_id text PRIMARY KEY,
-        attributes_blob text,
-        body_blob text,
-        document_name text,
-        vector vector<float, 1536>,
-        metadata_s map<text, text>
-    ) WITH additional_write_policy = '99p'
-      AND allow_auto_snapshot = true
-      AND bloom_filter_fp_chance = 0.01
-      AND caching = {'keys': 'ALL', 'rows_per_partition': 'NONE'}
-      AND cdc = false
-      AND comment = ''
-      AND compaction = {
-          'class': 'org.apache.cassandra.db.compaction.SizeTieredCompactionStrategy',
-          'max_threshold': '32',
-          'min_threshold': '4'
-      }
-      AND compression = {
-          'chunk_length_in_kb': '16',
-          'class': 'org.apache.cassandra.io.compress.LZ4Compressor'
-      }
-      AND memtable = 'default'
-      AND crc_check_chance = 1.0
-      AND default_time_to_live = 0
-      AND extensions = {}
-      AND gc_grace_seconds = 864000
-      AND incremental_backups = true
-      AND max_index_interval = 2048
-      AND memtable_flush_period_in_ms = 0
-      AND min_index_interval = 128
-      AND read_repair = 'BLOCKING'
-      AND speculative_retry = '99p';
-    """
-)
-
-
-knowledge_base = AgentKnowledge(
-    vector_db=Cassandra(
-        table_name="sellers",
-        keyspace="synvya",
-        session=session,
-        embedder=OpenAIEmbedder(),
-    ),
-)
+knowledge_base = AgentKnowledge(vector_db=vector_db)
 
 
 buyer = Agent(  # type: ignore[call-arg]

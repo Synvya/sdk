@@ -1,25 +1,28 @@
 services:
-  cassandra-db:
-    image: cassandra:latest
-    container_name: cassandra-db
-    ports:
-      - "9042:9042"
-    # Optional volume for persistent data
+  pgvector-db:
+    image: pgvector/pgvector:pg17
+    container_name: pgvector-db
+    environment:
+      POSTGRES_DB: ai
+      POSTGRES_USER: ai
+      POSTGRES_PASSWORD: ai
+      PGDATA: /var/lib/postgresql/data/pgdata
     volumes:
-      - cassandra_data:/var/lib/cassandra/data
+      - pgvolume:/var/lib/postgresql/data
+    ports:
+      - "5532:5432"
     healthcheck:
-      test: [ "CMD", "cqlsh", "-e", "describe keyspaces", "127.0.0.1" ]
+      test: [ "CMD-SHELL", "pg_isready -U ai" ]
       interval: 10s
       timeout: 5s
-      retries: 10
+      retries: 5
       start_period: 20s
 
   buyer-app:
     build: .
     container_name: buyer-app
-    # Ensure the app starts after Cassandra is reachable
     depends_on:
-      cassandra-db:
+      pgvector-db:
         condition: service_healthy
     env_file:
       - .env
@@ -27,4 +30,4 @@ services:
       - "8000:8000"
 
 volumes:
-  cassandra_data:
+  pgvolume:
