@@ -30,8 +30,10 @@ dev = [
 ]
 examples = [
     "python-dotenv>=1.0",
-    "cassandra-driver>=3.29.2",
-    "cassio>=0.1.10",
+    "psycopg[binary]>=3.2.5",
+    "sqlalchemy>=2.0.0",
+    "nest-asyncio>=1.6.0",
+    "pgvector>=0.3.6",
     "fastapi>=0.110.0",
     "uvicorn>=0.30.0",
 ]
