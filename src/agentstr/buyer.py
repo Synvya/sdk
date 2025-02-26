@@ -298,8 +298,8 @@ class BuyerTools(Toolkit):
 
     def _store_response_in_knowledge_base(self, response: str) -> None:
         doc = Document(
-            id=str(uuid4()),
+            # id=str(uuid4()),
             content=response,
         )
-        # print(f"Document length: {len(doc.content.split())} words")
+        print(f"Document length: {len(doc.content.split())} words")
         self.knowledge_base.load_documents([doc])  # Store response in Cassandra

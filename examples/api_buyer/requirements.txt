@@ -1,8 +1,7 @@
-agentstr==0.1.13
-python-dotenv
+agentstr[examples]
+psycopg[binary]
+sqlalchemy
+nest-asyncio
+pgvector
 fastapi
 uvicorn
-sqlalchemy
-psycopg[binary]
-pgvector
-nest-asyncio

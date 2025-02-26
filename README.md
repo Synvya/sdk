@@ -95,7 +95,3 @@ This project is licensed under the MIT License - see the [LICENSE](https://githu
 - [Rust-Nostr](https://rust-nostr.org) - For their Python Nostr SDK
 - [Nostr Protocol](https://github.com/nostr-protocol/nips) - For the protocol specification
 
-This software includes the following software licensed under the [Apache License 2.0](http://www.apache.org/licenses/LICENSE-2.0):
-- [DataStax Python Driver for Apache Cassandra](https://github.com/datastax/python-driver)
-- [cassIO](https://github.com/CassioML/cassio). This library is not maintained anymore. We will need to replace it with a new library.
-

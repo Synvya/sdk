@@ -3,41 +3,31 @@ Basic buyer agent example.
 """
 
 import logging
-import warnings
+import uuid
 from os import getenv
 from pathlib import Path
+from typing import Optional
 
 from agno.agent import Agent, AgentKnowledge  # type: ignore
 from agno.embedder.openai import OpenAIEmbedder
 from agno.models.openai import OpenAIChat  # type: ignore
-
-# from agno.vectordb.cassandra import Cassandra
 from agno.vectordb.pgvector import PgVector, SearchType
-
-# from cassandra.cluster import Cluster
-# from cassandra.policies import RoundRobinPolicy
 from dotenv import load_dotenv
+from pgvector.sqlalchemy import Vector  # Correct import for vector storage
+from sqlalchemy import Column, String, Text, create_engine
+from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.orm import DeclarativeBase, sessionmaker
+from sqlalchemy.sql import text
 
 from agentstr import AgentProfile, BuyerTools, Keys, generate_and_save_keys
 
 # Set logging to WARN level to suppress INFO logs
 logging.basicConfig(level=logging.WARN)
 
-# Configure logging first
-logging.getLogger("cassandra").setLevel(logging.ERROR)
-warnings.filterwarnings("ignore", category=UserWarning, module="cassandra")
+# Configure logging first#
+# logging.getLogger("cassandra").setLevel(logging.ERROR)
+# warnings.filterwarnings("ignore", category=UserWarning, module="cassandra")
 
-
-# Environment variables
-ENV_RELAY = "RELAY"
-DEFAULT_RELAY = "wss://relay.damus.io"
-ENV_KEY = "BUYER_AGENT_KEY"
-
-# Buyer profile constants
-NAME = "Business Name Inc."
-DESCRIPTION = "I'm in the business of doing business."
-PICTURE = "https://i.nostr.build/ocjZ5GlAKwrvgRhx.png"
-DISPLAY_NAME = "Buyer Agent for Business Name Inc."
 
 # Get directory where the script is located
 script_dir = Path(__file__).parent
@@ -45,23 +35,49 @@ script_dir = Path(__file__).parent
 load_dotenv(script_dir / ".env")
 
 # Load or generate keys
-NSEC = getenv(ENV_KEY)
+NSEC = getenv("BUYER_AGENT_KEY")
 if NSEC is None:
-    keys = generate_and_save_keys(env_var=ENV_KEY, env_path=script_dir / ".env")
+    keys = generate_and_save_keys(
+        env_var="BUYER_AGENT_KEY", env_path=script_dir / ".env"
+    )
 else:
     keys = Keys.parse(NSEC)
 
-
 # Load or use default relay
-RELAY = getenv(ENV_RELAY)
+RELAY = getenv("RELAY")
 if RELAY is None:
-    RELAY = DEFAULT_RELAY
+    RELAY = "wss://relay.damus.io"
 
 OPENAI_API_KEY = getenv("OPENAI_API_KEY")
 if OPENAI_API_KEY is None:
-    raise ValueError("OPENAI_API_KEY is not set")
-# print(f"OpenAI API key: {openai_api_key}")
+    raise ValueError("OPENAI_API_KEY environment variable is not set")
 
+DB_USERNAME = getenv("DB_USERNAME")
+if DB_USERNAME is None:
+    raise ValueError("DB_USERNAME environment variable is not set")
+
+DB_PASSWORD = getenv("DB_PASSWORD")
+if DB_PASSWORD is None:
+    raise ValueError("DB_PASSWORD environment variable is not set")
+
+DB_HOST = getenv("DB_HOST")
+if DB_HOST is None:
+    raise ValueError("DB_HOST environment variable is not set")
+
+DB_PORT = getenv("DB_PORT")
+if DB_PORT is None:
+    raise ValueError("DB_PORT environment variable is not set")
+
+DB_NAME = getenv("DB_NAME")
+if DB_NAME is None:
+    raise ValueError("DB_NAME environment variable is not set")
+
+
+# Buyer profile constants
+NAME = "Business Name Inc."
+DESCRIPTION = "I'm in the business of doing business."
+PICTURE = "https://i.nostr.build/ocjZ5GlAKwrvgRhx.png"
+DISPLAY_NAME = "Buyer Agent for Business Name Inc."
 # Initialize a buyer profile
 profile = AgentProfile(keys=keys)
 profile.set_name(NAME)
@@ -69,79 +85,66 @@ profile.set_about(DESCRIPTION)
 profile.set_display_name(DISPLAY_NAME)
 profile.set_picture(PICTURE)
 
-# Initialize Cluster with recommended settings
-# cluster = Cluster(
-#     ["127.0.0.1"],
-#     port=9042,
-#     protocol_version=5,  # Verify your Cassandra version
-#     load_balancing_policy=RoundRobinPolicy(),
-# )
+# Initialize database connection
+db_url = (
+    f"postgresql+psycopg://{DB_USERNAME}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
+)
 
-# session = cluster.connect()
+engine = create_engine(db_url)
+SessionLocal = sessionmaker(bind=engine)
 
-# # Create the keyspace
-# session.execute(
-#     """
-#     CREATE KEYSPACE IF NOT EXISTS synvya
-#     WITH REPLICATION = { 'class' : 'SimpleStrategy', 'replication_factor' : 1 }
-#     """
-# )
 
-# # Drop existing table (if needed)
-# session.execute("DROP TABLE IF EXISTS synvya.sellers")
+class Base(DeclarativeBase):
+    pass
 
-# # Create the table with 1536-dimensional vector for OpenAI
-# session.execute(
-#     """
-#     CREATE TABLE synvya.sellers (
-#         row_id text PRIMARY KEY,
-#         attributes_blob text,
-#         body_blob text,
-#         document_name text,
-#         vector vector<float, 1536>,
-#         metadata_s map<text, text>
-#     ) WITH additional_write_policy = '99p'
-#       AND allow_auto_snapshot = true
-#       AND bloom_filter_fp_chance = 0.01
-#       AND caching = {'keys': 'ALL', 'rows_per_partition': 'NONE'}
-#       AND cdc = false
-#       AND comment = ''
-#       AND compaction = {
-#           'class': 'org.apache.cassandra.db.compaction.SizeTieredCompactionStrategy',
-#           'max_threshold': '32',
-#           'min_threshold': '4'
-#       }
-#       AND compression = {
-#           'chunk_length_in_kb': '16',
-#           'class': 'org.apache.cassandra.io.compress.LZ4Compressor'
-#       }
-#       AND memtable = 'default'
-#       AND crc_check_chance = 1.0
-#       AND default_time_to_live = 0
-#       AND extensions = {}
-#       AND gc_grace_seconds = 864000
-#       AND incremental_backups = true
-#       AND max_index_interval = 2048
-#       AND memtable_flush_period_in_ms = 0
-#       AND min_index_interval = 128
-#       AND read_repair = 'BLOCKING'
-#       AND speculative_retry = '99p';
-#     """
-# )
 
-# knowledge_base = AgentKnowledge(
-#     vector_db=Cassandra(
-#         table_name="sellers",
-#         keyspace="synvya",
-#         session=session,
-#         embedder=OpenAIEmbedder(),
-#     ),
-# )
+class Seller(Base):
+    """
+    SQLAlchemy model for table `sellers` in the ai schema.
+    """
 
-db_url = "postgresql+psycopg://ai:ai@localhost:5532/ai"
+    __tablename__ = "sellers"
+    __table_args__ = {"schema": "ai"}  # If the table is inside the 'ai' schema
+
+    id = Column(
+        String, primary_key=True, default=lambda: str(uuid.uuid4())
+    )  # UUID primary key
+    name = Column(Text, nullable=True)
+    meta_data = Column(JSONB, default={})
+    filters = Column(JSONB, default={})
+    content = Column(Text, nullable=True)
+    embedding: Optional[Vector] = Column(Vector(1536), nullable=True)
+    usage = Column(JSONB, default={})
+    content_hash = Column(Text, nullable=True)
+
+    def __repr__(self) -> str:
+        """
+        Return a string representation of the Seller object.
+        """
+        return f"<Seller(id={self.id}, name={self.name})>"
+
+
+# Function to drop and recreate the table
+def reset_database() -> None:
+    """
+    Drop and recreate all tables in the database.
+    """
+    with engine.connect() as conn:
+        # Enable pgvector extension
+        conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector;"))
+        conn.commit()
+
+    # Drop and recreate all tables
+    Base.metadata.drop_all(engine)
+    Base.metadata.create_all(engine)
+
+
+reset_database()
+
 vector_db = PgVector(
     table_name="sellers",
     db_url=db_url,
+    schema="ai",
     search_type=SearchType.vector,
     embedder=OpenAIEmbedder(),
 )

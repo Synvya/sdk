@@ -12,12 +12,21 @@ This example demonstrates a complete setup of a buyer agent:
 
 ## Prerequisites
 
-The buyer agent uses an a Cassandra vector database for Retrieval Augmented Generation (RAG).
+The buyer agent uses an a Postgres database with pgvector extension for Retrieval Augmented Generation (RAG).
    
-Launch an instance of the Cassandra Docker official image locally before running the buyer agent.
+Download and launch on your computer an instance of the pgvector Docker image before running the buyer agent.
 
 ```bash
-docker run -d --name cassandra-db -p 9042:9042 cassandra:latest
+docker run -d \
+  -e POSTGRES_DB=ai \
+  -e POSTGRES_USER=synvya \
+  -e POSTGRES_PASSWORD=synvya \
+  -e PGDATA=/var/lib/postgresql/data/pgdata \
+  -v pgvolume:/var/lib/postgresql/data \
+  -p 5532:5432 \
+  --name pgvector \
+  pgvector/pgvector:pg17
+
 ```
 
 ## Setup
