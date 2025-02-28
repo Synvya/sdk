@@ -36,9 +36,10 @@ DHB_NAME = "Dark Horse Brew Coffee"
 DHB_DESCRIPTION = (
     "Great tasting coffee should be accessible to our locals all year round"
 )
-DHB_PICTURE = "https://i.nostr.build/XbsM7zc1hBHSZKhn.png"
+DHB_PICTURE = "https://i.nostr.build/CB64ogBxnCirnMOW.png"
 DHB_CURRENCY = "USD"
 DHB_GEOHASH = "C23Q7U36W"
+DHB_WEBSITE = "https://darkhorsebrew.coffee/"
 
 
 # --*-- Stall for ride at 11am
@@ -62,7 +63,7 @@ DHB_SHIPPING_ZONE_REGIONS = ["Drive Thru"]
 
 # --*-- NRM Product info
 DHB_PRODUCT_ID = "dhb-latte"
-DHB_PRODUCT_IMAGE = "https://i.nostr.build/53rGnQg7R9HcvjWY.png"
+DHB_PRODUCT_IMAGE = "https://i.nostr.build/1X2TmBCnXxEFsbzU.png"
 DHB_QUANTITY = 90
 DHB_PRODUCT_NAME = "Dark Horse Brew Latte"
 DHB_PRODUCT_DESCRIPTION = "A latte with a shot of espresso and a layer of foam."
@@ -114,6 +115,6 @@ profile = AgentProfile(keys=keys)
 profile.set_name(DHB_NAME)
 profile.set_about(DHB_DESCRIPTION)
 profile.set_picture(DHB_PICTURE)
-
+profile.set_website(DHB_WEBSITE)
 stalls = [dhb_stall]
 products = [dhb_latte]

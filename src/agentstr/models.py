@@ -85,12 +85,12 @@ class NostrProfile(Profile):
     a third party profile and therefore it only has a public key.
     """
 
-    WEB_URL: str = "https://primal.net/p/"
+    PROFILE_URL_PREFIX: str = "https://primal.net/p/"
 
     def __init__(self, public_key: PublicKey) -> None:
         super().__init__()
         self.public_key = public_key
-        self.profile_url = self.WEB_URL + self.public_key.to_bech32()
+        self.profile_url = self.PROFILE_URL_PREFIX + self.public_key.to_bech32()
         # Initialize the locations set here, per-instance
         self.locations: set[str] = set()
 
@@ -181,12 +181,12 @@ class AgentProfile(Profile):
     AgentProfile is a Profile that is used to represent an agent.
     """
 
-    WEB_URL: str = "https://primal.net/p/"
+    PROFILE_URL_PREFIX: str = "https://primal.net/p/"
 
     def __init__(self, keys: Keys) -> None:
         super().__init__()
         self.keys = keys
-        self.profile_url = self.WEB_URL + self.keys.public_key().to_bech32()
+        self.profile_url = self.PROFILE_URL_PREFIX + self.keys.public_key().to_bech32()
 
     @classmethod
     def from_metadata(cls, metadata: Metadata, keys: Keys) -> "AgentProfile":

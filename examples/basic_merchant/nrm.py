@@ -37,9 +37,10 @@ NRM_DESCRIPTION = (
     "Welcome to the Northwest Railway Museum where you can experience "
     "how The Railway Changed Everything"
 )
-NRM_PICTURE = "https://i.nostr.build/28hnTgnW4U4H8hRJ.png"
+NRM_PICTURE = "https://i.nostr.build/wjnPn3MKFUUqlPqY.png"
 NRM_CURRENCY = "USD"
 NRM_GEOHASH = "C23Q7U36W"
+NRM_WEBSITE = "https://trainmuseum.org/"
 
 # --*-- Stall for ride at 11am
 NRM_STALL_NAME = "Northwest Railway Museum"
@@ -76,7 +77,7 @@ NRM_SHIPPING_ZONE_ID = "74be11rN"
 NRM_SHIPPING_ZONE_REGIONS = ["Pickup tickets at the Will Call window at the Depot"]
 
 # --*-- NRM Product info
-NRM_PRODUCT_IMAGE = "https://i.nostr.build/srxfrslKwn5AgZzX.png"
+NRM_PRODUCT_IMAGE = "https://i.nostr.build/fqMYnkhfOIT7hGEE.png"
 NRM_QUANTITY = 90
 
 NRM_ADULT_NAME = "Ride the Train Adult Ticket"
@@ -246,6 +247,7 @@ profile = AgentProfile(keys=keys)
 profile.set_name(NRM_NAME)
 profile.set_about(NRM_DESCRIPTION)
 profile.set_picture(NRM_PICTURE)
+profile.set_website(NRM_WEBSITE)
 
 stalls = [nrm_stall]
 products = [

@@ -34,9 +34,10 @@ else:
 # --*-- Merchant info
 COPPERSTONE_NAME = "Copperstone"
 COPPERSTONE_DESCRIPTION = "Copperstone Family Spaguetti Restaurant"
-COPPERSTONE_PICTURE = "https://i.nostr.build/TL0QeUTb2TItb03y.png"
+COPPERSTONE_PICTURE = "https://i.nostr.build/O8GQmBrKGsV8vJFr.png"
 COPPERSTONE_CURRENCY = "USD"
 COPPERSTONE_GEOHASH = "C23Q7U36W"
+COPPERSTONE_WEBSITE = "https://www.copperstonepasta.com/"
 
 
 # --*-- Stall for ride at 11am
@@ -61,7 +62,7 @@ COPPERSTONE_SHIPPING_ZONE_REGIONS = ["Eat Here", "Take Out"]
 
 # --*-- NRM Product info
 COPPERSTONE_PRODUCT_ID = "copperstone-reservation"
-COPPERSTONE_PRODUCT_IMAGE = "https://i.nostr.build/pqRHZy6dTFplHwkQ.png"
+COPPERSTONE_PRODUCT_IMAGE = "https://i.nostr.build/KHbhU7aKDOX2lgQ4.png"
 COPPERSTONE_QUANTITY = 90
 COPPERSTONE_PRODUCT_NAME = "Dine in reservation"
 COPPERSTONE_PRODUCT_DESCRIPTION = (
@@ -115,6 +116,6 @@ profile = AgentProfile(keys=keys)
 profile.set_name(COPPERSTONE_NAME)
 profile.set_about(COPPERSTONE_DESCRIPTION)
 profile.set_picture(COPPERSTONE_PICTURE)
-
+profile.set_website(COPPERSTONE_WEBSITE)
 stalls = [copperstone_stall]
 products = [copperstone_reservation]

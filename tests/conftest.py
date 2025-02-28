@@ -130,6 +130,18 @@ def buyer_profile_picture_fixture() -> str:
     return "https://i.nostr.build/ocjZ5GlAKwrvgRhx.png"
 
 
+@pytest.fixture(scope="session", name="merchant_profile_website")
+def merchant_profile_website_fixture() -> str:
+    """Fixture providing the test profile website"""
+    return "https://merchant.test"
+
+
+@pytest.fixture(scope="session", name="buyer_profile_website")
+def buyer_profile_website_fixture() -> str:
+    """Fixture providing the test profile website"""
+    return "https://buyer.test"
+
+
 @pytest.fixture(scope="session", name="profile_event_id")
 def profile_event_id_fixture(merchant_keys: Keys) -> EventId:
     """Fixture providing the test profile event id"""
@@ -159,12 +171,14 @@ def merchant_profile_fixture(
     merchant_profile_name: str,
     merchant_profile_about: str,
     merchant_profile_picture: str,
+    merchant_profile_website: str,
 ) -> AgentProfile:
     """Fixture providing the test merchant profile"""
     profile = AgentProfile(keys=merchant_keys)
     profile.set_name(merchant_profile_name)
     profile.set_about(merchant_profile_about)
     profile.set_picture(merchant_profile_picture)
+    profile.set_website(merchant_profile_website)
     return profile
 
 

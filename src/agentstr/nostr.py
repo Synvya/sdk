@@ -144,7 +144,9 @@ class NostrClient:
         except Exception as e:
             raise RuntimeError(f"Failed to publish product: {e}") from e
 
-    def publish_profile(self, name: str, about: str, picture: str) -> EventId:
+    def publish_profile(
+        self, name: str, about: str, picture: str, website: str
+    ) -> EventId:
         """
         Publish a Nostr profile with event kind 0
 
@@ -152,6 +154,7 @@ class NostrClient:
             name: name of the Nostr profile
             about: brief description about the profile
             picture: url to a png file with a picture for the profile
+            website: url to a website for the profile
 
         Returns:
             EventId: event id if successful
@@ -160,7 +163,7 @@ class NostrClient:
             RuntimeError: if the profile can't be published
         """
         # Run the async publishing function synchronously
-        return asyncio.run(self._async_publish_profile(name, about, picture))
+        return asyncio.run(self._async_publish_profile(name, about, picture, website))
 
     def publish_stall(self, stall: MerchantStall) -> EventId:
         """Publish a stall to nostr
@@ -451,7 +454,7 @@ class NostrClient:
         return await self._async_publish_event(good_event_builder)
 
     async def _async_publish_profile(
-        self, name: str, about: str, picture: str
+        self, name: str, about: str, picture: str, website: Optional[str] = None
     ) -> EventId:
         """
         Asynchronous function to publish a Nostr profile with event kind 0
@@ -460,6 +463,7 @@ class NostrClient:
             name: name of the Nostr profile
             about: brief description about the profile
             picture: url to a png file with a picture for the profile
+            website: optional url to a website for the profile
 
         Returns:
             EventId: event id if successful
@@ -470,6 +474,8 @@ class NostrClient:
         metadata_content = Metadata().set_name(name)
         metadata_content = metadata_content.set_about(about)
         metadata_content = metadata_content.set_picture(picture)
+        if website:
+            metadata_content = metadata_content.set_website(website)
 
         event_builder = EventBuilder.metadata(metadata_content)
         return await self._async_publish_event(event_builder)

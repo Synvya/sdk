@@ -37,6 +37,7 @@ DESCRIPTION = "A merchant test profile"
 PICTURE = "https://i.nostr.build/ocjZ5GlAKwrvgRhx.png"
 CURRENCY = "Sats"
 GEOHASH = "000000000"
+WEBSITE = "https://merchant.test"
 
 shipping_methods = [
     ShippingMethod(id="64be11rM", cost=10000)
@@ -119,3 +120,4 @@ profile = AgentProfile(keys=keys)
 profile.set_name(NAME)
 profile.set_about(DESCRIPTION)
 profile.set_picture(PICTURE)
+profile.set_website(WEBSITE)

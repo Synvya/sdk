@@ -38,7 +38,7 @@ class Profile:
     def to_json(self) -> str: ...
 
 class AgentProfile(Profile):
-    WEB_URL: ClassVar[str]
+    PROFILE_URL_PREFIX: ClassVar[str]
     profile_url: str
     keys: Keys
 
@@ -52,7 +52,7 @@ class AgentProfile(Profile):
 class NostrProfile(Profile):
     public_key: PublicKey
     profile_url: str
-    WEB_URL: ClassVar[str]
+    PROFILE_URL_PREFIX: ClassVar[str]
     locations: Set[str]
 
     def __init__(self, public_key: PublicKey) -> None: ...

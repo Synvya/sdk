@@ -27,12 +27,14 @@ class TestNostrClient:
         merchant_profile_name: str,
         merchant_profile_about: str,
         merchant_profile_picture: str,
+        merchant_profile_website: str,
     ) -> None:
         """Test publishing a profile"""
         event_id = nostr_client.publish_profile(
             name=merchant_profile_name,
             about=merchant_profile_about,
             picture=merchant_profile_picture,
+            website=merchant_profile_website,
         )
         assert isinstance(event_id, EventId)
 
