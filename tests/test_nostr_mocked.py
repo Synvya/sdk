@@ -52,6 +52,7 @@ class TestNostrClientMocked:
         nostr_client: NostrClient,
         merchant_profile_name: str,
         merchant_profile_about: str,
+        merchant_profile_banner: str,
         merchant_profile_picture: str,
         merchant_profile_website: str,
     ) -> None:
@@ -60,6 +61,7 @@ class TestNostrClientMocked:
             name=merchant_profile_name,
             about=merchant_profile_about,
             picture=merchant_profile_picture,
+            banner=merchant_profile_banner,
             website=merchant_profile_website,
         )
         assert isinstance(event_id, EventId)

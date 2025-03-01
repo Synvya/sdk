@@ -18,6 +18,7 @@ from nostr_sdk import (  # type: ignore
     EventBuilder,
     EventId,
     Events,
+    Filter,
     Keys,
     Kind,
     Metadata,
@@ -69,9 +70,17 @@ class NostrClient:
     def publish_note(self, text: str) -> EventId: ...
     def publish_product(self, product: MerchantProduct) -> EventId: ...
     def publish_profile(
-        self, name: str, about: str, picture: str, website: str
+        self,
+        name: str,
+        about: str,
+        picture: str,
+        banner: str,
+        website: Optional[str] = None,
     ) -> EventId: ...
     def publish_stall(self, stall: MerchantStall) -> EventId: ...
+    def retrieve_marketplace(
+        self, owner: PublicKey, name: str
+    ) -> set[NostrProfile]: ...
     def retrieve_products_from_seller(
         self, seller: PublicKey
     ) -> List[MerchantProduct]: ...
@@ -85,10 +94,16 @@ class NostrClient:
     async def _async_publish_note(self, text: str) -> EventId: ...
     async def _async_publish_product(self, product: MerchantProduct) -> EventId: ...
     async def _async_publish_profile(
-        self, name: str, about: str, picture: str, website: str
+        self,
+        name: str,
+        about: str,
+        picture: str,
+        banner: str,
+        website: Optional[str] = None,
     ) -> EventId: ...
     async def _async_publish_stall(self, stall: MerchantStall) -> EventId: ...
     async def _async_retrieve_all_stalls(self) -> Events: ...
+    async def _async_retrieve_events(self, events_filter: Filter) -> Events: ...
     async def _async_retrieve_products_from_seller(
         self, seller: PublicKey
     ) -> Events: ...

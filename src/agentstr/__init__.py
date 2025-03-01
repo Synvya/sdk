@@ -5,7 +5,7 @@ AgentStr: Nostr extension for Agno AI agents
 import importlib.metadata
 import logging
 
-from nostr_sdk import ShippingCost, ShippingMethod, Timestamp  # type: ignore
+from nostr_sdk import PublicKey, ShippingCost, ShippingMethod, Timestamp  # type: ignore
 
 from agentstr.nostr import EventId, Keys, Kind, NostrClient, generate_and_save_keys
 
@@ -43,6 +43,7 @@ __all__ = [
     "NostrClient",
     "generate_and_save_keys",
     "Timestamp",
+    "PublicKey",
     # Models
     "AgentProfile",
     "NostrProfile",

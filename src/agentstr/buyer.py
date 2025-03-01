@@ -4,7 +4,6 @@ Module implementing the BuyerTools Toolkit for Agno agents.
 
 import json
 import logging
-from uuid import uuid4
 
 from pydantic import ConfigDict
 
@@ -82,6 +81,8 @@ class BuyerTools(Toolkit):
         self._nostr_client = NostrClient(relay, buyer_profile.get_private_key())
 
         # Register methods
+        self.register(self.download_all_sellers)
+        self.register(self.download_sellers_from_marketplace)
         self.register(self.find_seller_by_name)
         self.register(self.find_seller_by_public_key)
         self.register(self.find_sellers_by_location)
@@ -91,7 +92,6 @@ class BuyerTools(Toolkit):
         self.register(self.get_seller_products)
         self.register(self.get_seller_count)
         self.register(self.get_sellers)
-        self.register(self.refresh_sellers)
         self.register(self.purchase_product)
 
     def purchase_product(self, product: str) -> str:
@@ -106,6 +106,30 @@ class BuyerTools(Toolkit):
         return json.dumps(
             {"status": "success", "message": f"Product {product} purchased"}
         )
+
+    def download_all_sellers(self) -> str:
+        """Download all sellers from the Nostr relay.
+
+        Returns:
+            str: JSON string with status and count of sellers refreshed
+        """
+        self._download_all_sellers()
+        response = json.dumps({"status": "success", "count": len(self.sellers)})
+        return response
+
+    def download_sellers_from_marketplace(self, owner: str, name: str) -> str:
+        """Download sellers from a marketplace.
+
+        Args:
+            owner: bech32 encoded public key of the owner of the marketplace
+            name: name of the marketplace to download sellers from
+
+        Returns:
+            str: JSON string with status and count of sellers downloaded
+        """
+        self._download_sellers_from_marketplace(PublicKey.parse(owner), name)
+        response = json.dumps({"status": "success", "count": len(self.sellers)})
+        return response
 
     def find_seller_by_name(self, name: str) -> str:
         """Find a seller by name.
@@ -256,37 +280,23 @@ class BuyerTools(Toolkit):
             return response
 
     def get_sellers(self) -> str:
-        """Get the list of sellers.
-        If no sellers are cached, the list is refreshed from the Nostr relay.
-        If sellers are cached, the list is returned from the cache.
-        To get a fresh list of sellers, call refresh_sellers() sellers first.
+        """Get the list of sellers cached in the BuyerTools instance.
+        To get a fresh list of sellers, call download_all_sellers() or
+        get_sellers_from_marketplace() first.
 
         Returns:
             str: list of sellers json strings
         """
-        if not self.sellers:
-            self._refresh_sellers()
+        # if not self.sellers:
+        #     self._refresh_sellers()
         response = json.dumps([seller.to_json() for seller in self.sellers])
         return response
 
-    def refresh_sellers(self) -> str:
-        """Refresh the list of sellers.
-
-        Returns:
-            str: JSON string with status and count of sellers refreshed
+    def _download_all_sellers(self) -> None:
         """
-        self._refresh_sellers()
-        response = json.dumps({"status": "success", "count": len(self.sellers)})
-        return response
-
-    def _refresh_sellers(self) -> None:
-        """
-        Internal fucntion to retrieve a new list of sellers from the Nostr relay.
-        The old list is discarded and the new list only contains unique sellers
+        Internal fucntion to retrieve a new set of sellers from the Nostr relay.
+        The old set is discarded and the new set only contains unique sellers
         currently stored at the relay.
-
-        Returns:
-            List[NostrProfile]: List of Nostr profiles of all sellers.
         """
         sellers = self._nostr_client.retrieve_sellers()
         if len(sellers) == 0:
@@ -294,6 +304,18 @@ class BuyerTools(Toolkit):
         else:
             self.logger.info("Found %d sellers", len(sellers))
 
+        self.sellers = sellers
+
+    def _download_sellers_from_marketplace(self, owner: PublicKey, name: str) -> None:
+        """
+        Internal function to download sellers from a marketplace and store them as
+        the new set of sellers for the BuyerTools instance.
+
+        Args:
+            owner: PublicKey of the owner of the marketplace
+            name: name of the marketplace to download sellers from
+        """
+        sellers = self._nostr_client.retrieve_marketplace(owner, name)
         self.sellers = sellers
 
     def _store_response_in_knowledge_base(self, response: str) -> None:

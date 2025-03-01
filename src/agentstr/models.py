@@ -31,6 +31,7 @@ class Profile:
 
     def __init__(self) -> None:
         self.about = ""
+        self.banner = ""
         self.display_name = ""
         self.name = ""
         self.picture = ""
@@ -38,6 +39,9 @@ class Profile:
 
     def get_about(self) -> str:
         return self.about
+
+    def get_banner(self) -> str:
+        return self.banner
 
     def get_display_name(self) -> str:
         return self.display_name
@@ -53,6 +57,9 @@ class Profile:
 
     def set_about(self, about: str) -> None:
         self.about = about
+
+    def set_banner(self, banner: str) -> None:
+        self.banner = banner
 
     def set_display_name(self, display_name: str) -> None:
         self.display_name = display_name
@@ -71,6 +78,7 @@ class Profile:
             "name": self.name,
             "display_name": self.display_name,
             "about": self.about,
+            "banner": self.banner,
             "picture": self.picture,
             "website": self.website,
         }
@@ -98,6 +106,7 @@ class NostrProfile(Profile):
     def from_metadata(cls, metadata: Metadata, public_key: PublicKey) -> "NostrProfile":
         profile = cls(public_key)
         profile.set_about(metadata.get_about())
+        profile.set_banner(metadata.get_banner())
         profile.set_display_name(metadata.get_display_name())
         profile.set_name(metadata.get_name())
         profile.set_picture(metadata.get_picture())
@@ -171,6 +180,7 @@ class NostrProfile(Profile):
             "name": self.name,
             "display_name": self.display_name,
             "about": self.about,
+            "banner": self.banner,
             "picture": self.picture,
             "website": self.website,
         }
@@ -192,6 +202,7 @@ class AgentProfile(Profile):
     def from_metadata(cls, metadata: Metadata, keys: Keys) -> "AgentProfile":
         profile = cls(keys)
         profile.set_about(metadata.get_about())
+        profile.set_banner(metadata.get_banner())
         profile.set_display_name(metadata.get_display_name())
         profile.set_name(metadata.get_name())
         profile.set_picture(metadata.get_picture())

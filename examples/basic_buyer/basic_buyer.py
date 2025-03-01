@@ -173,24 +173,18 @@ buyer = Agent(  # type: ignore[call-arg]
         using exclusively the information provided by BuyerTools and
         stored in your knowledge base.
         
-        When I ask you to refresh your sellers, use the refresh_sellers tool.
-        
+        Download the businesses from the marketplace named "Historic Downtown Snoqualmie"
+        by the owner with the public key
+        "npub1nar4a3vv59qkzdlskcgxrctkw9f0ekjgqaxn8vd0y82f9kdve9rqwjcurn"
+        and store them in your knowledge base.
+
         Search the knowledge base for the most relevant information to
         the query before using the tools.
         
-        When possible, connect multiple activities to create an itinerary.
-        The itinerary can be for a few hours. It doesn't need to be a full day.
-
-        After using the tool find_sellers_by_location, always immediately call the tool 
-        get_seller_products to retrieve the products from the merchants in that location
-        and include the products in the itinerary.
-        
         Only include in the itinerary merchants that are in your knowledge base.
                 
-        When including merchants from your knowledge base in your response, make sure to 
-        include their products and services in the itinerary with the current times
-        based on product information. Provide also the price of the products and
-        services.
+        Include pictures of the businesses in your response when possible. 
+        
         Offer to purchase the products or make a reservation and then include
         this in your overall response.
         """.strip(),

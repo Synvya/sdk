@@ -145,7 +145,12 @@ class NostrClient:
             raise RuntimeError(f"Failed to publish product: {e}") from e
 
     def publish_profile(
-        self, name: str, about: str, picture: str, website: str
+        self,
+        name: str,
+        about: str,
+        picture: str,
+        banner: str,
+        website: Optional[str] = None,
     ) -> EventId:
         """
         Publish a Nostr profile with event kind 0
@@ -153,8 +158,9 @@ class NostrClient:
         Args:
             name: name of the Nostr profile
             about: brief description about the profile
-            picture: url to a png file with a picture for the profile
-            website: url to a website for the profile
+            picture: url to a file with a picture for the profile
+            banner: url to a file with a banner for the profile
+            website: optional url to a website for the profile
 
         Returns:
             EventId: event id if successful
@@ -163,7 +169,9 @@ class NostrClient:
             RuntimeError: if the profile can't be published
         """
         # Run the async publishing function synchronously
-        return asyncio.run(self._async_publish_profile(name, about, picture, website))
+        return asyncio.run(
+            self._async_publish_profile(name, about, picture, banner, website)
+        )
 
     def publish_stall(self, stall: MerchantStall) -> EventId:
         """Publish a stall to nostr
@@ -181,6 +189,41 @@ class NostrClient:
             return asyncio.run(self._async_publish_stall(stall))
         except Exception as e:
             raise RuntimeError(f"Failed to publish stall: {e}") from e
+
+    def retrieve_marketplace(self, owner: PublicKey, name: str) -> set[NostrProfile]:
+        """
+        Retrieve all sellers from the marketplace.
+
+        Args:
+            owner: PublicKey of the owner of the marketplace
+            name: name of the marketplace
+
+        Returns:
+            set[NostrProfile]: set of seller profiles.
+            (skips authors with missing metadata)
+        """
+        events_filter = Filter().kind(Kind(30019)).authors([owner])
+        try:
+            events = asyncio.run(self._async_retrieve_events(events_filter))
+        except Exception as e:
+            raise RuntimeError(f"Failed to retrieve marketplace: {e}") from e
+
+        events_list = events.to_vec()
+        merchants_dict: Dict[PublicKey, NostrProfile] = {}
+
+        for event in events_list:
+            content = json.loads(event.content())
+            if content.get("name") == name:
+                merchants = content.get("merchants", [])
+                for merchant in merchants:
+                    try:
+                        public_key = PublicKey.parse(merchant)
+                        profile = asyncio.run(self._async_retrieve_profile(public_key))
+                        merchants_dict[public_key] = profile
+                    except RuntimeError:
+                        continue
+
+        return set(merchants_dict.values())
 
     def retrieve_products_from_seller(self, seller: PublicKey) -> List[MerchantProduct]:
         """
@@ -454,7 +497,12 @@ class NostrClient:
         return await self._async_publish_event(good_event_builder)
 
     async def _async_publish_profile(
-        self, name: str, about: str, picture: str, website: Optional[str] = None
+        self,
+        name: str,
+        about: str,
+        picture: str,
+        banner: str,
+        website: Optional[str] = None,
     ) -> EventId:
         """
         Asynchronous function to publish a Nostr profile with event kind 0
@@ -462,7 +510,8 @@ class NostrClient:
         Args:
             name: name of the Nostr profile
             about: brief description about the profile
-            picture: url to a png file with a picture for the profile
+            picture: url to a file with a picture for the profile
+            banner: url to a file with a banner for the profile
             website: optional url to a website for the profile
 
         Returns:
@@ -473,7 +522,10 @@ class NostrClient:
         """
         metadata_content = Metadata().set_name(name)
         metadata_content = metadata_content.set_about(about)
+        print(f"Banner: {banner}")
+        metadata_content = metadata_content.set_banner(banner)
         metadata_content = metadata_content.set_picture(picture)
+
         if website:
             metadata_content = metadata_content.set_website(website)
 
@@ -528,6 +580,23 @@ class NostrClient:
 
         try:
             events_filter = Filter().kind(Kind(30017))
+            events = await self.client.fetch_events_from(
+                urls=[self.relay], filter=events_filter, timeout=timedelta(seconds=2)
+            )
+            return events
+        except Exception as e:
+            raise RuntimeError(f"Unable to retrieve stalls: {e}") from e
+
+    async def _async_retrieve_events(self, events_filter: Filter) -> Events:
+        """
+        Asynchronous function to retrieve events from the relay
+        """
+        try:
+            await self._async_connect()
+        except Exception as e:
+            raise RuntimeError("Unable to connect to the relay") from e
+
+        try:
             events = await self.client.fetch_events_from(
                 urls=[self.relay], filter=events_filter, timeout=timedelta(seconds=2)
             )

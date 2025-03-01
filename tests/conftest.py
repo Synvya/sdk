@@ -142,6 +142,18 @@ def buyer_profile_website_fixture() -> str:
     return "https://buyer.test"
 
 
+@pytest.fixture(scope="session", name="merchant_profile_banner")
+def merchant_profile_banner_fixture() -> str:
+    """Fixture providing the test profile banner"""
+    return "https://i.nostr.build/ENQ6OuMhoi2L17WD.png"
+
+
+@pytest.fixture(scope="session", name="buyer_profile_banner")
+def buyer_profile_banner_fixture() -> str:
+    """Fixture providing the test profile banner"""
+    return "https://i.nostr.build/EiS8XFCROnSRr17o.png"
+
+
 @pytest.fixture(scope="session", name="profile_event_id")
 def profile_event_id_fixture(merchant_keys: Keys) -> EventId:
     """Fixture providing the test profile event id"""

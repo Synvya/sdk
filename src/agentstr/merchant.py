@@ -437,6 +437,8 @@ class MerchantTools(Toolkit):
                 self.merchant_profile.get_name(),
                 self.merchant_profile.get_about(),
                 self.merchant_profile.get_picture(),
+                self.merchant_profile.get_banner(),
+                self.merchant_profile.get_website(),
             )
             return json.dumps(event_id.__dict__)
         except RuntimeError as e:
