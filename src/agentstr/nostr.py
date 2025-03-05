@@ -522,7 +522,6 @@ class NostrClient:
         """
         metadata_content = Metadata().set_name(name)
         metadata_content = metadata_content.set_about(about)
-        print(f"Banner: {banner}")
         metadata_content = metadata_content.set_banner(banner)
         metadata_content = metadata_content.set_picture(picture)
 
