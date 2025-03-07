@@ -125,11 +125,12 @@ def test_profile_operations(
     merchant_profile: Profile,
 ) -> None:
     """Test profile-related operations"""
-    with patch.object(seller_tools._nostr_client, "get_profile") as mock_get_profile:
-        mock_get_profile.return_value = merchant_profile
+    with patch.object(seller_tools, "get_profile") as mock_get_profile:
+        mock_get_profile.return_value = json.dumps(merchant_profile.to_json())
         profile_data = json.loads(seller_tools.get_profile())
         profile = json.loads(profile_data)  # Parse the nested JSON string
         # print(f"Profile: {profile}")
+        # print(f"profile_data: {profile_data}")
         assert profile["name"] == merchant_name
         assert profile["about"] == merchant_about
 
