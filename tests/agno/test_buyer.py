@@ -25,7 +25,7 @@ def test_find_sellers_by_location(
 ) -> None:
     """Test the finding of sellers by location"""
     with patch(
-        "agentstr.buyer._map_location_to_geohash"
+        "synvya_sdk.agno.buyer._map_location_to_geohash"
     ) as mock_map_location_to_geohash:
         mock_map_location_to_geohash.return_value = "000000000"
 

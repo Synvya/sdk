@@ -25,7 +25,7 @@ def mock_nostr_client(  # type: ignore[no-untyped-def]
     """
     mock NostrClient instance
     """
-    with patch("agentstr.nostr.NostrClient") as mock_client:
+    with patch("synvya_sdk.NostrClient") as mock_client:
         instance = mock_client.return_value
         instance.profile = merchant_profile
         instance.publish_profile.return_value = profile_event_id

@@ -9,9 +9,9 @@ from unittest.mock import Mock
 
 import pytest
 from _pytest.nodes import Item
-from agno.agent import AgentKnowledge
 from dotenv import load_dotenv
 
+from agno.agent import AgentKnowledge
 from synvya_sdk import (
     NostrKeys,
     Product,
@@ -37,8 +37,8 @@ def pytest_collection_modifyitems(items: List[Item]) -> None:
     ordered_files = [
         "tests/test_nostr_integration.py",
         "tests/test_nostr_mocked.py",
-        "tests/test_merchant.py",
-        "tests/test_buyer.py",
+        "tests/agno/test_seller.py",
+        "tests/agno/test_buyer.py",
     ]
 
     # Create a dictionary mapping filenames to execution order
