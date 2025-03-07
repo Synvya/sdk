@@ -7,7 +7,7 @@ from os import getenv
 # --***---
 from agno.agent import Agent  # type: ignore
 from agno.models.openai import OpenAIChat  # type: ignore
-from nrm import products, profile, stalls
+from mtp import keys, products, profile, stalls
 
 from agentstr import MerchantTools
 
@@ -39,8 +39,8 @@ merchant = Agent(  # type: ignore[call-arg]
     model=OpenAIChat(id="gpt-4o", api_key=OPENAI_API_KEY),
     tools=[
         MerchantTools(
-            merchant_profile=profile,
             relay=RELAY,
+            private_key=keys.get_private_key(),
             stalls=stalls,
             products=products,
         )

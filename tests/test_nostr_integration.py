@@ -6,53 +6,39 @@ from typing import List
 
 import pytest
 
-from agentstr.models import MerchantProduct, MerchantStall
-from agentstr.nostr import EventId, Keys, NostrClient
+from agentstr.models import NostrKeys, Product, Stall
+from agentstr.nostr import NostrClient
 
 
 # used in test_nostr_integration.py
 @pytest.fixture(scope="session", name="nostr_client")
-def nostr_client_fixture(relay: str, merchant_keys: Keys) -> NostrClient:
+def nostr_client_fixture(relay: str, merchant_keys: NostrKeys) -> NostrClient:
     """Fixture providing a NostrClient instance"""
-    nostr_client = NostrClient(relay, merchant_keys.secret_key().to_bech32())
+    nostr_client = NostrClient(relay, merchant_keys.get_private_key())
     return nostr_client
 
 
 class TestNostrClient:
     """Test suite for NostrClient"""
 
-    def test_publish_profile(
-        self,
-        nostr_client: NostrClient,
-        merchant_profile_name: str,
-        merchant_profile_about: str,
-        merchant_profile_banner: str,
-        merchant_profile_picture: str,
-        merchant_profile_website: str,
-    ) -> None:
+    def test_publish_profile(self, nostr_client: NostrClient) -> None:
         """Test publishing a profile"""
-        event_id = nostr_client.publish_profile(
-            name=merchant_profile_name,
-            about=merchant_profile_about,
-            picture=merchant_profile_picture,
-            banner=merchant_profile_banner,
-            website=merchant_profile_website,
-        )
-        assert isinstance(event_id, EventId)
+        event_id = nostr_client.publish_profile()
+        assert isinstance(event_id, str)
 
     def test_publish_stall(
-        self, nostr_client: NostrClient, merchant_stalls: List[MerchantStall]
+        self, nostr_client: NostrClient, stalls: List[Stall]
     ) -> None:
         """Test publishing a stall"""
-        event_id = nostr_client.publish_stall(merchant_stalls[0])
-        assert isinstance(event_id, EventId)
+        event_id = nostr_client.publish_stall(stalls[0])
+        assert isinstance(event_id, str)
 
     def test_publish_product(
-        self, nostr_client: NostrClient, merchant_products: List[MerchantProduct]
+        self, nostr_client: NostrClient, products: List[Product]
     ) -> None:
         """Test publishing a product"""
-        event_id = nostr_client.publish_product(merchant_products[0])
-        assert isinstance(event_id, EventId)
+        event_id = nostr_client.publish_product(products[0])
+        assert isinstance(event_id, str)
 
     # def test_delete_event(
     #     self, nostr_client: NostrClient, test_merchant_stall: MerchantStall
@@ -66,37 +52,39 @@ class TestNostrClient:
     #     delete_event_id = nostr_client.delete_event(event_id, reason="Test deletion")
     #     assert isinstance(delete_event_id, EventId)
 
-    def test_retrieve_products_from_seller(
-        self, nostr_client: NostrClient, merchant_keys: Keys
+    def test_retrieve_products_from_merchant(
+        self, nostr_client: NostrClient, merchant_keys: NostrKeys
     ) -> None:
-        """Test retrieving products from a seller"""
-        products = nostr_client.retrieve_products_from_seller(
-            merchant_keys.public_key()
+        """Test retrieving products from a merchant"""
+        products = nostr_client.retrieve_products_from_merchant(
+            merchant_keys.get_public_key()
         )
         assert len(products) > 0
         for product in products:
-            assert isinstance(product, MerchantProduct)
+            assert isinstance(product, Product)
             # print(f"Product: {product.name}")
 
-    def test_retrieve_sellers(self, nostr_client: NostrClient) -> None:
-        """Test retrieving sellers"""
+    def test_retrieve_merchants(self, nostr_client: NostrClient) -> None:
+        """Test retrieving merchants"""
         try:
-            sellers = nostr_client.retrieve_sellers()
-            assert len(sellers) > 0
+            merchants = nostr_client.retrieve_merchants()
+            assert len(merchants) > 0
         except RuntimeError as e:
-            # print(f"\nError retrieving sellers: {e}")
+            # print(f"\nError retrieving merchants: {e}")
             raise e
 
-    def test_retrieve_stalls_from_seller(
-        self, nostr_client: NostrClient, merchant_keys: Keys
+    def test_retrieve_stalls_from_merchant(
+        self, nostr_client: NostrClient, merchant_keys: NostrKeys
     ) -> None:
-        """Test retrieving stalls from a seller"""
-        stalls = nostr_client.retrieve_stalls_from_seller(merchant_keys.public_key())
+        """Test retrieving stalls from a merchant"""
+        stalls = nostr_client.retrieve_stalls_from_merchant(
+            merchant_keys.get_public_key()
+        )
         assert len(stalls) > 0
 
     def test_retrieve_profile(
-        self, nostr_client: NostrClient, merchant_keys: Keys
+        self, nostr_client: NostrClient, merchant_keys: NostrKeys
     ) -> None:
         """Test async retrieve profile"""
-        profile = nostr_client.retrieve_profile(merchant_keys.public_key())
+        profile = nostr_client.retrieve_profile(merchant_keys.get_public_key())
         assert profile is not None

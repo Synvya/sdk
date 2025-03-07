@@ -4,11 +4,10 @@ Nostr utility functions.
 
 from os import getenv
 from pathlib import Path
-from typing import List
 
 from dotenv import load_dotenv
 
-from agentstr import EventId, Keys, NostrClient, PublicKey, generate_and_save_keys
+from agentstr import NostrClient, NostrKeys
 
 ENV_KEY = "NOSTR_UTILS_KEY"
 
@@ -27,31 +26,28 @@ if RELAY is None:
 # Load or generate keys
 NSEC = getenv(ENV_KEY)
 if NSEC is None:
-    # keys = generate_and_save_keys(env_var=ENV_KEY, env_path=script_dir / ".env")
     print("No private key found!")
+    exit(1)
 else:
-    keys = Keys.parse(NSEC)
-    print(f"Private Key: {keys.secret_key().to_bech32()}")
-    print(f"Public Key: {keys.public_key().to_bech32()}")
+    keys = NostrKeys.from_private_key(NSEC)
+    print(f"Private Key: {keys.get_private_key()}")
+    print(f"Public Key: {keys.get_public_key()}")
 
 # event_list: List[str] = [
 #     "1a5c33f81eb7908668445736e8075b885df1e376fa479b2132da6e0c09fb5621"
 # ]
 
-nostr_client = NostrClient(relay=RELAY, nsec=keys.secret_key().to_bech32())
+nostr_client = NostrClient(relay=RELAY, private_key=NSEC)
 
 # for event in event_list:
 #     event_id = EventId.parse(event)
 #     event = nostr_client.delete_event(event_id)
 #     print(event)
 
-marketplace_owner = PublicKey.parse(
-    "npub1nar4a3vv59qkzdlskcgxrctkw9f0ekjgqaxn8vd0y82f9kdve9rqwjcurn"
-)
 
-marketplace = nostr_client.retrieve_marketplace(
-    owner=marketplace_owner,
-    name="Historic Downtown Snoqualmie",
+marketplace = nostr_client.retrieve_marketplace_merchants(
+    owner="npub1nar4a3vv59qkzdlskcgxrctkw9f0ekjgqaxn8vd0y82f9kdve9rqwjcurn",
+    marketplace_name="Historic Downtown Snoqualmie",
 )
 
 print(f"Marketplace: {marketplace}")

@@ -19,7 +19,7 @@ from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import DeclarativeBase, sessionmaker
 from sqlalchemy.sql import text
 
-from agentstr import AgentProfile, BuyerTools, Keys, generate_and_save_keys
+from agentstr import BuyerTools, NostrKeys, Profile, generate_keys
 
 # Set logging to WARN level to suppress INFO logs
 logging.basicConfig(level=logging.WARN)
@@ -37,11 +37,9 @@ load_dotenv(script_dir / ".env")
 # Load or generate keys
 NSEC = getenv("BUYER_AGENT_KEY")
 if NSEC is None:
-    keys = generate_and_save_keys(
-        env_var="BUYER_AGENT_KEY", env_path=script_dir / ".env"
-    )
+    keys = generate_keys(env_var="BUYER_AGENT_KEY", env_path=script_dir / ".env")
 else:
-    keys = Keys.parse(NSEC)
+    keys = NostrKeys.from_private_key(NSEC)
 
 # Load or use default relay
 RELAY = getenv("RELAY")
@@ -79,7 +77,7 @@ DESCRIPTION = "I'm in the business of doing business."
 PICTURE = "https://i.nostr.build/ocjZ5GlAKwrvgRhx.png"
 DISPLAY_NAME = "Buyer Agent for Business Name Inc."
 # Initialize a buyer profile
-profile = AgentProfile(keys=keys)
+profile = Profile(keys.get_public_key())
 profile.set_name(NAME)
 profile.set_about(DESCRIPTION)
 profile.set_display_name(DISPLAY_NAME)
@@ -139,7 +137,7 @@ def reset_database() -> None:
     Base.metadata.create_all(engine)
 
 
-reset_database()
+# reset_database()
 
 vector_db = PgVector(
     table_name="sellers",
@@ -156,7 +154,11 @@ buyer = Agent(  # type: ignore[call-arg]
     name=f"AI Agent for {profile.get_name()}",
     model=OpenAIChat(id="gpt-4o-mini", api_key=OPENAI_API_KEY),
     tools=[
-        BuyerTools(knowledge_base=knowledge_base, buyer_profile=profile, relay=RELAY)
+        BuyerTools(
+            knowledge_base=knowledge_base,
+            relay=RELAY,
+            private_key=keys.get_private_key(),
+        )
     ],
     add_history_to_messages=True,
     num_history_responses=10,
@@ -173,8 +175,8 @@ buyer = Agent(  # type: ignore[call-arg]
         using exclusively the information provided by BuyerTools and
         stored in your knowledge base.
         
-        Download the businesses from the marketplace named "Historic Downtown Snoqualmie"
-        by the owner with the public key
+        Download the businesses from the marketplace named "Historic Downtown
+        Snoqualmie" by the owner with the public key
         "npub1nar4a3vv59qkzdlskcgxrctkw9f0ekjgqaxn8vd0y82f9kdve9rqwjcurn"
         and store them in your knowledge base.
 

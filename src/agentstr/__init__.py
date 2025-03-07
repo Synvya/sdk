@@ -5,15 +5,20 @@ AgentStr: Nostr extension for Agno AI agents
 import importlib.metadata
 import logging
 
-from nostr_sdk import PublicKey, ShippingCost, ShippingMethod, Timestamp  # type: ignore
-
-from agentstr.nostr import EventId, Keys, Kind, NostrClient, generate_and_save_keys
+from agentstr.nostr import NostrClient, generate_keys
 
 from .buyer import BuyerTools
 from .merchant import MerchantTools
 
 # Import main classes to make them available at package level
-from .models import AgentProfile, MerchantProduct, MerchantStall, NostrProfile
+from .models import (
+    NostrKeys,
+    Product,
+    ProductShippingCost,
+    Profile,
+    Stall,
+    StallShippingMethod,
+)
 
 # Import version from pyproject.toml at runtime
 try:
@@ -29,22 +34,32 @@ except ImportError:
 __all__ = [
     # Merchant Tools
     "MerchantTools",
-    "MerchantProduct",
-    "MerchantStall",
     # Buyer Tools
     "BuyerTools",
     # Shipping
-    "ShippingCost",
-    "ShippingMethod",
+    # "ShippingCost",
+    # "ShippingMethod",
     # Nostr-related utils
-    "EventId",
-    "Keys",
-    "Kind",
+    # "EventId",
+    # "Keys",
+    # "Kind",
     "NostrClient",
-    "generate_and_save_keys",
-    "Timestamp",
-    "PublicKey",
+    "generate_keys",
+    # "Timestamp",
+    # "PublicKey",
     # Models
-    "AgentProfile",
-    "NostrProfile",
+    "Profile",
+    "ProductShippingCost",
+    "StallShippingMethod",
+    "Product",
+    "Stall",
+    "NostrKeys",
 ]
+
+# __all__ = [
+#     "NostrClient",
+#     "NostrProfile",
+#     "AgentProfile",
+#     "MerchantProduct",
+#     "MerchantStall",
+# ]

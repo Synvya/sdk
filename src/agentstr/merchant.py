@@ -7,10 +7,11 @@ import logging
 import time
 from typing import Any, List, Optional, Tuple, Union
 
+from nostr_sdk import EventId
 from pydantic import ConfigDict
 
-from agentstr.models import AgentProfile, MerchantProduct, MerchantStall
-from agentstr.nostr import EventId, NostrClient
+from agentstr.models import Product, Stall
+from agentstr.nostr import NostrClient
 
 try:
     from agno.tools import Toolkit
@@ -36,28 +37,29 @@ class MerchantTools(Toolkit):
     )
 
     _nostr_client: Optional[NostrClient] = None
-    product_db: List[Tuple[MerchantProduct, Optional[EventId]]] = []
-    stall_db: List[Tuple[MerchantStall, Optional[EventId]]] = []
+    product_db: List[Tuple[Product, Optional[EventId]]] = []
+    stall_db: List[Tuple[Stall, Optional[EventId]]] = []
 
     def __init__(
         self,
-        merchant_profile: AgentProfile,
         relay: str,
-        stalls: List[MerchantStall],
-        products: List[MerchantProduct],
+        private_key: str,
+        stalls: List[Stall],
+        products: List[Product],
     ):
         """Initialize the Merchant toolkit.
 
         Args:
-            merchant_profile: profile of the merchant using this agent
             relay: Nostr relay to use for communications
+            private_key: private key of the merchant using this agent
             stalls: list of stalls managed by this merchant
             products: list of products sold by this merchant
         """
         super().__init__(name="merchant")
         self.relay = relay
-        self.merchant_profile = merchant_profile
-        self._nostr_client = NostrClient(relay, merchant_profile.get_private_key())
+        self.private_key = private_key
+        self._nostr_client = NostrClient(relay, private_key)
+        self.profile = self._nostr_client.get_profile()
 
         # initialize the Product DB with no event id
         self.product_db = [(product, None) for product in products]
@@ -83,12 +85,6 @@ class MerchantTools(Toolkit):
         self.register(self.remove_product_by_name)
         self.register(self.remove_stall_by_name)
 
-    def get_nostr_client(self) -> NostrClient:
-        """
-        Get the NostrClient instance
-        """
-        return self._nostr_client
-
     def get_profile(self) -> str:
         """
         Get the merchant profile in JSON format
@@ -96,7 +92,7 @@ class MerchantTools(Toolkit):
         Returns:
             str: merchant profile in JSON format
         """
-        return json.dumps(self.merchant_profile.to_json())
+        return json.dumps(self.profile.to_json())
 
     def get_relay(self) -> str:
         """
@@ -207,13 +203,13 @@ class MerchantTools(Toolkit):
 
         return json.dumps(results)
 
-    def publish_new_product(self, product: MerchantProduct) -> str:
+    def publish_new_product(self, product: Product) -> str:
         """
         Publishes to Nostra new product that is not currently in the Merchant's
         Product DB and adds it to the Product DB
 
         Args:
-            product: MerchantProduct to be published
+            product: Product to be published
 
         Returns:
             str: JSON string with status of the operation
@@ -424,7 +420,7 @@ class MerchantTools(Toolkit):
         Publishes the profile to Nostr
 
         Returns:
-            str: JSON of the event that published the profile
+            str: id of the event publishing the profile
 
         Raises:
             RuntimeError: if it can't publish the event
@@ -433,24 +429,17 @@ class MerchantTools(Toolkit):
             raise ValueError("NostrClient not initialized")
 
         try:
-            event_id = self._nostr_client.publish_profile(
-                self.merchant_profile.get_name(),
-                self.merchant_profile.get_about(),
-                self.merchant_profile.get_picture(),
-                self.merchant_profile.get_banner(),
-                self.merchant_profile.get_website(),
-            )
-            return json.dumps(event_id.__dict__)
+            return self._nostr_client.publish_profile()
         except RuntimeError as e:
             raise RuntimeError(f"Unable to publish the profile: {e}") from e
 
-    def publish_new_stall(self, stall: MerchantStall) -> str:
+    def publish_new_stall(self, stall: Stall) -> str:
         """
         Publishes to Nostr a new stall that is not currently in the Merchant's
         Stall DB and adds it to the Stall DB
 
         Args:
-            stall: MerchantStall to be published
+            stall: Stall to be published
 
         Returns:
             str: JSON string with status of the operation

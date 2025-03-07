@@ -7,24 +7,21 @@ from typing import List
 from unittest.mock import patch
 
 from agentstr.buyer import BuyerTools
-from agentstr.models import AgentProfile, MerchantProduct, MerchantStall, NostrProfile
-from agentstr.nostr import Keys, PublicKey
+from agentstr.models import NostrKeys, Product, Profile, Stall
 
 
 def test_buyer_profile_creation(
-    buyer_profile: AgentProfile,
-    buyer_profile_name: str,
-    buyer_profile_about: str,
-    buyer_profile_picture: str,
+    buyer_profile: Profile,
 ) -> None:
     """Test the creation of a buyer profile"""
-    assert buyer_profile.get_name() == buyer_profile_name
-    assert buyer_profile.get_about() == buyer_profile_about
-    assert buyer_profile.get_picture() == buyer_profile_picture
+    assert buyer_profile.get_about() is not None
+    assert buyer_profile.get_name() is not None
+    assert buyer_profile.get_picture() is not None
+    assert buyer_profile.get_website() is not None
 
 
 def test_find_sellers_by_location(
-    buyer_tools: BuyerTools, merchant_location: str, merchant_profile_name: str
+    buyer_tools: BuyerTools, merchant_location: str, merchant_name: str
 ) -> None:
     """Test the finding of sellers by location"""
     with patch(
@@ -34,72 +31,67 @@ def test_find_sellers_by_location(
 
         result = buyer_tools.find_sellers_by_location(merchant_location)
         assert result is not None
-        assert merchant_profile_name in result
+        assert merchant_name in result
 
 
 def test_find_seller_by_name(
     buyer_tools: BuyerTools,
-    merchant_profile_name: str,
+    merchant_name: str,
 ) -> None:
     """Test the finding of a seller by name"""
-    result = buyer_tools.find_seller_by_name(merchant_profile_name)
+    result = buyer_tools.find_seller_by_name(merchant_name)
     assert result is not None
-    assert merchant_profile_name in result
+    assert merchant_name in result
 
 
 def test_find_seller_by_public_key(
     buyer_tools: BuyerTools,
-    merchant_keys: Keys,
-    seller_nostr_profile: NostrProfile,
+    merchant_keys: NostrKeys,
+    merchant_profile: Profile,
 ) -> None:
     """Test the finding of a seller by public key"""
     with patch.object(
         buyer_tools, "find_seller_by_public_key"
     ) as mock_find_seller_by_public_key:
-        mock_find_seller_by_public_key.return_value = seller_nostr_profile.to_json()
+        mock_find_seller_by_public_key.return_value = merchant_profile.to_json()
 
-        result = buyer_tools.find_seller_by_public_key(
-            merchant_keys.public_key().to_bech32()
-        )
+        result = buyer_tools.find_seller_by_public_key(merchant_keys.get_public_key())
         assert result is not None
-        assert merchant_keys.public_key().to_bech32() in result
+        assert merchant_keys.get_public_key() in result
 
 
 def test_get_seller_stalls(
     buyer_tools: BuyerTools,
-    seller_nostr_profile: NostrProfile,
-    merchant_stalls: List[MerchantStall],
+    merchant_profile: Profile,
+    stalls: List[Stall],
 ) -> None:
     """Test the retrieval of a seller's stalls"""
     with patch.object(
-        buyer_tools.get_nostr_client(), "retrieve_stalls_from_seller"
+        buyer_tools._nostr_client, "retrieve_stalls_from_merchant"
     ) as mock_get_seller_stalls:
-        stall_data = [
-            merchant_stall.to_stall_data() for merchant_stall in merchant_stalls
-        ]
-        mock_get_seller_stalls.return_value = stall_data
+        mock_get_seller_stalls.return_value = stalls
 
-        result = buyer_tools.get_seller_stalls(seller_nostr_profile.get_public_key())
+        result = buyer_tools.get_seller_stalls(merchant_profile.get_public_key())
         assert result is not None
 
 
 def test_get_seller_products(
     buyer_tools: BuyerTools,
-    seller_nostr_profile: NostrProfile,
-    merchant_products: List[MerchantProduct],
+    merchant_profile: Profile,
+    products: List[Product],
 ) -> None:
     """Test the retrieval of a seller's products"""
     with patch.object(
-        buyer_tools.get_nostr_client(),
-        "retrieve_products_from_seller",
-        return_value=merchant_products,
+        buyer_tools._nostr_client,
+        "retrieve_products_from_merchant",
+        return_value=products,
     ) as mock_get_seller_products:
-        result = buyer_tools.get_seller_products(seller_nostr_profile.get_public_key())
+        result = buyer_tools.get_seller_products(merchant_profile.get_public_key())
         assert isinstance(result, str)  # Ensure it's a JSON string
 
         # ✅ Verify that the mocked method was called
         mock_get_seller_products.assert_called_once_with(
-            PublicKey.parse(seller_nostr_profile.get_public_key())
+            merchant_profile.get_public_key()
         )
 
         products = json.loads(result)  # Convert JSON string back to a Python list

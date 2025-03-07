@@ -9,7 +9,7 @@ from datetime import timedelta
 from pathlib import Path
 from typing import Dict, List, Optional
 
-from agentstr.models import MerchantProduct, MerchantStall, NostrProfile
+from agentstr.models import NostrKeys, Product, Profile, Stall
 
 try:
     from nostr_sdk import (
@@ -27,7 +27,6 @@ try:
         ProductData,
         PublicKey,
         SingleLetterTag,
-        StallData,
         Tag,
         TagKind,
         TagStandard,
@@ -50,17 +49,13 @@ class NostrClient:
 
     logger = logging.getLogger("NostrClient")
 
-    def __init__(
-        self,
-        relay: str,
-        nsec: str,
-    ) -> None:
+    def __init__(self, relay: str, private_key: str) -> None:
         """
         Initialize the Nostr client.
 
         Args:
             relay: Nostr relay that the client will connect to
-            nsec: Nostr private key in bech32 format
+            private_key: Private key for the client in hex or bech32 format
         """
         # Set log handling
         if not NostrClient.logger.hasHandlers():
@@ -74,146 +69,167 @@ class NostrClient:
 
         # configure relay and keys for the client
         self.relay = relay
-        self.keys = Keys.parse(nsec)
+        self.keys = Keys.parse(private_key)
         self.nostr_signer = NostrSigner.keys(self.keys)
         self.client = Client(self.nostr_signer)
         self.connected = False
+        try:
+            # Download the profile from the relay if it already exists
+            self.profile = self.retrieve_profile(self.keys.public_key().to_bech32())
+        except RuntimeError:
+            # If the profile doesn't exist, create a new one
+            self.profile = Profile(self.keys.public_key().to_bech32())
 
-    def delete_event(self, event_id: EventId, reason: Optional[str] = None) -> EventId:
+    def delete_event(self, event_id: str, reason: Optional[str] = None) -> str:
         """
         Requests the relay to delete an event. Relays may or may not honor the request.
 
         Args:
-            event_id: EventId associated with the event to be deleted
+            event_id: Nostr event ID associated with the event to be deleted
             reason: optional reason for deleting the event
 
         Returns:
-            EventId: if of the event requesting the deletion of event_id
+            str: id of the event requesting the deletion of event_id
 
         Raises:
             RuntimeError: if the deletion event can't be published
         """
-        event_builder = EventBuilder.delete(ids=[event_id], reason=reason)
-        # Run the async publishing function synchronously
-        return asyncio.run(self._async_publish_event(event_builder))
+        try:
+            event_id_obj = EventId.parse(event_id)
+        except Exception as e:
+            raise RuntimeError(f"Invalid event ID: {e}") from e
 
-    def publish_event(self, event_builder: EventBuilder) -> EventId:
-        """
-        Publish generic Nostr event to the relay
+        event_builder = EventBuilder.delete(ids=[event_id_obj], reason=reason)
+        # Run the async publishing function synchronously
+        return_event_id_obj = asyncio.run(self._async_publish_event(event_builder))
+        return return_event_id_obj.to_bech32()
+
+    ## TODO: make this function available without using EventBuilder
+    # def publish_event(self, event_builder: EventBuilder) -> EventId:
+    #     """
+    #     Publish generic Nostr event to the relay
+
+    #     Returns:
+    #         EventId: event id published
+
+    #     Raises:
+    #         RuntimeError: if the product can't be published
+    #     """
+    #     # Run the async publishing function synchronously
+    #     return asyncio.run(self._async_publish_event(event_builder))
+
+    def get_profile(self) -> Profile:
+        """Get the Nostr profile of the client
 
         Returns:
-            EventId: event id published
-
-        Raises:
-            RuntimeError: if the product can't be published
+            Profile: Nostr profile of the client
         """
-        # Run the async publishing function synchronously
-        return asyncio.run(self._async_publish_event(event_builder))
+        return self.profile
 
-    def publish_note(self, text: str) -> EventId:
+    def publish_note(self, text: str) -> str:
         """Publish note with event kind 1
 
         Args:
             text: text to be published as kind 1 event
 
         Returns:
-            EventId: EventId if successful
+            str: id of the event publishing the note
 
         Raises:
-            RuntimeError: if the product can't be published
+            RuntimeError: if the note can't be published
         """
         # Run the async publishing function synchronously
-        return asyncio.run(self._async_publish_note(text))
+        event_id_obj = asyncio.run(self._async_publish_note(text))
+        return event_id_obj.to_bech32()
 
-    def publish_product(self, product: MerchantProduct) -> EventId:
+    def publish_product(self, product: Product) -> str:
         """
         Create or update a NIP-15 Marketplace product with event kind 30018
 
         Args:
-            product: product to be published
+            product: Product to be published
 
         Returns:
-            EventId: event id of the publication event
+            str: id of the event publishing the product
 
         Raises:
             RuntimeError: if the product can't be published
         """
         # Run the async publishing function synchronously
         try:
-            return asyncio.run(self._async_publish_product(product))
+            event_id_obj = asyncio.run(self._async_publish_product(product))
+            return event_id_obj.to_bech32()
         except Exception as e:
             raise RuntimeError(f"Failed to publish product: {e}") from e
 
-    def publish_profile(
-        self,
-        name: str,
-        about: str,
-        picture: str,
-        banner: str,
-        website: Optional[str] = None,
-    ) -> EventId:
+    def publish_profile(self) -> str:
         """
-        Publish a Nostr profile with event kind 0
-
-        Args:
-            name: name of the Nostr profile
-            about: brief description about the profile
-            picture: url to a file with a picture for the profile
-            banner: url to a file with a banner for the profile
-            website: optional url to a website for the profile
+        Publish the Nostr client profile
 
         Returns:
-            EventId: event id if successful
+            str: id of the event publishing the profile
 
         Raises:
             RuntimeError: if the profile can't be published
         """
         # Run the async publishing function synchronously
-        return asyncio.run(
-            self._async_publish_profile(name, about, picture, banner, website)
-        )
+        try:
+            event_id_obj = asyncio.run(self._async_publish_profile())
+            return event_id_obj.to_bech32()
+        except Exception as e:
+            raise RuntimeError(f"Failed to publish profile: {e}") from e
 
-    def publish_stall(self, stall: MerchantStall) -> EventId:
+    def publish_stall(self, stall: Stall) -> str:
         """Publish a stall to nostr
 
         Args:
-            stall: stall to be published
+            stall: Stall to be published
 
         Returns:
-            EventId: Id of the publication event
+            str: id of the event publishing the stall
 
         Raises:
             RuntimeError: if the stall can't be published
         """
         try:
-            return asyncio.run(self._async_publish_stall(stall))
+            event_id_obj = asyncio.run(self._async_publish_stall(stall))
+            return event_id_obj.to_bech32()
         except Exception as e:
             raise RuntimeError(f"Failed to publish stall: {e}") from e
 
-    def retrieve_marketplace(self, owner: PublicKey, name: str) -> set[NostrProfile]:
+    def retrieve_marketplace_merchants(
+        self, owner: str, marketplace_name: str
+    ) -> set[Profile]:
         """
-        Retrieve all sellers from the marketplace.
+        Retrieve all merchants associated with a given marketplace.
 
         Args:
-            owner: PublicKey of the owner of the marketplace
-            name: name of the marketplace
+            owner: Nostr public key of the marketplace owner in bech32 or hex format
+            marketplace_name: name of the marketplace
 
         Returns:
-            set[NostrProfile]: set of seller profiles.
+            set[Profile]: set of merchant profiles.
             (skips authors with missing metadata)
         """
-        events_filter = Filter().kind(Kind(30019)).authors([owner])
+
+        # Convert owner to PublicKey
+        try:
+            owner_key = PublicKey.parse(owner)
+        except Exception as e:
+            raise RuntimeError(f"Invalid owner key: {e}") from e
+
+        events_filter = Filter().kind(Kind(30019)).authors([owner_key])
         try:
             events = asyncio.run(self._async_retrieve_events(events_filter))
         except Exception as e:
             raise RuntimeError(f"Failed to retrieve marketplace: {e}") from e
 
         events_list = events.to_vec()
-        merchants_dict: Dict[PublicKey, NostrProfile] = {}
+        merchants_dict: Dict[PublicKey, Profile] = {}
 
         for event in events_list:
             content = json.loads(event.content())
-            if content.get("name") == name:
+            if content.get("name") == marketplace_name:
                 merchants = content.get("merchants", [])
                 for merchant in merchants:
                     try:
@@ -225,70 +241,16 @@ class NostrClient:
 
         return set(merchants_dict.values())
 
-    def retrieve_products_from_seller(self, seller: PublicKey) -> List[MerchantProduct]:
+    def retrieve_merchants(self) -> set[Profile]:
         """
-        Retrieve all products from a given seller.
-
-        Args:
-            seller: PublicKey of the seller
-
-        Returns:
-            List[MerchantProduct]: list of products from the seller
-        """
-        products = []
-        try:
-            events = asyncio.run(self._async_retrieve_products_from_seller(seller))
-            events_list = events.to_vec()
-            for event in events_list:
-                content = json.loads(event.content())
-                product_data = ProductData(
-                    id=content.get("id"),
-                    stall_id=content.get("stall_id"),
-                    name=content.get("name"),
-                    description=content.get("description"),
-                    images=content.get("images", []),
-                    currency=content.get("currency"),
-                    price=content.get("price"),
-                    quantity=content.get("quantity"),
-                    specs=content.get("specs", {}),
-                    shipping=content.get("shipping", []),
-                    categories=content.get("categories", []),
-                )
-                products.append(MerchantProduct.from_product_data(product_data))
-            return products
-        except Exception as e:
-            raise RuntimeError(f"Failed to retrieve products: {e}") from e
-
-    def retrieve_profile(self, public_key: PublicKey) -> NostrProfile:
-        """
-        Retrieve a Nostr profile from the relay.
-
-        Args:
-            public_key: bech32 encoded public key of the profile to retrieve
-
-        Returns:
-            NostrProfile: profile of the author
-
-        Raises:
-            RuntimeError: if the profile can't be retrieved
-        """
-        try:
-            return asyncio.run(self._async_retrieve_profile(public_key))
-        except Exception as e:
-            raise RuntimeError(f"Failed to retrieve profile: {e}") from e
-
-    def retrieve_sellers(self) -> set[NostrProfile]:
-        """
-        Retrieve all sellers from the relay.
-        Sellers are npubs who have published a stall.
+        Retrieve all merchants from the relay.
+        Merchants are npubs who have published a stall.
         Return set may be empty if metadata can't be retrieved for any author.
 
         Returns:
-            set[NostrProfile]: set of seller profiles
+            set[Profile]: set of merchant profiles
             (skips authors with missing metadata)
         """
-
-        # sellers: set[NostrProfile] = set()
 
         # First we retrieve all stalls from the relay
 
@@ -300,7 +262,7 @@ class NostrClient:
         # Now we search for unique npubs from the list of stalls
 
         events_list = events.to_vec()
-        authors: Dict[PublicKey, NostrProfile] = {}
+        authors: Dict[PublicKey, Profile] = {}
 
         for event in events_list:
             if event.kind() == Kind(30017):
@@ -337,28 +299,106 @@ class NostrClient:
         # once we're done iterating over the events, we return the set of profiles
         return set(authors.values())
 
-    def retrieve_stalls_from_seller(self, seller: PublicKey) -> List[StallData]:
+    def retrieve_products_from_merchant(self, merchant: str) -> List[Product]:
         """
-        Retrieve all stalls from a given seller.
+        Retrieve all products from a given merchant.
 
         Args:
-            seller: PublicKey of the seller
+            merchant: Nostr public key of the merchant in bech32 or hex format
 
         Returns:
-            List[StallData]: list of stalls from the seller
+            List[Product]: list of products from the merchant
+        """
+        products = []
+
+        # Convert owner to PublicKey
+        try:
+            merchant_key = PublicKey.parse(merchant)
+        except Exception as e:
+            raise RuntimeError(f"Invalid merchant key: {e}") from e
+
+        try:
+            events = asyncio.run(
+                self._async_retrieve_products_from_merchant(merchant_key)
+            )
+            events_list = events.to_vec()
+            for event in events_list:
+                content = json.loads(event.content())
+                product_data = ProductData(
+                    id=content.get("id"),
+                    stall_id=content.get("stall_id"),
+                    name=content.get("name"),
+                    description=content.get("description"),
+                    images=content.get("images", []),
+                    currency=content.get("currency"),
+                    price=content.get("price"),
+                    quantity=content.get("quantity"),
+                    specs=content.get("specs", {}),
+                    shipping=content.get("shipping", []),
+                    categories=content.get("categories", []),
+                )
+                products.append(Product.from_product_data(product_data))
+            return products
+        except Exception as e:
+            raise RuntimeError(f"Failed to retrieve products: {e}") from e
+
+    def retrieve_profile(self, public_key: str) -> Profile:
+        """
+        Retrieve a Nostr profile from the relay.
+
+        Args:
+            public_key: public key of the profile to retrieve in bech32 or hex format
+
+        Returns:
+            Profile: profile of the author
+
+        Raises:
+            RuntimeError: if the profile can't be retrieved
+        """
+
+        # Convert public_key to PublicKey
+        try:
+            public_key_obj = PublicKey.parse(public_key)
+        except Exception as e:
+            raise RuntimeError(f"Invalid public key: {e}") from e
+
+        try:
+            return asyncio.run(self._async_retrieve_profile(public_key_obj))
+        except Exception as e:
+            raise RuntimeError(f"Failed to retrieve profile: {e}") from e
+
+    def retrieve_stalls_from_merchant(self, merchant: str) -> List[Stall]:
+        """
+        Retrieve all stalls from a given merchant.
+
+        Args:
+            merchant: Nostr public key of the merchant in bech32 or hex format
+
+        Returns:
+            List[Stall]: list of stalls from the merchant
 
         Raises:
             RuntimeError: if the stalls can't be retrieved
         """
         stalls = []
+
+        # Convert merchant to PublicKey
         try:
-            events = asyncio.run(self._async_retrieve_stalls_from_seller(seller))
+            merchant_key = PublicKey.parse(merchant)
+        except Exception as e:
+            raise RuntimeError(f"Invalid merchant key: {e}") from e
+
+        try:
+            events = asyncio.run(
+                self._async_retrieve_stalls_from_merchant(merchant_key)
+            )
             events_list = events.to_vec()
             for event in events_list:
                 try:
                     # Parse the content field instead of the whole event
                     content = event.content()
-                    stall = StallData.from_json(content)
+                    # stall = MerchantStall.from_stall_data(StallData.from_json(content))
+                    stall = Stall.from_json(content)
                     stalls.append(stall)
                 except RuntimeError as e:
                     self.logger.warning("Failed to parse stall data: %s", e)
@@ -420,12 +460,6 @@ class NostrClient:
         try:
             await self._async_connect()
 
-            # Add debug logging
-            NostrClient.logger.debug("Attempting to publish event: %s", event_builder)
-            NostrClient.logger.debug(
-                "Using keys: %s", self.keys.public_key().to_bech32()
-            )
-
             # Wait for connection and try to publish
             output = await self.client.send_event_builder(event_builder)
 
@@ -462,13 +496,13 @@ class NostrClient:
         event_builder = EventBuilder.text_note(text)
         return await self._async_publish_event(event_builder)
 
-    async def _async_publish_product(self, product: MerchantProduct) -> EventId:
+    async def _async_publish_product(self, product: Product) -> EventId:
         """
         Asynchronous function to create or update a NIP-15
         Marketplace product with event kind 30018
 
         Args:
-            product: product to publish
+            product: Product to publish
 
         Returns:
             EventId: event id if successful
@@ -477,7 +511,9 @@ class NostrClient:
             RuntimeError: if the product can't be published
         """
         coordinate_tag = Coordinate(
-            Kind(30017), self.keys.public_key(), product.stall_id
+            Kind(30017),
+            PublicKey.parse(self.profile.get_public_key()),
+            product.stall_id,
         )
 
         # EventBuilder.product_data() has a bug with tag handling.
@@ -496,23 +532,9 @@ class NostrClient:
         NostrClient.logger.info("Product event: %s", good_event_builder)
         return await self._async_publish_event(good_event_builder)
 
-    async def _async_publish_profile(
-        self,
-        name: str,
-        about: str,
-        picture: str,
-        banner: str,
-        website: Optional[str] = None,
-    ) -> EventId:
+    async def _async_publish_profile(self) -> EventId:
         """
         Asynchronous function to publish a Nostr profile with event kind 0
-
-        Args:
-            name: name of the Nostr profile
-            about: brief description about the profile
-            picture: url to a file with a picture for the profile
-            banner: url to a file with a banner for the profile
-            website: optional url to a website for the profile
 
         Returns:
             EventId: event id if successful
@@ -520,37 +542,34 @@ class NostrClient:
         Raises:
             RuntimeError: if the profile can't be published
         """
-        metadata_content = Metadata().set_name(name)
-        metadata_content = metadata_content.set_about(about)
-        metadata_content = metadata_content.set_banner(banner)
-        metadata_content = metadata_content.set_picture(picture)
-
-        if website:
-            metadata_content = metadata_content.set_website(website)
-
+        metadata_content = Metadata().set_name(self.profile.get_name())
+        metadata_content = metadata_content.set_about(self.profile.get_about())
+        metadata_content = metadata_content.set_banner(self.profile.get_banner())
+        metadata_content = metadata_content.set_picture(self.profile.get_picture())
+        metadata_content = metadata_content.set_website(self.profile.get_website())
         event_builder = EventBuilder.metadata(metadata_content)
         return await self._async_publish_event(event_builder)
 
-    async def _async_publish_stall(self, stall: MerchantStall) -> EventId:
+    async def _async_publish_stall(self, stall: Stall) -> EventId:
         """
         Asynchronous function to create or update a NIP-15
         Marketplace stall with event kind 30017
 
         Args:
-            stall: stall to be published
+            stall: Stall to be published
 
         Returns:
             EventId: Id of the publication event
 
         Raises:
-            RuntimeError: if the profile can't be published
+            RuntimeError: if the Stall can't be published
         """
 
         # good_event_builder = EventBuilder(Kind(30018), content).tags(
         #     [Tag.identifier(product.id), Tag.coordinate(coordinate_tag)]
         # )
 
-        NostrClient.logger.info("Merchant Stall: %s", stall)
+        NostrClient.logger.info("Stall: %s", stall)
         event_builder = EventBuilder.stall_data(stall.to_stall_data()).tags(
             [
                 Tag.custom(
@@ -603,12 +622,14 @@ class NostrClient:
         except Exception as e:
             raise RuntimeError(f"Unable to retrieve stalls: {e}") from e
 
-    async def _async_retrieve_products_from_seller(self, seller: PublicKey) -> Events:
+    async def _async_retrieve_products_from_merchant(
+        self, merchant: PublicKey
+    ) -> Events:
         """
-        Asynchronous function to retrieve the products for a given author
+        Asynchronous function to retrieve the products for a given merchant
 
         Args:
-            seller: PublicKey of the seller to retrieve the products for
+            seller: PublicKey of the merchant
 
         Returns:
             Events: list of events containing the products of the seller
@@ -623,7 +644,7 @@ class NostrClient:
 
         try:
             # print(f"Retrieving products from seller: {seller}")
-            events_filter = Filter().kind(Kind(30018)).authors([seller])
+            events_filter = Filter().kind(Kind(30018)).authors([merchant])
             events = await self.client.fetch_events_from(
                 urls=[self.relay], filter=events_filter, timeout=timedelta(seconds=2)
             )
@@ -631,15 +652,15 @@ class NostrClient:
         except Exception as e:
             raise RuntimeError(f"Unable to retrieve stalls: {e}") from e
 
-    async def _async_retrieve_profile(self, author: PublicKey) -> NostrProfile:
+    async def _async_retrieve_profile(self, public_key: PublicKey) -> Profile:
         """
         Asynchronous function to retrieve the profile for a given author
 
         Args:
-            author: PublicKey of the author to retrieve the profile for
+            public_key: public key of the profile to retrieve
 
         Returns:
-            NostrProfile: profile of the author
+            Profile: profile associated with the public key
 
         Raises:
             RuntimeError: if the profile can't be retrieved
@@ -651,21 +672,21 @@ class NostrClient:
 
         try:
             metadata = await self.client.fetch_metadata(
-                public_key=author, timeout=timedelta(seconds=2)
+                public_key=public_key, timeout=timedelta(seconds=2)
             )
-            return NostrProfile.from_metadata(metadata, author)
+            return Profile.from_metadata(metadata, public_key.to_bech32())
         except Exception as e:
             raise RuntimeError(f"Unable to retrieve metadata: {e}") from e
 
-    async def _async_retrieve_stalls_from_seller(self, seller: PublicKey) -> Events:
+    async def _async_retrieve_stalls_from_merchant(self, merchant: PublicKey) -> Events:
         """
-        Asynchronous function to retrieve the stall for a given author
+        Asynchronous function to retrieve the stall for a given merchant
 
         Args:
-            seller: PublicKey of the seller to retrieve the stall for
+            seller: PublicKey of the merchant to retrieve the stall for
 
         Returns:
-            Events: list of events containing the stalls of the seller
+            Events: list of events containing the stalls of the merchant
 
         Raises:
             RuntimeError: if the stall can't be retrieved
@@ -676,7 +697,7 @@ class NostrClient:
             raise RuntimeError("Unable to connect to the relay") from e
 
         try:
-            events_filter = Filter().kind(Kind(30017)).authors([seller])
+            events_filter = Filter().kind(Kind(30017)).authors([merchant])
             events = await self.client.fetch_events_from(
                 urls=[self.relay], filter=events_filter, timeout=timedelta(seconds=2)
             )
@@ -685,15 +706,17 @@ class NostrClient:
             raise RuntimeError(f"Unable to retrieve stalls: {e}") from e
 
 
-def generate_and_save_keys(env_var: str, env_path: Path) -> Keys:
-    """Generate new nostr keys and save the private key to .env file.
+def generate_keys(env_var: str, env_path: Path) -> NostrKeys:
+    """
+    Generates new nostr keys.
+    Saves the private key in bech32 format to the .env file.
 
     Args:
         env_var: Name of the environment variable to store the key
         env_path: Path to the .env file. If None, looks for .env in current directory
 
     Returns:
-        The generated Keys object
+        tuple[str, str]: [public key, private key] in bech32 format
     """
     # Generate new keys
     keys = Keys.generate()
@@ -731,4 +754,4 @@ def generate_and_save_keys(env_var: str, env_path: Path) -> Keys:
         if new_lines:  # Add final newline if there's content
             f.write("\n")
 
-    return keys
+    return NostrKeys.from_private_key(nsec)

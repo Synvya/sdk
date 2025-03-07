@@ -7,7 +7,7 @@ import logging
 
 from pydantic import ConfigDict
 
-from agentstr.models import AgentProfile, NostrProfile
+from agentstr.models import Profile
 from agentstr.nostr import NostrClient, PublicKey
 
 try:
@@ -57,28 +57,29 @@ class BuyerTools(Toolkit):
     )
 
     logger = logging.getLogger("Buyer")
-    sellers: set[NostrProfile] = set()
+    sellers: set[Profile] = set()
 
     def __init__(
         self,
         knowledge_base: AgentKnowledge,
-        buyer_profile: AgentProfile,
         relay: str,
+        private_key: str,
     ) -> None:
         """Initialize the Buyer toolkit.
 
         Args:
             knowledge_base: knowledge base of the buyer agent
-            buyer_profile: profile of the buyer using this agent
             relay: Nostr relay to use for communications
+            private_key: private key of the buyer using this agent
         """
         super().__init__(name="Buyer")
 
         self.relay = relay
-        self.buyer_profile = buyer_profile
+        self.private_key = private_key
         self.knowledge_base = knowledge_base
         # Initialize fields
-        self._nostr_client = NostrClient(relay, buyer_profile.get_private_key())
+        self._nostr_client = NostrClient(relay, private_key)
+        self.profile = self._nostr_client.get_profile()
 
         # Register methods
         self.register(self.download_all_sellers)
@@ -127,7 +128,7 @@ class BuyerTools(Toolkit):
         Returns:
             str: JSON string with status and count of sellers downloaded
         """
-        self._download_sellers_from_marketplace(PublicKey.parse(owner), name)
+        self._download_sellers_from_marketplace(owner, name)
         response = json.dumps({"status": "success", "count": len(self.sellers)})
         return response
 
@@ -176,7 +177,7 @@ class BuyerTools(Toolkit):
         Returns:
             str: list of seller profile json strings or error message
         """
-        sellers: set[NostrProfile] = set()
+        sellers: set[Profile] = set()
         geohash = _map_location_to_geohash(location)
         # print(f"find_sellers_by_location: geohash: {geohash}")
 
@@ -201,21 +202,13 @@ class BuyerTools(Toolkit):
         self.logger.info("Found %d sellers", len(sellers))
         return response
 
-    def get_nostr_client(self) -> NostrClient:
-        """Get the Nostr client.
-
-        Returns:
-            NostrClient: Nostr client
-        """
-        return self._nostr_client
-
     def get_profile(self) -> str:
         """Get the Nostr profile of the buyer agent.
 
         Returns:
             str: buyer profile json string
         """
-        response = self.buyer_profile.to_json()
+        response = self.profile.to_json()
         self._store_response_in_knowledge_base(response)
         return response
 
@@ -239,10 +232,8 @@ class BuyerTools(Toolkit):
             str: JSON string with seller collections
         """
         try:
-            stalls = self._nostr_client.retrieve_stalls_from_seller(
-                PublicKey.parse(public_key)
-            )
-            response = json.dumps([stall.as_json() for stall in stalls])
+            stalls = self._nostr_client.retrieve_stalls_from_merchant(public_key)
+            response = json.dumps([stall.to_dict() for stall in stalls])
             self._store_response_in_knowledge_base(response)
             return response
         except RuntimeError as e:
@@ -250,7 +241,7 @@ class BuyerTools(Toolkit):
             return response
 
     def get_seller_count(self) -> str:
-        """Get the number of sellers.
+        """Get the number of sellers in the buyer's database
 
         Returns:
             str: JSON string with status and count of sellers
@@ -268,9 +259,7 @@ class BuyerTools(Toolkit):
             str: JSON string with seller products
         """
         try:
-            products = self._nostr_client.retrieve_products_from_seller(
-                PublicKey.parse(public_key)
-            )
+            products = self._nostr_client.retrieve_products_from_merchant(public_key)
 
             response = json.dumps([product.to_dict() for product in products])
             self._store_response_in_knowledge_base(response)
@@ -298,7 +287,7 @@ class BuyerTools(Toolkit):
         The old set is discarded and the new set only contains unique sellers
         currently stored at the relay.
         """
-        sellers = self._nostr_client.retrieve_sellers()
+        sellers = self._nostr_client.retrieve_merchants()
         if len(sellers) == 0:
             self.logger.info("No sellers found")
         else:
@@ -306,7 +295,7 @@ class BuyerTools(Toolkit):
 
         self.sellers = sellers
 
-    def _download_sellers_from_marketplace(self, owner: PublicKey, name: str) -> None:
+    def _download_sellers_from_marketplace(self, owner: str, name: str) -> None:
         """
         Internal function to download sellers from a marketplace and store them as
         the new set of sellers for the BuyerTools instance.
@@ -315,7 +304,7 @@ class BuyerTools(Toolkit):
             owner: PublicKey of the owner of the marketplace
             name: name of the marketplace to download sellers from
         """
-        sellers = self._nostr_client.retrieve_marketplace(owner, name)
+        sellers = self._nostr_client.retrieve_marketplace_merchants(owner, name)
         self.sellers = sellers
 
     def _store_response_in_knowledge_base(self, response: str) -> None:
@@ -323,5 +312,5 @@ class BuyerTools(Toolkit):
             # id=str(uuid4()),
             content=response,
         )
-        print(f"Document length: {len(doc.content.split())} words")
+        # print(f"Document length: {len(doc.content.split())} words")
         self.knowledge_base.load_documents([doc])  # Store response in Cassandra

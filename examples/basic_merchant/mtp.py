@@ -8,13 +8,13 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 from agentstr import (
-    AgentProfile,
-    Keys,
-    MerchantProduct,
-    MerchantStall,
-    ShippingCost,
-    ShippingMethod,
-    generate_and_save_keys,
+    NostrKeys,
+    Product,
+    ProductShippingCost,
+    Profile,
+    Stall,
+    StallShippingMethod,
+    generate_keys,
 )
 
 ENV_KEY = "MTP_AGENT_KEY"
@@ -27,9 +27,9 @@ load_dotenv(script_dir / ".env")
 # Load or generate keys
 NSEC = getenv(ENV_KEY)
 if NSEC is None:
-    keys = generate_and_save_keys(env_var=ENV_KEY, env_path=script_dir / ".env")
+    keys = generate_keys(env_var=ENV_KEY, env_path=script_dir / ".env")
 else:
-    keys = Keys.parse(NSEC)
+    keys = NostrKeys.from_private_key(NSEC)
 
 # --*-- Merchant info
 NAME = "Merchant Test Profile"
@@ -39,43 +39,54 @@ CURRENCY = "Sats"
 GEOHASH = "000000000"
 WEBSITE = "https://merchant.test"
 
-shipping_methods = [
-    ShippingMethod(id="64be11rM", cost=10000)
-    .name("North America")
-    .regions(["Canada", "Mexico", "USA"]),
-    ShippingMethod(id="d041HK7s", cost=20000)
-    .name("Rest of the World")
-    .regions(["All other countries"]),
-    ShippingMethod(id="R8Gzz96K", cost=0).name("Worldwide").regions(["Worldwide"]),
+stall_shipping_methods = [
+    StallShippingMethod(
+        ssm_id="64be11rM",
+        ssm_cost=10000,
+        ssm_name="North America",
+        ssm_regions=["Canada", "Mexico", "USA"],
+    ),
+    StallShippingMethod(
+        ssm_id="d041HK7s",
+        ssm_cost=20000,
+        ssm_name="Rest of the World",
+        ssm_regions=["All other countries"],
+    ),
+    StallShippingMethod(
+        ssm_id="R8Gzz96K",
+        ssm_cost=0,
+        ssm_name="Worldwide",
+        ssm_regions=["Worldwide"],
+    ),
 ]
 
-shipping_costs = [
-    ShippingCost(id="64be11rM", cost=5000),
-    ShippingCost(id="d041HK7s", cost=5000),
-    ShippingCost(id="R8Gzz96K", cost=0),
+product_shipping_costs = [
+    ProductShippingCost(psc_id="64be11rM", psc_cost=5000),
+    ProductShippingCost(psc_id="d041HK7s", psc_cost=5000),
+    ProductShippingCost(psc_id="R8Gzz96K", psc_cost=0),
 ]
 
 stalls = [
-    MerchantStall(
+    Stall(
         id="212au4Pi",
         name="The Hardware Store",
         description="Your neighborhood hardware store, now available online.",
         currency=CURRENCY,
-        shipping=[shipping_methods[0], shipping_methods[1]],
+        shipping=[stall_shipping_methods[0], stall_shipping_methods[1]],
         geohash=GEOHASH,
     ),
-    MerchantStall(
+    Stall(
         id="212au4Ph",
         name="The Trade School",
         description="Educational videos to put all your hardware supplies to good use.",
         currency=CURRENCY,
-        shipping=[shipping_methods[2]],
+        shipping=[stall_shipping_methods[2]],
         geohash=GEOHASH,
     ),
 ]
 
 products = [
-    MerchantProduct(
+    Product(
         id="bcf00Rx7",
         stall_id="212au4Pi",
         name="Wrench",
@@ -84,11 +95,11 @@ products = [
         currency="Sats",
         price=5000,
         quantity=100,
-        shipping=[shipping_costs[0], shipping_costs[1]],
+        shipping=[product_shipping_costs[0], product_shipping_costs[1]],
         specs=[["length", "10cm"], ["material", "steel"]],
         categories=["hardware", "tools"],
     ),
-    MerchantProduct(
+    Product(
         id="bcf00Rx8",
         stall_id="212au4Pi",
         name="Shovel",
@@ -97,11 +108,11 @@ products = [
         currency="Sats",
         price=10000,
         quantity=10,
-        shipping=[shipping_costs[0], shipping_costs[1]],
+        shipping=[product_shipping_costs[0], product_shipping_costs[1]],
         specs=[["length", "100 cm"], ["material", "steel"]],
         categories=["hardware", "tools"],
     ),
-    MerchantProduct(
+    Product(
         id="ccf00Rx1",
         stall_id="212au4Ph",
         name="Shovel 101",
@@ -110,13 +121,13 @@ products = [
         currency="Sats",
         price=1000,
         quantity=1000,
-        shipping=[shipping_costs[2]],
+        shipping=[product_shipping_costs[2]],
         specs=[["type", "online"], ["media", "video"]],
         categories=["education", "hardware tools"],
     ),
 ]
 
-profile = AgentProfile(keys=keys)
+profile = Profile(keys.get_public_key())
 profile.set_name(NAME)
 profile.set_about(DESCRIPTION)
 profile.set_picture(PICTURE)
