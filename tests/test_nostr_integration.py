@@ -76,6 +76,7 @@ class TestNostrClient:
         self, nostr_client: NostrClient, merchant_keys: NostrKeys
     ) -> None:
         """Test retrieving stalls from a merchant"""
+        # print(f"Retrieving stalls from merchant: {merchant_keys.get_public_key()}")
         stalls = nostr_client.retrieve_stalls_from_merchant(
             merchant_keys.get_public_key()
         )

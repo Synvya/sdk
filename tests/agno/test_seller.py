@@ -7,7 +7,7 @@ import json
 from typing import List
 from unittest.mock import patch
 
-from synvya_sdk import Product, Stall
+from synvya_sdk import Product, Profile, Stall
 from synvya_sdk.agno import SellerTools
 
 
@@ -122,12 +122,16 @@ def test_profile_operations(
     profile_event_id: str,
     merchant_name: str,
     merchant_about: str,
+    merchant_profile: Profile,
 ) -> None:
     """Test profile-related operations"""
-    profile_data = json.loads(seller_tools.get_profile())
-    profile = json.loads(profile_data)  # Parse the nested JSON string
-    assert profile["name"] == merchant_name
-    assert profile["about"] == merchant_about
+    with patch.object(seller_tools._nostr_client, "get_profile") as mock_get_profile:
+        mock_get_profile.return_value = merchant_profile
+        profile_data = json.loads(seller_tools.get_profile())
+        profile = json.loads(profile_data)  # Parse the nested JSON string
+        # print(f"Profile: {profile}")
+        assert profile["name"] == merchant_name
+        assert profile["about"] == merchant_about
 
     with patch.object(seller_tools._nostr_client, "publish_profile") as mock_publish:
         mock_publish.return_value = profile_event_id
