@@ -21,9 +21,9 @@ except ImportError as exc:
     ) from exc
 
 
-class MerchantTools(Toolkit):
+class SellerTools(Toolkit):
     """
-    MerchantTools is a toolkit that allows a merchant to publish
+    SellerTools is a toolkit that allows a seller to publish
     products and stalls to Nostr.
 
     TBD:

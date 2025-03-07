@@ -14,11 +14,11 @@ from dotenv import load_dotenv
 
 from agentstr import (
     BuyerTools,
-    MerchantTools,
     NostrKeys,
     Product,
     ProductShippingCost,
     Profile,
+    SellerTools,
     Stall,
     StallShippingMethod,
     generate_keys,
@@ -387,15 +387,15 @@ def product_event_ids_fixture() -> List[str]:
     ]
 
 
-@pytest.fixture(scope="session", name="merchant_tools")
-def merchant_tools_fixture(
+@pytest.fixture(scope="session", name="seller_tools")
+def seller_tools_fixture(
     relay: str,
     merchant_keys: NostrKeys,
     stalls: List[Stall],
     products: List[Product],
-) -> MerchantTools:
-    """Create a Merchant instance for testing"""
-    return MerchantTools(relay, merchant_keys.get_private_key(), stalls, products)
+) -> SellerTools:
+    """Create a Seller instance for testing"""
+    return SellerTools(relay, merchant_keys.get_private_key(), stalls, products)
 
 
 @pytest.fixture(scope="session", name="mock_knowledge_base")

@@ -9,7 +9,7 @@ from agno.agent import Agent  # type: ignore
 from agno.models.openai import OpenAIChat  # type: ignore
 from mtp import keys, products, profile, stalls
 
-from agentstr import MerchantTools
+from agentstr import SellerTools
 
 # --***---
 # Collect sample data from the merchant examples
@@ -38,7 +38,7 @@ merchant = Agent(  # type: ignore[call-arg]
     name=f"AI Agent for {profile.get_name()}",
     model=OpenAIChat(id="gpt-4o", api_key=OPENAI_API_KEY),
     tools=[
-        MerchantTools(
+        SellerTools(
             relay=RELAY,
             private_key=keys.get_private_key(),
             stalls=stalls,

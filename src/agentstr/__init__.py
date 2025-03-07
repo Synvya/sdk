@@ -8,7 +8,6 @@ import logging
 from agentstr.nostr import NostrClient, generate_keys
 
 from .buyer import BuyerTools
-from .merchant import MerchantTools
 
 # Import main classes to make them available at package level
 from .models import (
@@ -19,6 +18,7 @@ from .models import (
     Stall,
     StallShippingMethod,
 )
+from .seller import SellerTools
 
 # Import version from pyproject.toml at runtime
 try:
@@ -33,7 +33,7 @@ except ImportError:
 # Define What is Exposed at the Package Level
 __all__ = [
     # Merchant Tools
-    "MerchantTools",
+    "SellerTools",
     # Buyer Tools
     "BuyerTools",
     # Shipping

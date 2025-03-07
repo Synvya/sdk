@@ -5,7 +5,7 @@ from agno.tools import Toolkit
 from agentstr.models import Product, Profile, Stall
 from agentstr.nostr import NostrClient
 
-class MerchantTools(Toolkit):
+class SellerTools(Toolkit):
     _nostr_client: NostrClient
     _profile: Profile
     _stalls: List[Stall]
