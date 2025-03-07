@@ -8,10 +8,6 @@ from os import getenv
 from pathlib import Path
 from typing import Optional
 
-from agno.agent import Agent, AgentKnowledge  # type: ignore
-from agno.embedder.openai import OpenAIEmbedder
-from agno.models.openai import OpenAIChat  # type: ignore
-from agno.vectordb.pgvector import PgVector, SearchType
 from dotenv import load_dotenv
 from pgvector.sqlalchemy import Vector  # Correct import for vector storage
 from sqlalchemy import Column, String, Text, create_engine
@@ -19,6 +15,10 @@ from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import DeclarativeBase, sessionmaker
 from sqlalchemy.sql import text
 
+from agno.agent import Agent, AgentKnowledge  # type: ignore
+from agno.embedder.openai import OpenAIEmbedder
+from agno.models.openai import OpenAIChat  # type: ignore
+from agno.vectordb.pgvector import PgVector, SearchType
 from synvya_sdk import NostrKeys, Profile, generate_keys
 from synvya_sdk.agno import BuyerTools
 

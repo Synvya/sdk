@@ -1,7 +1,6 @@
 from typing import List
 
 from agno.tools import Toolkit
-
 from synvya_sdk import NostrClient, Product, Profile, Stall
 
 class SellerTools(Toolkit):

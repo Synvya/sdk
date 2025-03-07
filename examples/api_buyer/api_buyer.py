@@ -13,10 +13,6 @@ from pathlib import Path
 from typing import AsyncGenerator, Iterator, Optional
 
 import nest_asyncio
-from agno.agent import Agent, AgentKnowledge, RunResponse  # type: ignore
-from agno.embedder.openai import OpenAIEmbedder
-from agno.models.openai import OpenAIChat  # type: ignore
-from agno.vectordb.pgvector import PgVector, SearchType
 from dotenv import load_dotenv
 from fastapi import FastAPI
 from fastapi.responses import StreamingResponse
@@ -27,6 +23,10 @@ from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import DeclarativeBase, sessionmaker
 from sqlalchemy.sql import text
 
+from agno.agent import Agent, AgentKnowledge, RunResponse  # type: ignore
+from agno.embedder.openai import OpenAIEmbedder
+from agno.models.openai import OpenAIChat  # type: ignore
+from agno.vectordb.pgvector import PgVector, SearchType
 from synvya_sdk import NostrKeys, Profile, generate_keys
 from synvya_sdk.agno import BuyerTools
 

@@ -3,7 +3,6 @@ from typing import ClassVar
 
 from agno.agent import AgentKnowledge
 from agno.tools import Toolkit
-
 from synvya_sdk import NostrClient, Profile
 
 class BuyerTools(Toolkit):

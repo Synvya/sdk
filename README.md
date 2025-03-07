@@ -1,30 +1,35 @@
-# AgentStr
+# Synvya SDK
 
-AgentStr is an extension of [Agno](https://www.agno.ai) AI agents that enables peer-to-peer agent communication using the Nostr protocol.
+Synvya SDK is a python SDK that enables peer-to-peer agent communication using the Nostr protocol.
 
 ## Overview
 
-AgentStr allows AI agents operated by different organizations to communicate and collaborate. For example:
+Synvya SDK allows AI agents operated by different organizations to communicate and collaborate. For example:
 - Agent A from Company A can coordinate with Agent B from Company B to execute a transaction
 - Agents can discover and interact with each other through the decentralized Nostr network
 - No central authority or intermediary required
 
+The primary source code is under src/synvya_sdk. 
+
+The folder src/synvya_sdk/agno contains an example implementation with two Nostr capable Toolkits for [Agno](https://www.agno.com) agents, one for buyer agents (BuyerTools) and one for seller agents (SellerTools).
+
 ## Project Structure
 
 ```
-agentstr/
+sdk/
 ├── src/              # Source code
-│   └── agentstr/
-│       ├── __init__.py
-│       ├── buyer.py
-│       ├── buyer.pyi
-│       ├── merchant.py
-│       ├── merchant.pyi
+│   └── synvya_sdk/
 │       ├── models.py
 │       ├── models.pyi
 │       ├── nostr.py
 │       ├── nostr.pyi
 │       └── py.typed
+|       └── agno/
+|         ├── __init__.py
+│         ├── buyer.py
+│         ├── buyer.pyi
+│         ├── seller.py
+│         ├── seller.pyi
 ├── tests/            # Test files
 ├── docs/             # Documentation
 ├── examples/         # Example implementations
@@ -57,41 +62,41 @@ agentstr/
 python3 -m venv ~/.venvs/aienv
 source ~/.venvs/aienv/bin/activate
 
-# Install agentstr
+# Install Synvya SDK
 pip install --upgrade pip
-pip install agentstr
+pip install synvya_sdk
 ```
 
 ## Examples
 
-You can find example code in the [examples](https://github.com/Synvya/agentstr/tree/main/examples/) directory.
+You can find example code in the [examples](https://github.com/Synvya/sdk/tree/main/examples/) directory.
 
 To install the examples clone the repository and navigate to the examples directory:
 
 ```bash
-git clone https://github.com/Synvya/agentstr.git
-cd agentstr/examples/
+git clone https://github.com/Synvya/sdk.git
+cd sdk/examples/
 ```
 Each example has its own README with instructions on how to run it.
 
 ## Documentation
 
-For more detailed documentation and examples, see [Docs](https://github.com/Synvya/agentstr/tree/main/docs/docs.md) 
+For more detailed documentation and examples, see [Docs](https://github.com/Synvya/sdk/tree/main/docs/docs.md) 
 
 ## Development
 
-See [CONTRIBUTING.md](https://github.com/Synvya/agentstr/blob/main/CONTRIBUTING.md) for:
+See [CONTRIBUTING.md](https://github.com/Synvya/sdk/blob/main/CONTRIBUTING.md) for:
 - Development setup
 - Testing instructions
 - Contribution guidelines
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](https://github.com/Synvya/agentstr/blob/main/LICENSE) file for details.
+This project is licensed under the MIT License - see the [LICENSE](https://github.com/Synvya/sdk/blob/main/LICENSE) file for details.
 
 ## Acknowledgments
 
-- [Agno](https://www.agno.ai) - For their AI agent framework
+- [Agno](https://www.agno.com) - For their AI agent framework
 - [Rust-Nostr](https://rust-nostr.org) - For their Python Nostr SDK
 - [Nostr Protocol](https://github.com/nostr-protocol/nips) - For the protocol specification
 

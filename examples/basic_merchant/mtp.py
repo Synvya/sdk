@@ -5,7 +5,9 @@ Sample data for the Merchant Test Profile merchant.
 from os import getenv
 from pathlib import Path
 
-from agentstr import (
+from dotenv import load_dotenv
+
+from synvya_sdk import (
     NostrKeys,
     Product,
     ProductShippingCost,
@@ -14,7 +16,6 @@ from agentstr import (
     StallShippingMethod,
     generate_keys,
 )
-from dotenv import load_dotenv
 
 ENV_KEY = "MTP_AGENT_KEY"
 

@@ -4,11 +4,11 @@ This example shows how to create a basic merchant agent.
 
 from os import getenv
 
+from mtp import keys, products, profile, stalls
+
 # --***---
 from agno.agent import Agent  # type: ignore
 from agno.models.openai import OpenAIChat  # type: ignore
-from mtp import keys, products, profile, stalls
-
 from synvya_sdk.agno import SellerTools
 
 # --***---
