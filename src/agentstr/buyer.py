@@ -8,7 +8,7 @@ import logging
 from pydantic import ConfigDict
 
 from agentstr.models import Profile
-from agentstr.nostr import NostrClient, PublicKey
+from agentstr.nostr import NostrClient
 
 try:
     from agno.agent import AgentKnowledge  # type: ignore
