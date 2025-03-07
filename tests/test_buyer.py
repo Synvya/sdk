@@ -6,8 +6,8 @@ import json
 from typing import List
 from unittest.mock import patch
 
-from agentstr.buyer import BuyerTools
-from agentstr.models import NostrKeys, Product, Profile, Stall
+from synvya_sdk import NostrKeys, Product, Profile, Stall
+from synvya_sdk.agno import BuyerTools
 
 
 def test_buyer_profile_creation(

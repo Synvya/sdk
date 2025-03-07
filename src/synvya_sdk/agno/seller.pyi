@@ -1,9 +1,8 @@
-from typing import Any, List
+from typing import List
 
 from agno.tools import Toolkit
 
-from agentstr.models import Product, Profile, Stall
-from agentstr.nostr import NostrClient
+from synvya_sdk import NostrClient, Product, Profile, Stall
 
 class SellerTools(Toolkit):
     _nostr_client: NostrClient

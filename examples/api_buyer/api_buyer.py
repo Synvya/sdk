@@ -27,7 +27,8 @@ from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import DeclarativeBase, sessionmaker
 from sqlalchemy.sql import text
 
-from agentstr import BuyerTools, NostrKeys, Profile, generate_keys
+from synvya_sdk import NostrKeys, Profile, generate_keys
+from synvya_sdk.agno import BuyerTools
 
 nest_asyncio.apply()
 # Set logging to WARN level to suppress INFO logs

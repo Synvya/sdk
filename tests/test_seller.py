@@ -7,10 +7,8 @@ import json
 from typing import List
 from unittest.mock import patch
 
-from nostr_sdk import EventId
-
-from agentstr.models import Product, Stall
-from agentstr.seller import SellerTools
+from synvya_sdk import Product, Stall
+from synvya_sdk.agno import SellerTools
 
 
 def test_merchant_initialization(
@@ -33,7 +31,7 @@ def test_merchant_initialization(
 
 def test_publish_product_by_name(
     seller_tools: SellerTools,
-    product_event_ids: List[EventId],
+    product_event_ids: List[str],
     products: List[Product],
 ) -> None:
     """Test publishing a product by name"""
@@ -53,7 +51,7 @@ def test_publish_product_by_name(
 
 def test_publish_stall_by_name(
     seller_tools: SellerTools,
-    stall_event_ids: List[EventId],
+    stall_event_ids: List[str],
     stalls: List[Stall],
 ) -> None:
     """Test publishing a stall by name"""
@@ -67,7 +65,7 @@ def test_publish_stall_by_name(
 
 def test_publish_products_by_stall_name(
     seller_tools: SellerTools,
-    product_event_ids: List[EventId],
+    product_event_ids: List[str],
     stalls: List[Stall],
 ) -> None:
     """Test publishing all products in a stall"""
@@ -82,7 +80,7 @@ def test_publish_products_by_stall_name(
 
 
 def test_publish_all_products(
-    seller_tools: SellerTools, product_event_ids: List[EventId]
+    seller_tools: SellerTools, product_event_ids: List[str]
 ) -> None:
     """Test publishing all products"""
     with patch.object(seller_tools._nostr_client, "publish_product") as mock_publish:
@@ -93,7 +91,7 @@ def test_publish_all_products(
 
 
 def test_publish_all_stalls(
-    seller_tools: SellerTools, stall_event_ids: List[EventId]
+    seller_tools: SellerTools, stall_event_ids: List[str]
 ) -> None:
     """Test publishing all stalls"""
     with patch.object(seller_tools._nostr_client, "publish_stall") as mock_publish:
@@ -121,7 +119,7 @@ def test_error_handling(seller_tools: SellerTools) -> None:
 
 def test_profile_operations(
     seller_tools: SellerTools,
-    profile_event_id: EventId,
+    profile_event_id: str,
     merchant_name: str,
     merchant_about: str,
 ) -> None:

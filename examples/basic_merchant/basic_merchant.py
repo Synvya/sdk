@@ -9,7 +9,7 @@ from agno.agent import Agent  # type: ignore
 from agno.models.openai import OpenAIChat  # type: ignore
 from mtp import keys, products, profile, stalls
 
-from agentstr import SellerTools
+from synvya_sdk.agno import SellerTools
 
 # --***---
 # Collect sample data from the merchant examples

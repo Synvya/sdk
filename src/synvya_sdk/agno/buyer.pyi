@@ -4,8 +4,7 @@ from typing import ClassVar
 from agno.agent import AgentKnowledge
 from agno.tools import Toolkit
 
-from agentstr.models import Profile
-from agentstr.nostr import NostrClient
+from synvya_sdk import NostrClient, Profile
 
 class BuyerTools(Toolkit):
     logger: ClassVar[Logger]

@@ -7,7 +7,7 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
-from agentstr import NostrClient, NostrKeys
+from synvya_sdk import NostrClient, NostrKeys
 
 ENV_KEY = "NOSTR_UTILS_KEY"
 

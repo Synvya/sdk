@@ -12,17 +12,16 @@ from _pytest.nodes import Item
 from agno.agent import AgentKnowledge
 from dotenv import load_dotenv
 
-from agentstr import (
-    BuyerTools,
+from synvya_sdk import (
     NostrKeys,
     Product,
     ProductShippingCost,
     Profile,
-    SellerTools,
     Stall,
     StallShippingMethod,
     generate_keys,
 )
+from synvya_sdk.agno import BuyerTools, SellerTools
 
 # Get directory where the script is located
 script_dir = Path(__file__).parent
@@ -56,25 +55,6 @@ def relay_fixture() -> str:
 
 
 ###--- Merchant Fixtures ---###
-
-
-# @pytest.fixture(scope="session", name="merchant_private_key")
-# def merchant_private_key_fixture() -> str:
-#     """Fixture providing the test merchant private key"""
-#     nsec = getenv("TEST_MERCHANT_KEY")
-#     if nsec is None:
-#         keys = generate_keys(env_var="TEST_MERCHANT_KEY", env_path=script_dir / ".env")
-#         nsec = keys[1]
-#     return nsec
-
-
-# @pytest.fixture(scope="session", name="merchant_public_key")
-# def merchant_public_key_fixture() -> str:
-#     """Fixture providing the test merchant public key"""
-#     nsec = getenv("TEST_MERCHANT_KEY")
-#     if not nsec:
-#         raise ValueError("TEST_MERCHANT_KEY environment variable is not set.")
-#     return str(Keys.parse(nsec).public_key().to_bech32())
 
 
 @pytest.fixture(scope="session", name="merchant_keys")
@@ -205,20 +185,8 @@ def buyer_profile_fixture(
 
 
 @pytest.fixture(scope="session", name="profile_event_id")
-def profile_event_id_fixture(merchant_keys: NostrKeys) -> str:
+def profile_event_id_fixture() -> str:
     """Fixture providing the test profile event id"""
-    # event_id = EventId(
-    #     public_key=PublicKey.parse(merchant_keys.get_public_key()),
-    #     created_at=Timestamp.from_secs(1739580690),
-    #     kind=Kind(0),
-    #     tags=[],
-    #     content=(
-    #         '{"name":"Merchant Test Profile",'
-    #         '"about":"A merchant test profile",'
-    #         '"picture":"https://i.nostr.build/ocjZ5GlAKwrvgRhx.png"}'
-    #     ),
-    # )
-    # return str(event_id.to_bech32())
     return "note1f8ew29sf9cdln2kf5c8eylkujgth6t06ae2vmt8k9ftjaljulmlset9qnj"
 
 
@@ -253,28 +221,6 @@ def stall_shipping_methods_fixture() -> List[StallShippingMethod]:
     ]
 
 
-# @pytest.fixture(scope="session", name="shipping_methods")
-# def shipping_methods_fixture() -> List[ShippingMethod]:
-#     """Create shipping methods for testing"""
-#     method1 = (
-#         ShippingMethod(id="64be11rM", cost=10000)
-#         .name("North America")
-#         .regions(["Canada", "Mexico", "USA"])
-#     )
-
-#     method2 = (
-#         ShippingMethod(id="d041HK7s", cost=20000)
-#         .name("Rest of the World")
-#         .regions(["All other countries"])
-#     )
-
-#     method3 = (
-#         ShippingMethod(id="R8Gzz96K", cost=0).name("Worldwide").regions(["Worldwide"])
-#     )
-
-#     return [method1, method2, method3]
-
-
 @pytest.fixture(scope="session", name="product_shipping_costs")
 def product_shipping_costs_fixture() -> List[ProductShippingCost]:
     """Create product shipping costs for testing"""
@@ -283,16 +229,6 @@ def product_shipping_costs_fixture() -> List[ProductShippingCost]:
         ProductShippingCost(psc_id="d041HK7s", psc_cost=5000),
         ProductShippingCost(psc_id="R8Gzz96K", psc_cost=0),
     ]
-
-
-# @pytest.fixture(scope="session", name="shipping_costs")
-# def shipping_costs_fixture() -> List[ShippingCost]:
-#     """Create shipping costs for testing"""
-#     return [
-#         ShippingCost(id="64be11rM", cost=5000),
-#         ShippingCost(id="d041HK7s", cost=5000),
-#         ShippingCost(id="R8Gzz96K", cost=0),
-#     ]
 
 
 @pytest.fixture(scope="session", name="stalls")

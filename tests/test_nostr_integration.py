@@ -6,8 +6,7 @@ from typing import List
 
 import pytest
 
-from agentstr.models import NostrKeys, Product, Stall
-from agentstr.nostr import NostrClient
+from synvya_sdk import NostrClient, NostrKeys, Product, Stall
 
 
 # used in test_nostr_integration.py

@@ -7,8 +7,7 @@ import logging
 
 from pydantic import ConfigDict
 
-from agentstr.models import Profile
-from agentstr.nostr import NostrClient
+from synvya_sdk import NostrClient, Profile
 
 try:
     from agno.agent import AgentKnowledge  # type: ignore

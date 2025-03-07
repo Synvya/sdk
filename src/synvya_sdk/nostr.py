@@ -9,7 +9,7 @@ from datetime import timedelta
 from pathlib import Path
 from typing import Dict, List, Optional
 
-from agentstr.models import NostrKeys, Product, Profile, Stall
+from .models import NostrKeys, Product, Profile, Stall
 
 try:
     from nostr_sdk import (

@@ -10,8 +10,7 @@ from typing import Any, List, Optional, Tuple, Union
 from nostr_sdk import EventId
 from pydantic import ConfigDict
 
-from agentstr.models import Product, Stall
-from agentstr.nostr import NostrClient
+from synvya_sdk import NostrClient, Product, Stall
 
 try:
     from agno.tools import Toolkit

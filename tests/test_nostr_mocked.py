@@ -9,8 +9,7 @@ from unittest.mock import patch
 import pytest
 from nostr_sdk import EventId
 
-from agentstr import NostrClient
-from agentstr.models import NostrKeys, Product, Profile, Stall
+from synvya_sdk import NostrClient, NostrKeys, Product, Profile, Stall
 
 
 # used in test_nostr_mocked.py

@@ -23,7 +23,7 @@ from nostr_sdk import (  # type: ignore
     PublicKey,
 )
 
-from agentstr.models import NostrKeys, Product, Profile, Stall
+from .models import NostrKeys, Product, Profile, Stall
 
 # Re-export all needed types
 # __all__ = [

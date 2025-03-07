@@ -5,8 +5,6 @@ Sample data for the Merchant Test Profile merchant.
 from os import getenv
 from pathlib import Path
 
-from dotenv import load_dotenv
-
 from agentstr import (
     NostrKeys,
     Product,
@@ -16,6 +14,7 @@ from agentstr import (
     StallShippingMethod,
     generate_keys,
 )
+from dotenv import load_dotenv
 
 ENV_KEY = "MTP_AGENT_KEY"
 
