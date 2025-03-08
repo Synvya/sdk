@@ -88,7 +88,7 @@ jobs:
     runs-on: ubuntu-latest
     environment:
       name: pypi
-      url: https://pypi.org/p/agentstr
+      url: https://pypi.org/p/synvya_sdk
     permissions:
       id-token: write
 
