@@ -81,3 +81,7 @@ asyncio_mode = "auto"
 markers = [
     "asyncio: mark test as async",
 ]
+
+[tool.setuptools_scm]
+version_scheme = "guess-next-dev"
+local_scheme = "node-and-date"
