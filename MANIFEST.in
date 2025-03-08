@@ -12,11 +12,9 @@ prune tests
 
 # Exclude specific files
 exclude MANIFEST.in
-exclude pyproject.toml
 exclude mypy.ini
 exclude CONTRIBUTING.md
-exclude setup.cfg
-exclude PKG-INFO
+
 
 
 global-exclude __pycache__
