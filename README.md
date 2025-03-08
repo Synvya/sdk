@@ -1,19 +1,44 @@
-# Synvya SDK
-
-Synvya SDK is a python SDK that enables peer-to-peer agent communication using the Nostr protocol.
+<div align="center" id="top">
+  <a href="https://www.synvya.com">
+    <picture>
+      <img src="https://i.nostr.build/l1xRbUr5YpISK2dg.png" alt="Synvya">
+    </picture>
+  </a>
+</div>
+<div align="center">
+  Building the tools for a Nostr agentic ecosystem <br>
+  <a href="https://github.com/Synvya/sdk/tree/main/docs/docs.md">📚 Documentation</a> &nbsp;|&nbsp;
+  <a href="https://github.com/Synvya/sdk/tree/main/examples">💡 Examples</a> &nbsp;|&nbsp;
+  <a href="https://github.com/Synvya/sdk/stargazers">🌟 Star Us</a>
+</div>
 
 ## Overview
 
-Synvya SDK allows AI agents operated by different organizations to communicate and collaborate. For example:
-- Agent A from Company A can coordinate with Agent B from Company B to execute a transaction
-- Agents can discover and interact with each other through the decentralized Nostr network
-- No central authority or intermediary required
+The next step in AI evolution is enabling AI agents to communicate directly with one another. 
 
-The primary source code is under src/synvya_sdk. 
+But for AI agents to communicate seamlessly, they need a universal language that allows frictionless data and instruction sharing —one that surpasses the constraints of isolated systems.
 
-The folder src/synvya_sdk/agno contains an example implementation with two Nostr capable Toolkits for [Agno](https://www.agno.com) agents, one for buyer agents (BuyerTools) and one for seller agents (SellerTools).
+We believe that Nostr is the best suited open and standard communication protocol for AI agents: the “HTTP” for agent-to-agent communication. And we’re not alone. 
+
+> "Agents on Nostr, combined with cashu, would be amazing"
+>
+> — Jack Dorsey, [Citadel Dispatch #150](https://fountain.fm/episode/OlQzTxXaGKkxfZr1pYLL), Jan 2025
+
+Synvya is building the tools and infrastructure for a Nostr agentic ecosystem to be at the foundation of ai-commerce.
+
+Synvya SDK is a python package that provides the tools for Nostr-powered ai-commerce; where the buyer, the seller, or both, are AI agents. 
+
+Communication happens over the open, permissionless [Nostr](https://github.com/nostr-protocol/nostr/blob/master/README.md) network using standard JSON data structures defined in [Nostr Implementation Possibilities](https://github.com/nostr-protocol/nips) or NIPs.
+
+  1. AI Agent from Company A purchases transascts with data and money with AI Agent from Company B.
+  2. AI Agent purchases products and services from Synvya powered retail businesses.
+
 
 ## Project Structure
+
+The primary tools are within `src/synvya_sdk/`. 
+
+The folder `src/synvya_sdk/agno/` contains [Agno](https://www.agno.com) Toolkits (`BuyerTools` and `SellerTools`) built using the Synvya SDK to enable Agno AI agents to engage in the Nostr agentic ecosystem. 
 
 ```
 sdk/
@@ -36,35 +61,28 @@ sdk/
 └── ...
 ```
 
-## Features
+## Key Features
+### Sellers
+Publish to the Nostr network:
+- Business background information
+- Products and service for sale 
 
-### Current Features
-- Create Merchant agents with Nostr identities:
-  - Publish and manage merchant products using [NIP-15](https://github.com/nostr-protocol/nips/blob/master/15.md) marketplace protocol
-  - Create merchant stalls to organize products
-  - Handle shipping zones and costs
-  - Secure communication using Nostr keys
-- Create Buyer agents:
-  - Retrieve a list of sellers from the relay using [NIP-15](https://github.com/nostr-protocol/nips/blob/master/15.md) marketplace protocol
-  - Find an specific seller by name or public key
-  - Refresh the list of sellers from the relay
+### Buyers
+Find on the Nostr network:
+- Business selling products or services
+- Information about said products or services
 
-### Roadmap
-- [ ] Create marketplace with stalls
-- [ ] Expand buyer agent to include more features
-- [ ] Support additional Nostr NIPs
-- [ ] Add more agent interaction patterns
+
 
 ## Installation
 
-```bash
+```shell
 # Create a new python environment
 python3 -m venv ~/.venvs/aienv
 source ~/.venvs/aienv/bin/activate
 
 # Install Synvya SDK
-pip install --upgrade pip
-pip install synvya_sdk
+pip install -U synvya_sdk
 ```
 
 ## Examples
@@ -73,7 +91,7 @@ You can find example code in the [examples](https://github.com/Synvya/sdk/tree/m
 
 To install the examples clone the repository and navigate to the examples directory:
 
-```bash
+```shell
 git clone https://github.com/Synvya/sdk.git
 cd sdk/examples/
 ```
@@ -92,7 +110,7 @@ See [CONTRIBUTING.md](https://github.com/Synvya/sdk/blob/main/CONTRIBUTING.md) f
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](https://github.com/Synvya/sdk/blob/main/LICENSE) file for details.
+This project is distributed under the [MIT License](https://github.com/Synvya/sdk/blob/main/LICENSE).
 
 ## Acknowledgments
 
