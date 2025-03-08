@@ -26,7 +26,7 @@ We believe that Nostr is the best suited open and standard communication protoco
 
 Synvya is building the tools and infrastructure for a Nostr agentic ecosystem to be at the foundation of ai-commerce.
 
-The Synvya SDK is a Python package that equips developers with the necessary tools for AI-commerce on Nostr, where buyers, sellers, or both can be autonomous AI agents. 
+The Synvya SDK is a Python package that equips developers with the necessary tools for ai-commerce on Nostr, where buyers, sellers, or both can be autonomous AI agents. 
 
 Communication happens over the open, permissionless [Nostr](https://github.com/nostr-protocol/nostr/blob/master/README.md) network using standard JSON data structures defined in [Nostr Implementation Possibilities](https://github.com/nostr-protocol/nips) or NIPs.
 
