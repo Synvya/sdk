@@ -1,7 +1,31 @@
+# Include the source diretory
+recursive-include src *
+
+# Include license and README
 include LICENSE README.md
+
+# Exclude unnecessary directories
+prune examples
+prune docs
+prune src/synvya_sdk.egg-info
+prune tests
+
+# Exclude specific files
+exclude MANIFEST.in
+exclude pyproject.toml
+exclude mypy.ini
+exclude CONTRIBUTING.md
+exclude setup.cfg
+exclude PKG-INFO
+
+
 global-exclude __pycache__
 global-exclude *.py[cod]
 
 # Explicitly exclude tests/ from source distribution (sdist)
 global-exclude tests/*
 global-exclude tests/**/*
+
+# Exclude all hidden files and directories
+global-exclude .*
+global-exclude .*/**
