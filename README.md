@@ -79,7 +79,7 @@ python3 -m venv ~/.venvs/aienv
 source ~/.venvs/aienv/bin/activate
 
 # Install Synvya SDK
-pip install -U synvya_sdk
+pip install -U synvya-sdk
 ```
 
 ## Examples
