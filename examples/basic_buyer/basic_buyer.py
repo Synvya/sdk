@@ -166,6 +166,7 @@ buyer = Agent(  # type: ignore[call-arg]
     read_chat_history=True,
     read_tool_call_history=True,
     knowledge=knowledge_base,
+    search_knowledge=True,
     show_tool_calls=False,
     debug_mode=False,
     # async_mode=True,

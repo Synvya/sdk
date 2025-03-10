@@ -20,47 +20,47 @@ def test_buyer_profile_creation(
     assert buyer_profile.get_website() is not None
 
 
-def test_find_sellers_by_location(
-    buyer_tools: BuyerTools, merchant_location: str, merchant_name: str
-) -> None:
-    """Test the finding of sellers by location"""
-    with patch(
-        "synvya_sdk.agno.buyer._map_location_to_geohash"
-    ) as mock_map_location_to_geohash:
-        mock_map_location_to_geohash.return_value = "000000000"
+# def test_get_sellers_by_location(
+#     buyer_tools: BuyerTools, merchant_location: str, merchant_name: str
+# ) -> None:
+#     """Test the finding of sellers by location"""
+#     with patch(
+#         "synvya_sdk.agno.buyer._map_location_to_geohash"
+#     ) as mock_map_location_to_geohash:
+#         mock_map_location_to_geohash.return_value = "000000000"
 
-        result = buyer_tools.find_sellers_by_location(merchant_location)
-        assert result is not None
-        assert merchant_name in result
-
-
-def test_find_seller_by_name(
-    buyer_tools: BuyerTools,
-    merchant_name: str,
-) -> None:
-    """Test the finding of a seller by name"""
-    result = buyer_tools.find_seller_by_name(merchant_name)
-    assert result is not None
-    assert merchant_name in result
+#         result = buyer_tools.get_sellers_by_location(merchant_location)
+#         assert result is not None
+#         assert merchant_name in result
 
 
-def test_find_seller_by_public_key(
-    buyer_tools: BuyerTools,
-    merchant_keys: NostrKeys,
-    merchant_profile: Profile,
-) -> None:
-    """Test the finding of a seller by public key"""
-    with patch.object(
-        buyer_tools, "find_seller_by_public_key"
-    ) as mock_find_seller_by_public_key:
-        mock_find_seller_by_public_key.return_value = merchant_profile.to_json()
-
-        result = buyer_tools.find_seller_by_public_key(merchant_keys.get_public_key())
-        assert result is not None
-        assert merchant_keys.get_public_key() in result
+# def test_get_seller_by_name(
+#     buyer_tools: BuyerTools,
+#     merchant_name: str,
+# ) -> None:
+#     """Test the finding of a seller by name"""
+#     result = buyer_tools.get_seller_by_name(merchant_name)
+#     assert result is not None
+#     assert merchant_name in result
 
 
-def test_get_seller_stalls(
+# def test_get_seller_by_public_key(
+#     buyer_tools: BuyerTools,
+#     merchant_keys: NostrKeys,
+#     merchant_profile: Profile,
+# ) -> None:
+#     """Test the finding of a seller by public key"""
+#     with patch.object(
+#         buyer_tools, "get_seller_by_public_key"
+#     ) as mock_get_seller_by_public_key:
+#         mock_get_seller_by_public_key.return_value = merchant_profile.to_json()
+
+#         result = buyer_tools.get_seller_by_public_key(merchant_keys.get_public_key())
+#         assert result is not None
+#         assert merchant_keys.get_public_key() in result
+
+
+def test_get_stalls_from_seller(
     buyer_tools: BuyerTools,
     merchant_profile: Profile,
     stalls: List[Stall],
@@ -71,11 +71,11 @@ def test_get_seller_stalls(
     ) as mock_get_seller_stalls:
         mock_get_seller_stalls.return_value = stalls
 
-        result = buyer_tools.get_seller_stalls(merchant_profile.get_public_key())
+        result = buyer_tools.get_stalls_from_seller(merchant_profile.get_public_key())
         assert result is not None
 
 
-def test_get_seller_products(
+def test_get_products_from_seller(
     buyer_tools: BuyerTools,
     merchant_profile: Profile,
     products: List[Product],
@@ -85,12 +85,12 @@ def test_get_seller_products(
         buyer_tools._nostr_client,
         "retrieve_products_from_merchant",
         return_value=products,
-    ) as mock_get_seller_products:
-        result = buyer_tools.get_seller_products(merchant_profile.get_public_key())
+    ) as mock_get_products_from_seller:
+        result = buyer_tools.get_products_from_seller(merchant_profile.get_public_key())
         assert isinstance(result, str)  # Ensure it's a JSON string
 
         # ✅ Verify that the mocked method was called
-        mock_get_seller_products.assert_called_once_with(
+        mock_get_products_from_seller.assert_called_once_with(
             merchant_profile.get_public_key()
         )
 

@@ -56,7 +56,6 @@ class BuyerTools(Toolkit):
     )
 
     logger = logging.getLogger("Buyer")
-    sellers: set[Profile] = set()
 
     def __init__(
         self,
@@ -79,23 +78,25 @@ class BuyerTools(Toolkit):
         # Initialize fields
         self._nostr_client = NostrClient(relay, private_key)
         self.profile = self._nostr_client.get_profile()
+        self.sellers: set[Profile] = set()
 
         # Register methods
-        self.register(self.download_all_sellers)
-        self.register(self.download_sellers_from_marketplace)
-        self.register(self.find_seller_by_name)
-        self.register(self.find_seller_by_public_key)
-        self.register(self.find_sellers_by_location)
-        self.register(self.get_profile)
+        self.register(self.get_all_sellers)
+        self.register(self.get_sellers_from_marketplace)
+        # self.register(self.get_seller_by_name)
+        # self.register(self.get_seller_by_public_key)
+        # self.register(self.get_sellers_by_location)
+        self.register(self.get_own_profile)
         self.register(self.get_relay)
-        self.register(self.get_seller_stalls)
-        self.register(self.get_seller_products)
-        self.register(self.get_seller_count)
-        self.register(self.get_sellers)
+        self.register(self.get_stalls_from_seller)
+        self.register(self.get_products_from_seller)
+        # self.register(self.get_seller_count)
+        # self.register(self.get_sellers)
         self.register(self.purchase_product)
 
     def purchase_product(self, product: str) -> str:
-        """Purchase a product.
+        """
+        Purchase a product.
 
         Args:
             product: JSON string with product to purchase
@@ -107,18 +108,28 @@ class BuyerTools(Toolkit):
             {"status": "success", "message": f"Product {product} purchased"}
         )
 
-    def download_all_sellers(self) -> str:
-        """Download all sellers from the Nostr relay.
+    def get_all_sellers(self) -> str:
+        """
+        Download all sellers from the Nostr relay and store their Nostr
+        profile in the knowledge base.
+
+        A seller is defined as a Nostr profile that has published a stall.
 
         Returns:
             str: JSON string with status and count of sellers refreshed
         """
-        self._download_all_sellers()
+        self.sellers = self._nostr_client.retrieve_all_merchants()
+
+        for seller in self.sellers:
+            self._store_response_in_knowledge_base(seller.to_json())
+
         response = json.dumps({"status": "success", "count": len(self.sellers)})
         return response
 
-    def download_sellers_from_marketplace(self, owner: str, name: str) -> str:
-        """Download sellers from a marketplace.
+    def get_sellers_from_marketplace(self, owner: str, name: str) -> str:
+        """
+        Download sellers included in a Nostr marketplace and store their Nostr
+        profile in the knowledge base.
 
         Args:
             owner: bech32 encoded public key of the owner of the marketplace
@@ -127,81 +138,86 @@ class BuyerTools(Toolkit):
         Returns:
             str: JSON string with status and count of sellers downloaded
         """
-        self._download_sellers_from_marketplace(owner, name)
+
+        self.sellers = self._nostr_client.retrieve_marketplace_merchants(owner, name)
+
+        for seller in self.sellers:
+            self._store_response_in_knowledge_base(seller.to_json())
+
         response = json.dumps({"status": "success", "count": len(self.sellers)})
         return response
 
-    def find_seller_by_name(self, name: str) -> str:
-        """Find a seller by name.
+    # def get_seller_by_name(self, name: str) -> str:
+    #     """Find a seller in the knowledge base by name.
 
-        Args:
-            name: name of the seller to find
+    #     Args:
+    #         name: name of the seller to find
 
-        Returns:
-            str: JSON string with seller profile or error message
-        """
-        for seller in self.sellers:
-            if seller.get_name() == name:
-                response = seller.to_json()
-                # self._store_response_in_knowledge_base(response)
-                return response
-        response = json.dumps({"status": "error", "message": "Seller not found"})
-        self._store_response_in_knowledge_base(response)
-        return response
+    #     Returns:
+    #         str: JSON string with seller profile or error message
+    #     """
+    #     for seller in self.sellers:
+    #         if seller.get_name() == name:
+    #             response = seller.to_json()
+    #             # self._store_response_in_knowledge_base(response)
+    #             return response
+    #     response = json.dumps({"status": "error", "message": "Seller not found"})
+    #     self._store_response_in_knowledge_base(response)
+    #     return response
 
-    def find_seller_by_public_key(self, public_key: str) -> str:
-        """Find a seller by public key.
+    # def get_seller_by_public_key(self, public_key: str) -> str:
+    #     """Find a seller by public key.
 
-        Args:
-            public_key: bech32 encoded public key of the seller to find
+    #     Args:
+    #         public_key: bech32 encoded public key of the seller to find
 
-        Returns:
-            str: seller profile json string or error message
-        """
-        for seller in self.sellers:
-            if seller.get_public_key() == public_key:
-                response = seller.to_json()
-                # self._store_response_in_knowledge_base(response)
-                return response
-        response = json.dumps({"status": "error", "message": "Seller not found"})
-        self._store_response_in_knowledge_base(response)
-        return response
+    #     Returns:
+    #         str: seller profile json string or error message
+    #     """
+    #     for seller in self.sellers:
+    #         if seller.get_public_key() == public_key:
+    #             response = seller.to_json()
+    #             # self._store_response_in_knowledge_base(response)
+    #             return response
+    #     response = json.dumps({"status": "error", "message": "Seller not found"})
+    #     self._store_response_in_knowledge_base(response)
+    #     return response
 
-    def find_sellers_by_location(self, location: str) -> str:
-        """Find sellers by location.
+    # def get_sellers_by_location(self, location: str) -> str:
+    #     """Find sellers by location.
 
-        Args:
-            location: location of the seller to find (e.g. "San Francisco, CA")
+    #     Args:
+    #         location: location of the seller to find (e.g. "San Francisco, CA")
 
-        Returns:
-            str: list of seller profile json strings or error message
-        """
-        sellers: set[Profile] = set()
-        geohash = _map_location_to_geohash(location)
-        # print(f"find_sellers_by_location: geohash: {geohash}")
+    #     Returns:
+    #         str: list of seller profile json strings or error message
+    #     """
+    #     sellers: set[Profile] = set()
+    #     geohash = _map_location_to_geohash(location)
+    #     # print(f"find_sellers_by_location: geohash: {geohash}")
 
-        if not geohash:
-            response = json.dumps({"status": "error", "message": "Invalid location"})
-            return response
+    #     if not geohash:
+    #         response = json.dumps({"status": "error", "message": "Invalid location"})
+    #         return response
 
-        # Find sellers in the same geohash
-        for seller in self.sellers:
-            if geohash in seller.get_locations():
-                sellers.add(seller)
+    #     # Find sellers in the same geohash
+    #     for seller in self.sellers:
+    #         if geohash in seller.get_locations():
+    #             sellers.add(seller)
 
-        if not sellers:
-            response = json.dumps(
-                {"status": "error", "message": f"No sellers found near {location}"}
-            )
-            return response
+    #     if not sellers:
+    #         response = json.dumps(
+    #             {"status": "error", "message": f"No sellers found near {location}"}
+    #         )
+    #         return response
 
-        response = json.dumps([seller.to_dict() for seller in sellers])
-        # print("find_sellers_by_location: storing response in knowledge base")
-        self._store_response_in_knowledge_base(response)
-        self.logger.info("Found %d sellers", len(sellers))
-        return response
+    #     response = json.dumps([seller.to_dict() for seller in sellers])
+    #     # print("find_sellers_by_location: storing response in knowledge base")
+    #     self._store_response_in_knowledge_base(response)
+    #     self.logger.info("Found %d sellers", len(sellers))
+    #     return response
 
-    def get_profile(self) -> str:
+    def get_own_profile(self) -> str:
         """Get the Nostr profile of the buyer agent.
 
         Returns:
@@ -221,14 +237,16 @@ class BuyerTools(Toolkit):
         # self._store_response_in_knowledge_base(response)
         return response
 
-    def get_seller_stalls(self, public_key: str) -> str:
-        """Get the stalls from a seller.
+    def get_stalls_from_seller(self, public_key: str) -> str:
+        """
+        Download all stalls published by a seller on Nostr and store them
+        in the knowledge base.
 
         Args:
             public_key: public key of the seller
 
         Returns:
-            str: JSON string with seller collections
+            str: JSON string with all stalls published by the seller
         """
         try:
             stalls = self._nostr_client.retrieve_stalls_from_merchant(public_key)
@@ -239,23 +257,25 @@ class BuyerTools(Toolkit):
             response = json.dumps({"status": "error", "message": str(e)})
             return response
 
-    def get_seller_count(self) -> str:
-        """Get the number of sellers in the buyer's database
+    # def get_seller_count(self) -> str:
+    #     """Get the number of sellers in the buyer's database
 
-        Returns:
-            str: JSON string with status and count of sellers
+    #     Returns:
+    #         str: JSON string with status and count of sellers
+    #     """
+    #     response = json.dumps({"status": "success", "count": len(self.sellers)})
+    #     return response
+
+    def get_products_from_seller(self, public_key: str) -> str:
         """
-        response = json.dumps({"status": "success", "count": len(self.sellers)})
-        return response
-
-    def get_seller_products(self, public_key: str) -> str:
-        """Get the products from a seller
+        Download all products published by a seller on Nostr and store them
+        in the knowledge base.
 
         Args:
             public_key: public key of the seller
 
         Returns:
-            str: JSON string with seller products
+            str: JSON string with all products published by the seller
         """
         try:
             products = self._nostr_client.retrieve_products_from_merchant(public_key)
@@ -267,44 +287,32 @@ class BuyerTools(Toolkit):
             response = json.dumps({"status": "error", "message": str(e)})
             return response
 
-    def get_sellers(self) -> str:
-        """Get the list of sellers cached in the BuyerTools instance.
-        To get a fresh list of sellers, call download_all_sellers() or
-        get_sellers_from_marketplace() first.
+    # def get_sellers(self) -> str:
+    #     """Get the list of sellers cached in the BuyerTools instance.
+    #     To get a fresh list of sellers, call download_all_sellers() or
+    #     get_sellers_from_marketplace() first.
 
-        Returns:
-            str: list of sellers json strings
-        """
-        # if not self.sellers:
-        #     self._refresh_sellers()
-        response = json.dumps([seller.to_json() for seller in self.sellers])
-        return response
+    #     Returns:
+    #         str: list of sellers json strings
+    #     """
+    #     # if not self.sellers:
+    #     #     self._refresh_sellers()
+    #     response = json.dumps([seller.to_json() for seller in self.sellers])
+    #     return response
 
-    def _download_all_sellers(self) -> None:
-        """
-        Internal fucntion to retrieve a new set of sellers from the Nostr relay.
-        The old set is discarded and the new set only contains unique sellers
-        currently stored at the relay.
-        """
-        sellers = self._nostr_client.retrieve_merchants()
-        if len(sellers) == 0:
-            self.logger.info("No sellers found")
-        else:
-            self.logger.info("Found %d sellers", len(sellers))
+    # def _get_sellers_from_marketplace(self, owner: str, name: str) -> None:
+    #     """
+    #     Internal function to download sellers from a marketplace and store them as
+    #     the new set of sellers for the BuyerTools instance.
 
-        self.sellers = sellers
-
-    def _download_sellers_from_marketplace(self, owner: str, name: str) -> None:
-        """
-        Internal function to download sellers from a marketplace and store them as
-        the new set of sellers for the BuyerTools instance.
-
-        Args:
-            owner: PublicKey of the owner of the marketplace
-            name: name of the marketplace to download sellers from
-        """
-        sellers = self._nostr_client.retrieve_marketplace_merchants(owner, name)
-        self.sellers = sellers
+    #     Args:
+    #         owner: PublicKey of the owner of the marketplace
+    #         name: name of the marketplace to download sellers from
+    #     """
+    #     sellers = self._nostr_client.retrieve_marketplace_merchants(owner, name)
+    #     self.sellers = sellers
+    #     for seller in self.sellers:
+    #         self._store_response_in_knowledge_base(seller.to_json())
 
     def _store_response_in_knowledge_base(self, response: str) -> None:
         doc = Document(

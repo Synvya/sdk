@@ -32,7 +32,7 @@ def mock_nostr_client(  # type: ignore[no-untyped-def]
         instance.publish_stall.return_value = stall_event_ids[0]
         instance.publish_product.return_value = product_event_ids[0]
         instance.retrieve_products_from_merchant.return_value = products
-        instance.retrieve_merchants.return_value = [merchant_profile]
+        instance.retrieve_all_merchants.return_value = [merchant_profile]
         instance.retrieve_stalls_from_merchant.return_value = stalls
         instance.retrieve_profile.return_value = merchant_profile
         yield instance
@@ -71,9 +71,9 @@ class TestNostrClientMocked:
         for product in products:
             assert isinstance(product, Product)
 
-    def test_retrieve_merchants(self, nostr_client: NostrClient) -> None:
-        """Test retrieving merchants"""
-        merchants = nostr_client.retrieve_merchants()
+    def test_retrieve_all_merchants(self, nostr_client: NostrClient) -> None:
+        """Test retrieving all merchants"""
+        merchants = nostr_client.retrieve_all_merchants()
         assert len(merchants) > 0
 
     def test_retrieve_stalls_from_merchant(

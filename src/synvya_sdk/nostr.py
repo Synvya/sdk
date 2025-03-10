@@ -241,7 +241,7 @@ class NostrClient:
 
         return set(merchants_dict.values())
 
-    def retrieve_merchants(self) -> set[Profile]:
+    def retrieve_all_merchants(self) -> set[Profile]:
         """
         Retrieve all merchants from the relay.
         Merchants are npubs who have published a stall.

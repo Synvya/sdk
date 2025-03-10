@@ -66,7 +66,7 @@ class TestNostrClient:
     def test_retrieve_merchants(self, nostr_client: NostrClient) -> None:
         """Test retrieving merchants"""
         try:
-            merchants = nostr_client.retrieve_merchants()
+            merchants = nostr_client.retrieve_all_merchants()
             assert len(merchants) > 0
         except RuntimeError as e:
             # print(f"\nError retrieving merchants: {e}")
