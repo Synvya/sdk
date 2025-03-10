@@ -111,7 +111,6 @@ This project is distributed under the [MIT License](https://github.com/Synvya/sd
 
 ## Acknowledgments
 
-- [Agno](https://www.agno.com) - For their AI agent framework
-- [Rust-Nostr](https://rust-nostr.org) - For their Python Nostr SDK
-- [Nostr Protocol](https://github.com/nostr-protocol/nips) - For the protocol specification
+- [Agno](https://www.agno.com) - AI agent framework
+- [Rust-Nostr](https://rust-nostr.org) - Python Nostr SDK
 
