@@ -6,7 +6,7 @@ import json
 from typing import List
 from unittest.mock import patch
 
-from synvya_sdk import NostrKeys, Product, Profile, Stall
+from synvya_sdk import Product, Profile, Stall
 from synvya_sdk.agno import BuyerTools
 
 
@@ -60,7 +60,7 @@ def test_buyer_profile_creation(
 #         assert merchant_keys.get_public_key() in result
 
 
-def test_get_stalls_from_seller(
+def test_download_stalls_from_seller(
     buyer_tools: BuyerTools,
     merchant_profile: Profile,
     stalls: List[Stall],
@@ -71,11 +71,13 @@ def test_get_stalls_from_seller(
     ) as mock_get_seller_stalls:
         mock_get_seller_stalls.return_value = stalls
 
-        result = buyer_tools.get_stalls_from_seller(merchant_profile.get_public_key())
+        result = buyer_tools.download_stalls_from_seller(
+            merchant_profile.get_public_key()
+        )
         assert result is not None
 
 
-def test_get_products_from_seller(
+def test_download_products_from_seller(
     buyer_tools: BuyerTools,
     merchant_profile: Profile,
     products: List[Product],
@@ -85,12 +87,14 @@ def test_get_products_from_seller(
         buyer_tools._nostr_client,
         "retrieve_products_from_merchant",
         return_value=products,
-    ) as mock_get_products_from_seller:
-        result = buyer_tools.get_products_from_seller(merchant_profile.get_public_key())
+    ) as mock_download_products_from_seller:
+        result = buyer_tools.download_products_from_seller(
+            merchant_profile.get_public_key()
+        )
         assert isinstance(result, str)  # Ensure it's a JSON string
 
         # ✅ Verify that the mocked method was called
-        mock_get_products_from_seller.assert_called_once_with(
+        mock_download_products_from_seller.assert_called_once_with(
             merchant_profile.get_public_key()
         )
 

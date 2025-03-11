@@ -94,7 +94,7 @@ class TestNostrClientMocked:
 
     def test_profile_operations(self, merchant_profile: Profile) -> None:
         """Test profile operations"""
-        profile_json_str = Profile.to_json(merchant_profile)
+        profile_json_str: str = merchant_profile.to_json()
         assert isinstance(profile_json_str, str)
         profile = Profile.from_json(profile_json_str)
         assert profile is not None
