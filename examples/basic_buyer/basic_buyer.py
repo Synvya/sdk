@@ -2,7 +2,6 @@
 Basic buyer agent example.
 """
 
-import logging
 import uuid
 from os import getenv
 from pathlib import Path
@@ -23,7 +22,7 @@ from synvya_sdk import NostrKeys, Profile, generate_keys
 from synvya_sdk.agno import BuyerTools
 
 # Set logging to WARN level to suppress INFO logs
-logging.basicConfig(level=logging.WARN)
+
 
 # Configure logging first#
 # logging.getLogger("cassandra").setLevel(logging.ERROR)
@@ -85,11 +84,11 @@ profile.set_display_name(DISPLAY_NAME)
 profile.set_picture(PICTURE)
 
 # Initialize database connection
-db_url = (
+DB_URL = (
     f"postgresql+psycopg://{DB_USERNAME}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
 )
 
-engine = create_engine(db_url)
+engine = create_engine(DB_URL)
 SessionLocal = sessionmaker(bind=engine)
 
 
@@ -123,6 +122,32 @@ class Seller(Base):
         return f"<Seller(id={self.id}, name={self.name})>"
 
 
+# class Json(Base):
+#     """
+#     SQLAlchemy model for table `json` in the ai schema.
+#     """
+
+#     __tablename__ = "json"
+#     __table_args__ = {"schema": "ai"}  # If the table is inside the 'ai' schema
+
+#     id = Column(
+#         String, primary_key=True, default=lambda: str(uuid.uuid4())
+#     )  # UUID primary key
+#     name = Column(Text, nullable=True)
+#     meta_data = Column(JSONB, default={})
+#     filters = Column(JSONB, default={})
+#     content = Column(JSONB, nullable=False)
+#     embedding: Optional[Vector] = Column(Vector(1536), nullable=True)
+#     usage = Column(JSONB, default={})
+#     content_hash = Column(Text, nullable=True)
+
+#     def __repr__(self) -> str:
+#         """
+#         Return a string representation of the Json object.
+#         """
+#         return f"<Json(id={self.id}, name={self.name})>"
+
+
 # Function to drop and recreate the table
 def reset_database() -> None:
     """
@@ -138,17 +163,27 @@ def reset_database() -> None:
     Base.metadata.create_all(engine)
 
 
-# reset_database()
+reset_database()
 
 vector_db = PgVector(
     table_name="sellers",
-    db_url=db_url,
+    db_url=DB_URL,
     schema="ai",
     search_type=SearchType.vector,
     embedder=OpenAIEmbedder(),
 )
 
+# json_vector_db = PgVector(
+#     table_name="json",
+#     db_url=DB_URL,
+#     schema="ai",
+#     search_type=SearchType.vector,
+#     embedder=OpenAIEmbedder(),
+# )
+
+
 knowledge_base = AgentKnowledge(vector_db=vector_db)
+# json_knowledge_base = AgentKnowledge(vector_db=json_vector_db)
 
 
 buyer = Agent(  # type: ignore[call-arg]
@@ -167,30 +202,31 @@ buyer = Agent(  # type: ignore[call-arg]
     read_tool_call_history=True,
     knowledge=knowledge_base,
     search_knowledge=True,
-    show_tool_calls=False,
+    show_tool_calls=True,
     debug_mode=False,
     # async_mode=True,
     instructions=[
         """
-        You're an AI assistant for people visiting a place. You will
-        help them find things to do, places to go, and things to buy
-        using exclusively the information provided by BuyerTools and
-        stored in your knowledge base.
-        
-        Download the businesses from the marketplace named "Historic Downtown
-        Snoqualmie" by the owner with the public key
-        "npub1nar4a3vv59qkzdlskcgxrctkw9f0ekjgqaxn8vd0y82f9kdve9rqwjcurn"
-        and store them in your knowledge base.
+        You're an tourist AI assistant for people visiting Snoqualmie.
+        You help visitors find things to do, places to go, and things to buy
+        from the businesses (also known as sellers) in the Historic Downtown
+        Snoqualmie using exclusively the information stored in your knowledge base.
 
-        Search the knowledge base for the most relevant information to
-        the query before using the tools.
+        When asked to populate your knowledge base, you will download the sellers
+        from the marketplace "Historic Downtown Snoqualmie" with the public key
+        "npub1nar4a3vv59qkzdlskcgxrctkw9f0ekjgqaxn8vd0y82f9kdve9rqwjcurn".
         
-        Only include in the itinerary merchants that are in your knowledge base.
-                
-        Include pictures of the businesses in your response when possible. 
+        Under no circumstances use the tool `download_all_sellers` from BuyerTools.
         
-        Offer to purchase the products or make a reservation and then include
-        this in your overall response.
+        Once you're done with these steps, you will answer questions from the user with 
+        the information stored in your knowledge base.
+
+        Only provide information about the businesses that are in your knowledge base.
+
+        Include pictures of the businesses in your response when possible.
+
+        Include in your response an offer to purchase the products or make a reservation
+        for the user.
         """.strip(),
     ],
 )

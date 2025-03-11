@@ -167,6 +167,28 @@ class Profile:
         profile.set_website(metadata.get_website())
         return profile
 
+    @classmethod
+    def from_json(cls, json_str: str) -> "Profile":
+        """
+        Create a Profile instance from a JSON string.
+
+        Args:
+            json_str (str): JSON string containing profile information.
+
+        Returns:
+            Profile: An instance of Profile.
+        """
+        data = json.loads(json_str)
+        profile = cls(public_key=data["public_key"])
+        profile.set_about(data.get("about", ""))
+        profile.set_banner(data.get("banner", ""))
+        profile.set_display_name(data.get("display_name", ""))
+        profile.set_name(data.get("name", ""))
+        profile.set_picture(data.get("picture", ""))
+        profile.set_website(data.get("website", ""))
+        profile.locations = set(data.get("locations", []))
+        return profile
+
 
 class NostrKeys(BaseModel):
     """
@@ -413,6 +435,15 @@ class Product(BaseModel):
             "specs": self.specs,
         }
 
+    def to_json(self) -> str:
+        """
+        Returns a JSON string representation of the Product.
+
+        Returns:
+            str: JSON string representation of the Product
+        """
+        return json.dumps(self.to_dict())
+
 
 class Stall(BaseModel):
     """
@@ -477,6 +508,15 @@ class Stall(BaseModel):
             "shipping": shipping_dicts,  # Use the serialized shipping methods
             "geohash": self.geohash,
         }
+
+    def to_json(self) -> str:
+        """
+        Returns a JSON string representation of the Stall.
+
+        Returns:
+            str: JSON string representation of the Stall
+        """
+        return json.dumps(self.to_dict())
 
     def to_stall_data(self) -> "StallData":
         # Convert self.shipping from List[StallShippingMethod] to List[ShippingMethod]

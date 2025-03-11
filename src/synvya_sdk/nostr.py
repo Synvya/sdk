@@ -139,8 +139,11 @@ class NostrClient:
             RuntimeError: if the note can't be published
         """
         # Run the async publishing function synchronously
-        event_id_obj = asyncio.run(self._async_publish_note(text))
-        return event_id_obj.to_bech32()
+        try:
+            event_id_obj = asyncio.run(self._async_publish_note(text))
+            return event_id_obj.to_bech32()
+        except RuntimeError as e:
+            raise RuntimeError(f"Failed to publish note: {e}") from e
 
     def publish_product(self, product: Product) -> str:
         """
@@ -159,7 +162,7 @@ class NostrClient:
         try:
             event_id_obj = asyncio.run(self._async_publish_product(product))
             return event_id_obj.to_bech32()
-        except Exception as e:
+        except RuntimeError as e:
             raise RuntimeError(f"Failed to publish product: {e}") from e
 
     def publish_profile(self) -> str:
@@ -176,7 +179,7 @@ class NostrClient:
         try:
             event_id_obj = asyncio.run(self._async_publish_profile())
             return event_id_obj.to_bech32()
-        except Exception as e:
+        except RuntimeError as e:
             raise RuntimeError(f"Failed to publish profile: {e}") from e
 
     def publish_stall(self, stall: Stall) -> str:
@@ -194,7 +197,7 @@ class NostrClient:
         try:
             event_id_obj = asyncio.run(self._async_publish_stall(stall))
             return event_id_obj.to_bech32()
-        except Exception as e:
+        except RuntimeError as e:
             raise RuntimeError(f"Failed to publish stall: {e}") from e
 
     def retrieve_marketplace_merchants(
@@ -210,6 +213,10 @@ class NostrClient:
         Returns:
             set[Profile]: set of merchant profiles.
             (skips authors with missing metadata)
+
+        Raises:
+            RuntimeError: if the owner key is invalid
+            RuntimeError: if the marketplace can't be retrieved
         """
 
         # Convert owner to PublicKey
@@ -250,6 +257,9 @@ class NostrClient:
         Returns:
             set[Profile]: set of merchant profiles
             (skips authors with missing metadata)
+
+        Raises:
+            RuntimeError: if the stalls can't be retrieved
         """
 
         # First we retrieve all stalls from the relay
@@ -308,6 +318,10 @@ class NostrClient:
 
         Returns:
             List[Product]: list of products from the merchant
+
+        Raises:
+            RuntimeError: if the merchant key is invalid
+            RuntimeError: if the products can't be retrieved
         """
         products = []
 
@@ -324,6 +338,10 @@ class NostrClient:
             events_list = events.to_vec()
             for event in events_list:
                 content = json.loads(event.content())
+                tags = event.tags()
+                hashtags = tags.hashtags()
+                for hashtag in hashtags:
+                    NostrClient.logger.debug("Logger Hashtag: %s", hashtag)
                 product_data = ProductData(
                     id=content.get("id"),
                     stall_id=content.get("stall_id"),
@@ -335,7 +353,8 @@ class NostrClient:
                     quantity=content.get("quantity"),
                     specs=content.get("specs", {}),
                     shipping=content.get("shipping", []),
-                    categories=content.get("categories", []),
+                    # categories=content.get("categories", []),
+                    categories=hashtags,
                 )
                 products.append(Product.from_product_data(product_data))
             return products
@@ -519,17 +538,28 @@ class NostrClient:
         # EventBuilder.product_data() has a bug with tag handling.
         # We use the function to create the content field and discard the eventbuilder
         bad_event_builder = EventBuilder.product_data(product.to_product_data())
+        NostrClient.logger.info("Bad event builder: %s", bad_event_builder)
 
         # create an event from bad_event_builder to extract the content -
         # not broadcasted
         bad_event = await self.client.sign_event_builder(bad_event_builder)
         content = bad_event.content()
 
+        event_tags: List[Tag] = []
+        for category in product.categories:
+            event_tags.append(Tag.hashtag(category))
+
+        event_tags.append(Tag.identifier(product.id))
+        event_tags.append(Tag.coordinate(coordinate_tag))
+
         # build a new event with the right tags and the content
-        good_event_builder = EventBuilder(Kind(30018), content).tags(
-            [Tag.identifier(product.id), Tag.coordinate(coordinate_tag)]
-        )
-        NostrClient.logger.info("Product event: %s", good_event_builder)
+        # good_event_builder = EventBuilder(Kind(30018), content).tags(
+        #     [Tag.identifier(product.id), Tag.coordinate(coordinate_tag)]
+        # )
+
+        good_event_builder = EventBuilder(Kind(30018), content).tags(event_tags)
+
+        NostrClient.logger.info("Good event builder: %s", good_event_builder)
         return await self._async_publish_event(good_event_builder)
 
     async def _async_publish_profile(self) -> EventId:
@@ -608,6 +638,15 @@ class NostrClient:
     async def _async_retrieve_events(self, events_filter: Filter) -> Events:
         """
         Asynchronous function to retrieve events from the relay
+
+        Args:
+            events_filter: Filter to apply to the events
+
+        Returns:
+            Events: list of events
+
+        Raises:
+            RuntimeError: if the events can't be retrieved
         """
         try:
             await self._async_connect()
@@ -629,10 +668,10 @@ class NostrClient:
         Asynchronous function to retrieve the products for a given merchant
 
         Args:
-            seller: PublicKey of the merchant
+            merchant: PublicKey of the merchant
 
         Returns:
-            Events: list of events containing the products of the seller
+            Events: list of events containing the products of the merchant
 
         Raises:
             RuntimeError: if the products can't be retrieved

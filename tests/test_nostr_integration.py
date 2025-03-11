@@ -2,6 +2,7 @@
 This module contains tests for the NostrClient class using a real Nostr relay.
 """
 
+from logging import DEBUG
 from typing import List
 
 import pytest
@@ -14,6 +15,7 @@ from synvya_sdk import NostrClient, NostrKeys, Product, Stall
 def nostr_client_fixture(relay: str, merchant_keys: NostrKeys) -> NostrClient:
     """Fixture providing a NostrClient instance"""
     nostr_client = NostrClient(relay, merchant_keys.get_private_key())
+    nostr_client.set_logging_level(DEBUG)
     return nostr_client
 
 

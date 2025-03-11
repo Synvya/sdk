@@ -63,6 +63,7 @@ def merchant_keys_fixture() -> NostrKeys:
     nsec = getenv("TEST_MERCHANT_KEY")
     if nsec is None:
         return generate_keys(env_var="TEST_MERCHANT_KEY", env_path=script_dir / ".env")
+
     return NostrKeys.from_private_key(nsec)
 
 

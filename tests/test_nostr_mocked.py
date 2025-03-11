@@ -91,3 +91,19 @@ class TestNostrClientMocked:
         """Test async retrieve profile"""
         profile = nostr_client.retrieve_profile(merchant_keys.get_public_key())
         assert profile is not None
+
+    def test_profile_operations(self, merchant_profile: Profile) -> None:
+        """Test profile operations"""
+        profile_json_str = Profile.to_json(merchant_profile)
+        assert isinstance(profile_json_str, str)
+        profile = Profile.from_json(profile_json_str)
+        assert profile is not None
+        assert profile.get_public_key() == merchant_profile.get_public_key()
+
+        assert profile.get_about() == merchant_profile.get_about()
+        assert profile.get_banner() == merchant_profile.get_banner()
+        assert profile.get_display_name() == merchant_profile.get_display_name()
+        assert profile.get_locations() == merchant_profile.get_locations()
+        assert profile.get_name() == merchant_profile.get_name()
+        assert profile.get_picture() == merchant_profile.get_picture()
+        assert profile.get_website() == merchant_profile.get_website()

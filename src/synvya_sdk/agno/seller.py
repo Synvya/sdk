@@ -3,7 +3,6 @@ Module implementing the MerchantTools Toolkit for Agno agents.
 """
 
 import json
-import logging
 import time
 from typing import Any, List, Optional, Tuple, Union
 
@@ -14,6 +13,7 @@ from synvya_sdk import NostrClient, Product, Stall
 
 try:
     from agno.tools import Toolkit
+    from agno.utils.log import logger
 except ImportError as exc:
     raise ImportError(
         "`agno` not installed. Please install using `pip install agno`"
@@ -58,6 +58,8 @@ class SellerTools(Toolkit):
         self.relay = relay
         self.private_key = private_key
         self._nostr_client = NostrClient(relay, private_key)
+        self._nostr_client.set_logging_level(logger.getEffectiveLevel())
+
         self.profile = self._nostr_client.get_profile()
 
         # initialize the Product DB with no event id
@@ -134,6 +136,7 @@ class SellerTools(Toolkit):
         """
 
         if self._nostr_client is None:
+            logger.error("NostrClient not initialized")
             raise ValueError("NostrClient not initialized")
 
         results = []
@@ -144,6 +147,11 @@ class SellerTools(Toolkit):
                 # product_data = product.to_product_data()
                 # Publish using the SDK's synchronous method
                 event_id = self._nostr_client.publish_product(product)
+                logger.debug(
+                    "Published product %s with categories %s",
+                    product.name,
+                    product.categories,
+                )
                 self.product_db[i] = (product, event_id)
                 results.append(
                     {
@@ -155,7 +163,7 @@ class SellerTools(Toolkit):
                 # Pause for 0.5 seconds to avoid rate limiting
                 time.sleep(0.5)
             except RuntimeError as e:
-                logging.error("Unable to publish product %s. Error %s", product, e)
+                logger.error("Unable to publish product %s. Error %s", product, e)
                 results.append(
                     {"status": "error", "message": str(e), "product_name": product.name}
                 )
@@ -176,7 +184,9 @@ class SellerTools(Toolkit):
             ValueError: if NostrClient is not initialized
         """
         if self._nostr_client is None:
+            logger.error("NostrClient not initialized")
             raise ValueError("NostrClient not initialized")
+
         results = []
 
         for i, (stall, _) in enumerate(self.stall_db):
@@ -195,7 +205,7 @@ class SellerTools(Toolkit):
                 # Pause for 0.5 seconds to avoid rate limiting
                 time.sleep(0.5)
             except RuntimeError as e:
-                logging.error("Unable to publish stall %s. Error %s", stall, e)
+                logger.error("Unable to publish stall %s. Error %s", stall, e)
                 results.append(
                     {"status": "error", "message": str(e), "stall_name": stall.name}
                 )
@@ -217,6 +227,7 @@ class SellerTools(Toolkit):
             ValueError: if NostrClient is not initialized
         """
         if self._nostr_client is None:
+            logger.error("NostrClient not initialized")
             raise ValueError("NostrClient not initialized")
 
         try:
@@ -234,6 +245,7 @@ class SellerTools(Toolkit):
                 }
             )
         except RuntimeError as e:
+            logger.error("Unable to publish product %s. Error %s", product, e)
             return json.dumps(
                 {"status": "error", "message": str(e), "product_name": product.name}
             )
@@ -252,6 +264,7 @@ class SellerTools(Toolkit):
             ValueError: if NostrClient is not initialized
         """
         if self._nostr_client is None:
+            logger.error("NostrClient not initialized")
             raise ValueError("NostrClient not initialized")
 
         try:
@@ -287,6 +300,7 @@ class SellerTools(Toolkit):
                         }
                     )
                 except RuntimeError as e:
+                    logger.error("Unable to publish product %s. Error %s", product, e)
                     return json.dumps(
                         {
                             "status": "error",
@@ -321,6 +335,7 @@ class SellerTools(Toolkit):
             ValueError: if NostrClient is not initialized
         """
         if self._nostr_client is None:
+            logger.error("NostrClient not initialized")
             raise ValueError("NostrClient not initialized")
 
         try:
@@ -387,6 +402,9 @@ class SellerTools(Toolkit):
                         # Pause for 0.5 seconds to avoid rate limiting
                         time.sleep(0.5)
                     except RuntimeError as e:
+                        logger.error(
+                            "Unable to publish product %s. Error %s", product, e
+                        )
                         results.append(
                             {
                                 "status": "error",
@@ -397,6 +415,7 @@ class SellerTools(Toolkit):
                         )
 
             if not results:
+                logger.error("No products found in stall '%s'", stall_name)
                 return json.dumps(
                     [
                         {
@@ -410,6 +429,9 @@ class SellerTools(Toolkit):
             return json.dumps(results)
 
         except RuntimeError as e:
+            logger.error(
+                "Unable to publish products in stall '%s'. Error %s", stall_name, e
+            )
             return json.dumps(
                 [{"status": "error", "message": str(e), "arguments": str(arguments)}]
             )
@@ -425,11 +447,13 @@ class SellerTools(Toolkit):
             RuntimeError: if it can't publish the event
         """
         if self._nostr_client is None:
+            logger.error("NostrClient not initialized")
             raise ValueError("NostrClient not initialized")
 
         try:
             return self._nostr_client.publish_profile()
         except RuntimeError as e:
+            logger.error("Unable to publish the profile: %s", e)
             raise RuntimeError(f"Unable to publish the profile: {e}") from e
 
     def publish_new_stall(self, stall: Stall) -> str:
@@ -447,6 +471,7 @@ class SellerTools(Toolkit):
             ValueError: if NostrClient is not initialized
         """
         if self._nostr_client is None:
+            logger.error("NostrClient not initialized")
             raise ValueError("NostrClient not initialized")
 
         try:
@@ -465,6 +490,7 @@ class SellerTools(Toolkit):
                 }
             )
         except RuntimeError as e:
+            logger.error("Unable to publish the stall: %s", e)
             return json.dumps(
                 {"status": "error", "message": str(e), "stall_name": stall.name}
             )
@@ -486,6 +512,7 @@ class SellerTools(Toolkit):
             ValueError: if NostrClient is not initialized
         """
         if self._nostr_client is None:
+            logger.error("NostrClient not initialized")
             raise ValueError("NostrClient not initialized")
 
         try:
@@ -534,6 +561,7 @@ class SellerTools(Toolkit):
                         )
 
                     except RuntimeError as e:
+                        logger.error("Unable to publish stall %s. Error %s", stall, e)
                         return json.dumps(
                             [
                                 {
@@ -545,6 +573,7 @@ class SellerTools(Toolkit):
                         )
 
             # Stall not found
+            logger.error("Stall '%s' not found in database", stall_name)
             return json.dumps(
                 [
                     {
@@ -556,6 +585,7 @@ class SellerTools(Toolkit):
             )
 
         except RuntimeError as e:
+            logger.error("Unable to publish stall '%s'. Error %s", stall_name, e)
             return json.dumps(
                 [{"status": "error", "message": str(e), "stall_name": "unknown"}]
             )
@@ -571,6 +601,7 @@ class SellerTools(Toolkit):
             ValueError: if NostrClient is not initialized
         """
         if self._nostr_client is None:
+            logger.error("NostrClient not initialized")
             raise ValueError("NostrClient not initialized")
 
         results = []
@@ -606,6 +637,7 @@ class SellerTools(Toolkit):
                 # Pause for 0.5 seconds to avoid rate limiting
                 time.sleep(0.5)
             except RuntimeError as e:
+                logger.error("Unable to remove product %s. Error %s", product, e)
                 results.append(
                     {"status": "error", "message": str(e), "product_name": product.name}
                 )
@@ -624,6 +656,7 @@ class SellerTools(Toolkit):
             ValueError: if NostrClient is not initialized
         """
         if self._nostr_client is None:
+            logger.error("NostrClient not initialized")
             raise ValueError("NostrClient not initialized")
 
         results = []
@@ -663,6 +696,9 @@ class SellerTools(Toolkit):
                             }
                         )
                     except RuntimeError as e:
+                        logger.error(
+                            "Unable to remove product %s. Error %s", product, e
+                        )
                         results.append(
                             {
                                 "status": "error",
@@ -699,6 +735,7 @@ class SellerTools(Toolkit):
                     # Pause for 0.5 seconds to avoid rate limiting
                     time.sleep(0.5)
                 except RuntimeError as e:
+                    logger.error("Unable to remove stall %s. Error %s", stall_name, e)
                     results.append(
                         {"status": "error", "message": str(e), "stall_name": stall_name}
                     )
@@ -720,6 +757,7 @@ class SellerTools(Toolkit):
             ValueError: if NostrClient is not initialized
         """
         if self._nostr_client is None:
+            logger.error("NostrClient not initialized")
             raise ValueError("NostrClient not initialized")
 
         try:
@@ -765,6 +803,7 @@ class SellerTools(Toolkit):
                         }
                     )
                 except RuntimeError as e:
+                    logger.error("Unable to remove product %s. Error %s", name, e)
                     return json.dumps(
                         {"status": "error", "message": str(e), "product_name": name}
                     )
@@ -795,6 +834,7 @@ class SellerTools(Toolkit):
             ValueError: if NostrClient is not initialized
         """
         if self._nostr_client is None:
+            logger.error("NostrClient not initialized")
             raise ValueError("NostrClient not initialized")
 
         try:
@@ -877,6 +917,9 @@ class SellerTools(Toolkit):
                         # Pause for 0.5 seconds to avoid rate limiting
                         time.sleep(0.5)
                     except RuntimeError as e:
+                        logger.error(
+                            "Unable to remove product %s. Error %s", product, e
+                        )
                         results.append(
                             {
                                 "status": "error",
@@ -917,6 +960,9 @@ class SellerTools(Toolkit):
                             }
                         )
                     except RuntimeError as e:
+                        logger.error(
+                            "Unable to remove stall %s. Error %s", stall_name, e
+                        )
                         results.append(
                             {
                                 "status": "error",
@@ -928,6 +974,7 @@ class SellerTools(Toolkit):
             return json.dumps(results)
 
         except RuntimeError as e:
+            logger.error("Unable to remove stall '%s'. Error %s", stall_name, e)
             return json.dumps(
                 [{"status": "error", "message": str(e), "stall_name": "unknown"}]
             )
