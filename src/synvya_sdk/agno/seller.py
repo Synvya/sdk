@@ -73,6 +73,7 @@ class SellerTools(Toolkit):
         self.register(self.get_relay)
         self.register(self.get_products)
         self.register(self.get_stalls)
+        self.register(self.listen_for_orders)
         self.register(self.publish_all_products)
         self.register(self.publish_all_stalls)
         self.register(self.publish_new_product)
@@ -121,6 +122,23 @@ class SellerTools(Toolkit):
             str: JSON string containing all stalls
         """
         return json.dumps([s.to_dict() for s, _ in self.stall_db])
+
+    def listen_for_orders(self) -> str:
+        """
+        Listens for orders to be processed by the Nostr relay
+
+        Returns:
+            str: content of the private message or an error message
+
+        Raises:
+            RuntimeError: if unable to listen for private messages
+        """
+        try:
+            response = self._nostr_client.listen_for_messages()
+            return response
+        except RuntimeError as e:
+            logger.error("Unable to listen for messages. Error %s", e)
+            raise e
 
     def publish_all_products(
         self,

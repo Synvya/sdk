@@ -3,6 +3,8 @@ Module implementing the BuyerTools Toolkit for Agno agents.
 """
 
 import json
+from random import randint
+from typing import Optional
 
 from pydantic import ConfigDict
 
@@ -74,6 +76,7 @@ class BuyerTools(Toolkit):
         self.knowledge_base = knowledge_base
         # Initialize fields
         self._nostr_client = NostrClient(relay, private_key)
+        self._nostr_client.set_logging_level(logger.getEffectiveLevel())
         self.profile = self._nostr_client.get_profile()
         self.sellers: set[Profile] = set()
 
@@ -296,23 +299,90 @@ class BuyerTools(Toolkit):
         """
         return self.relay
 
-    def purchase_product(self, product: str) -> str:
+    def purchase_product(self, product_name: str, quantity: int) -> str:
         """
         Purchase a product.
 
         TBD: Implement this function. Returning a fixed message for now.
 
         Args:
-            product: JSON string with product to purchase
+            product_name: name of the product to purchase
+            quantity: quantity of the product to purchase
 
         Returns:
             str: JSON string with status and message
         """
-        logger.debug("Purchasing product: %s", product)
+        logger.info("Purchasing product: %s", product_name)
+
+        try:
+            product = self._get_product_from_kb(product_name)
+        except RuntimeError as e:
+            logger.error("Error getting product from knowledge base: %s", e)
+            return json.dumps({"status": "error", "message": str(e)})
+
+        # Choosing the first shipping zone for now
+        # Address is hardcoded for now. Add it to the buyer profile later.
+        order_msg = self._create_order(
+            product.id,
+            quantity,
+            product.shipping[0].get_id(),
+            "123 Main St, Anytown, USA",
+        )
+
+        self._nostr_client.send_private_message(
+            product.get_seller(),
+            order_msg,
+        )
 
         return json.dumps(
-            {"status": "success", "message": f"Product {product} purchased"}
+            {
+                "status": "success",
+                "message": f"Product {product_name} purchased from seller {product.get_seller()}",
+            }
         )
+
+    def _create_order(
+        self,
+        product_id: str,
+        quantity: int,
+        shipping_id: str,
+        address: Optional[str] = None,
+    ) -> str:
+        random_order_id = randint(
+            0, 999999999
+        )  # Generate a number between 0 and 999999999
+        order_id_str = f"{random_order_id:09d}"
+
+        order = {
+            "id": order_id_str,
+            "type": 0,
+            "name": self.profile.name,
+            "address": address,
+            "message": "Please accept this order.",
+            "contact": {
+                "nostr": self.profile.public_key,
+                "phone": "",
+                "email": "",
+            },
+            "items": [{"product_id": product_id, "quantity": quantity}],
+            "shipping_id": shipping_id,
+        }
+
+        return json.dumps(
+            order, indent=2
+        )  # Convert to JSON string with pretty printing
+
+    def _get_product_from_kb(self, product_name: str) -> Product:
+        """
+        Get a product from the knowledge base.
+        """
+        logger.debug("Getting product from knowledge base: %s", product_name)
+        documents = self.knowledge_base.search(
+            query=product_name, num_documents=1, filters=[{"type": "product"}]
+        )
+        if len(documents) == 0:
+            raise RuntimeError(f"Product {product_name} not found in knowledge base")
+        return Product.from_json(documents[0].content)
 
     def _store_profile_in_kb(self, profile: Profile) -> None:
         """

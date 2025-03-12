@@ -340,6 +340,23 @@ class Product(BaseModel):
     shipping: List[ProductShippingCost]
     categories: List[str] = Field(default_factory=list)
     specs: List[List[str]] = Field(default_factory=list)
+    seller: str
+
+    def set_seller(self, seller: str) -> None:
+        """
+        Set the seller of the product.
+        Use it to set the seller after creating a Product using the
+        @classmethod from_product_data() since ProductData does not contain
+        the seller's public key.
+
+        Args:
+            seller: str
+        """
+        self.seller = seller
+
+    def get_seller(self) -> str:
+        """Get the seller of the product."""
+        return self.seller
 
     @classmethod
     def from_product_data(cls, product_data: "ProductData") -> "Product":
@@ -380,6 +397,7 @@ class Product(BaseModel):
                 product_data.categories if product_data.categories is not None else []
             ),
             specs=specs,
+            seller="",
         )
 
     def to_product_data(self) -> "ProductData":
@@ -433,6 +451,7 @@ class Product(BaseModel):
             "shipping": shipping_dicts,  # Use the serialized shipping costs
             "categories": self.categories,
             "specs": self.specs,
+            "seller": self.seller,
         }
 
     def to_json(self) -> str:
@@ -443,6 +462,37 @@ class Product(BaseModel):
             str: JSON string representation of the Product
         """
         return json.dumps(self.to_dict())
+
+    @classmethod
+    def from_json(cls, json_str: str) -> "Product":
+        """
+        Create a Product instance from a JSON string.
+
+        Args:
+            json_str (str): JSON string containing product information.
+
+        Returns:
+            Product: An instance of Product.
+        """
+        data = json.loads(json_str)
+        shipping_costs = [
+            ProductShippingCost(psc_id=ship["id"], psc_cost=ship["cost"])
+            for ship in data.get("shipping", [])
+        ]
+        return cls(
+            id=data["id"],
+            stall_id=data["stall_id"],
+            name=data["name"],
+            description=data["description"],
+            images=data.get("images", []),
+            currency=data["currency"],
+            price=data["price"],
+            quantity=data["quantity"],
+            shipping=shipping_costs,
+            categories=data.get("categories", []),
+            specs=data.get("specs", []),
+            seller=data["seller"],
+        )
 
 
 class Stall(BaseModel):

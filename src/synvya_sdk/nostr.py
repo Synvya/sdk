@@ -16,20 +16,25 @@ try:
         Alphabet,
         Client,
         Coordinate,
+        Event,
         EventBuilder,
         EventId,
         Events,
         Filter,
+        HandleNotification,
         Keys,
         Kind,
         Metadata,
         NostrSigner,
         ProductData,
         PublicKey,
+        RelayMessage,
         SingleLetterTag,
+        SubscribeOutput,
         Tag,
         TagKind,
         TagStandard,
+        UnsignedEvent,
     )
 except ImportError as exc:
     raise ImportError(
@@ -73,6 +78,17 @@ class NostrClient:
         self.nostr_signer = NostrSigner.keys(self.keys)
         self.client = Client(self.nostr_signer)
         self.connected = False
+        self.stop_event = asyncio.Event()  # Used to signal stopping
+        self.notification_task = None  # To track the background notification task
+        self.received_eose = False  # To track if EOSE has been received
+        self.private_message: UnsignedEvent = None
+        self.direct_message: Event = None
+
+        try:
+            self.last_message_time = asyncio.get_running_loop().time()
+        except RuntimeError:  # No running loop in sync code, so use default
+            self.last_message_time = 0  # Initialize with 0 if no loop is running yet
+
         try:
             # Download the profile from the relay if it already exists
             self.profile = self.retrieve_profile(self.keys.public_key().to_bech32())
@@ -104,19 +120,37 @@ class NostrClient:
         return_event_id_obj = asyncio.run(self._async_publish_event(event_builder))
         return return_event_id_obj.to_bech32()
 
-    ## TODO: make this function available without using EventBuilder
-    # def publish_event(self, event_builder: EventBuilder) -> EventId:
-    #     """
-    #     Publish generic Nostr event to the relay
+    def listen_for_messages(self) -> str:
+        """Listen for direct messages and private messages from the relay
 
-    #     Returns:
-    #         EventId: event id published
+        Returns:
+            str: The response from listening
 
-    #     Raises:
-    #         RuntimeError: if the product can't be published
-    #     """
-    #     # Run the async publishing function synchronously
-    #     return asyncio.run(self._async_publish_event(event_builder))
+        Raises:
+            RuntimeError: if encountering an error while listening
+        """
+        try:
+            response = asyncio.run(self._async_listen_for_messages())
+            NostrClient.logger.debug("Message received: %s", response)
+            return response
+        except RuntimeError as e:
+            raise RuntimeError(f"Failed to listen for messages: {e}") from e
+
+    def publish_event(self, kind: int, content: str) -> str:
+        """Publish a generic Nostr event to the relay
+
+        Args:
+            kind: kind of the event
+            content: content of the event
+            tags: tags of the event
+
+        Returns:
+            str: id of the event published
+
+        Raises:
+            RuntimeError: if the event can't be published
+        """
+        raise NotImplementedError("This function is not implemented yet")
 
     def get_profile(self) -> Profile:
         """Get the Nostr profile of the client
@@ -339,6 +373,11 @@ class NostrClient:
             for event in events_list:
                 content = json.loads(event.content())
                 tags = event.tags()
+                coordinates = tags.coordinates()
+                if len(coordinates) > 0:
+                    seller_public_key = coordinates[0].public_key().to_bech32()
+                else:
+                    seller_public_key = ""
                 hashtags = tags.hashtags()
                 for hashtag in hashtags:
                     NostrClient.logger.debug("Logger Hashtag: %s", hashtag)
@@ -356,7 +395,9 @@ class NostrClient:
                     # categories=content.get("categories", []),
                     categories=hashtags,
                 )
-                products.append(Product.from_product_data(product_data))
+                product = Product.from_product_data(product_data)
+                product.set_seller(seller_public_key)
+                products.append(product)
             return products
         except Exception as e:
             raise RuntimeError(f"Failed to retrieve products: {e}") from e
@@ -426,6 +467,64 @@ class NostrClient:
         except Exception as e:
             raise RuntimeError(f"Failed to retrieve stalls: {e}") from e
 
+    def send_private_message(self, public_key: str, message: str) -> str:
+        """
+        Send a private message to a given Nostr public key.
+
+        Args:
+            public_key: public key of the recipient in bech32 or hex format
+            message: message to send
+
+        Returns:
+            str: id of the event publishing the message
+
+        Raises:
+            RuntimeError: if the message can't be sent
+        """
+        try:
+            event_id_obj = asyncio.run(
+                self._async_send_private_message(PublicKey.parse(public_key), message)
+            )
+            return event_id_obj.to_bech32()
+        except Exception as e:
+            raise RuntimeError(f"Failed to send private message: {e}") from e
+
+    async def stop_notifications(self) -> None:
+        """
+        Gracefully stop handling notifications, with debug logs.
+        """
+        NostrClient.logger.debug("Attempting to stop notifications...")
+
+        # Step 1: Set the stop event
+        self.stop_event.set()
+        NostrClient.logger.debug("Stop event set. Notifier should stop soon.")
+
+        # Step 2: Check if a notification task is running
+        if self.notification_task is None:
+            NostrClient.logger.debug("No active notification task. Nothing to stop.")
+            return
+
+        if self.notification_task.done():
+            NostrClient.logger.debug(
+                "Notification task already completed. Cleaning up reference."
+            )
+            self.notification_task = None
+            return
+
+        # Step 3: Attempt to cancel the notification task
+        NostrClient.logger.debug("Cancelling notification task...")
+        self.notification_task.cancel()
+
+        try:
+            await self.notification_task  # Ensure proper cancellation
+            NostrClient.logger.debug("Notification task successfully stopped.")
+        except asyncio.CancelledError:
+            NostrClient.logger.debug("Notification task was forcefully cancelled.")
+
+        # Step 4: Clean up
+        self.notification_task = None
+        NostrClient.logger.debug("_stop_notifications() completed.")
+
     @classmethod
     def set_logging_level(cls, logging_level: int) -> None:
         """Set the logging level for the NostrClient logger.
@@ -436,7 +535,7 @@ class NostrClient:
         cls.logger.setLevel(logging_level)
         for handler in cls.logger.handlers:
             handler.setLevel(logging_level)
-        cls.logger.info("Logging level set to %s", logging.getLevelName(logging_level))
+        # cls.logger.info("Logging level set to %s", logging.getLevelName(logging_level))
 
     # ----------------------------------------------------------------
     # internal async functions.
@@ -466,6 +565,102 @@ class NostrClient:
                     f"Unable to connect to relay {self.relay}. Exception: {e}."
                 ) from e
 
+    async def _async_listen_for_messages(self) -> str:
+        """
+        Listen for private messages from the relay
+
+        Returns:
+            str: content of the private message or an error message
+
+        Raises:
+            RuntimeError: if it can't connect to the relay
+            RuntimeError: if it can't subscribe to private messages
+            RuntimeError: if it can't receive a message
+        """
+
+        NostrClient.logger.debug("Listening for private messages.")
+
+        if not self.connected:
+            try:
+                await self._async_connect()
+                NostrClient.logger.debug("Connected to relay %s.", self.relay)
+            except Exception as e:
+                NostrClient.logger.error("Connection failed: %s", e)
+                raise RuntimeError(
+                    f"Unable to connect to relay {self.relay}. Exception: {e}."
+                ) from e
+
+        try:
+            messages_filter = (
+                Filter()
+                .kinds([Kind(1059), Kind(4)])
+                .pubkey(self.keys.public_key())
+                .limit(0)
+            )
+
+            subscription = await self.client.subscribe(messages_filter, None)
+            NostrClient.logger.debug("Subscribed to private messages: %s", subscription)
+
+            if not hasattr(subscription, "success") or not subscription.success:
+                raise RuntimeError("Failed to subscribe to private messages")
+
+            self.received_eose = False  # Reset the EOSE flag before listening
+            self.last_message_time = (
+                asyncio.get_event_loop().time()
+            )  # Track the last received message time
+
+            # Start handling notifications in the background
+            await self._start_notifications()
+
+            response = "No messages received"
+
+            # Wait for new messages while checking periodically if we should stop
+            timeout_seconds = 15  # Adjust this timeout as needed
+            while not self.stop_event.is_set():
+                await asyncio.sleep(5)  #  Check every 5 seconds
+
+                if self.received_eose:
+                    NostrClient.logger.debug("Received EOSE")
+                    time_since_last_msg = (
+                        asyncio.get_event_loop().time() - self.last_message_time
+                    )
+
+                    if time_since_last_msg > timeout_seconds:
+                        response = (
+                            f"No messages received after {timeout_seconds} seconds"
+                        )
+                        break  # Stop listening after timeout
+
+                if self.private_message and self.private_message.kind() == Kind(14):
+                    response = self.private_message.content()
+                    self.private_message = None
+                    break
+                if self.private_message and self.private_message.kind() == Kind(15):
+                    response = self.private_message.content()
+                    # TODO: process tags with file type
+                    self.private_message = None
+                    break
+                if self.direct_message:
+                    try:
+                        response = await self.nostr_signer.nip04_decrypt(
+                            self.direct_message.author(), self.direct_message.content()
+                        )
+                    except Exception as e:
+                        raise RuntimeError(
+                            f"Unable to decrypt direct message: {e}"
+                        ) from e
+                    self.direct_message = None
+                    break
+                NostrClient.logger.debug("Not received private message: %s", response)
+        except Exception as e:
+            raise RuntimeError(
+                f"Unable to listen for private messages. Exception: {e}."
+            ) from e
+        finally:
+            await self.stop_notifications()
+
+        return response
+
     async def _async_publish_event(self, event_builder: EventBuilder) -> EventId:
         """
         Publish generic Nostr event to the relay
@@ -477,7 +672,8 @@ class NostrClient:
             RuntimeError: if the event can't be published
         """
         try:
-            await self._async_connect()
+            if not self.connected:
+                await self._async_connect()
 
             # Wait for connection and try to publish
             output = await self.client.send_event_builder(event_builder)
@@ -622,11 +818,9 @@ class NostrClient:
             RuntimeError: if the stalls can't be retrieved
         """
         try:
-            await self._async_connect()
-        except Exception as e:
-            raise RuntimeError("Unable to connect to the relay") from e
+            if not self.connected:
+                await self._async_connect()
 
-        try:
             events_filter = Filter().kind(Kind(30017))
             events = await self.client.fetch_events_from(
                 urls=[self.relay], filter=events_filter, timeout=timedelta(seconds=2)
@@ -649,11 +843,9 @@ class NostrClient:
             RuntimeError: if the events can't be retrieved
         """
         try:
-            await self._async_connect()
-        except Exception as e:
-            raise RuntimeError("Unable to connect to the relay") from e
+            if not self.connected:
+                await self._async_connect()
 
-        try:
             events = await self.client.fetch_events_from(
                 urls=[self.relay], filter=events_filter, timeout=timedelta(seconds=2)
             )
@@ -677,11 +869,9 @@ class NostrClient:
             RuntimeError: if the products can't be retrieved
         """
         try:
-            await self._async_connect()
-        except Exception as e:
-            raise RuntimeError("Unable to connect to the relay") from e
+            if not self.connected:
+                await self._async_connect()
 
-        try:
             # print(f"Retrieving products from seller: {seller}")
             events_filter = Filter().kind(Kind(30018)).authors([merchant])
             events = await self.client.fetch_events_from(
@@ -705,11 +895,9 @@ class NostrClient:
             RuntimeError: if the profile can't be retrieved
         """
         try:
-            await self._async_connect()
-        except Exception as e:
-            raise RuntimeError("Unable to connect to the relay") from e
+            if not self.connected:
+                await self._async_connect()
 
-        try:
             metadata = await self.client.fetch_metadata(
                 public_key=public_key, timeout=timedelta(seconds=2)
             )
@@ -731,11 +919,9 @@ class NostrClient:
             RuntimeError: if the stall can't be retrieved
         """
         try:
-            await self._async_connect()
-        except Exception as e:
-            raise RuntimeError("Unable to connect to the relay") from e
+            if not self.connected:
+                await self._async_connect()
 
-        try:
             events_filter = Filter().kind(Kind(30017)).authors([merchant])
             events = await self.client.fetch_events_from(
                 urls=[self.relay], filter=events_filter, timeout=timedelta(seconds=2)
@@ -743,6 +929,125 @@ class NostrClient:
             return events
         except Exception as e:
             raise RuntimeError(f"Unable to retrieve stalls: {e}") from e
+
+    async def _async_send_private_message(
+        self, public_key: PublicKey, message: str
+    ) -> EventId:
+        """
+        Asynchronous function to send a private message to a given Nostr public key
+
+        Args:
+            public_key: public key of the recipient in bech32 or hex format
+            message: message to send
+
+        Returns:
+            EventId: event id of the message
+
+        Raises:
+            RuntimeError: if the message can't be sent
+        """
+        try:
+            output = await self.client.send_private_msg(public_key, message)
+            if len(output.success) > 0:
+                NostrClient.logger.info(
+                    "Message sent to %s: %s", public_key.to_bech32(), message
+                )
+                return output.id
+            # no relay received the message
+            NostrClient.logger.error(
+                "Message not sent to %s: %s", public_key.to_bech32(), message
+            )
+            raise RuntimeError("Unable to send private message:")
+        except Exception as e:
+            raise RuntimeError(f"Unable to send private message: {e}") from e
+
+    async def _start_notifications(self) -> None:
+        """
+        Start handling notifications in the background.
+        """
+        if self.notification_task is None or self.notification_task.done():
+            self.stop_event.clear()  # Reset stop flag
+            self.notification_task = asyncio.create_task(
+                self.client.handle_notifications(self.MyNotificationHandler(self))
+            )
+
+    class MyNotificationHandler(HandleNotification):
+        """
+        Inner class to handle notifications.
+        """
+
+        def __init__(self, nostr_client: "NostrClient"):
+            self.nostr_client = nostr_client
+
+        async def handle_msg(self, relay_url: str, msg: RelayMessage):
+            """
+            Handle a message from the relay.
+            """
+            if self.nostr_client.stop_event.is_set():
+                return
+
+            msg_enum = msg.as_enum()
+
+            if msg_enum.is_end_of_stored_events():
+                self.nostr_client.received_eose = True
+            elif msg_enum.is_event_msg():
+                # await self.handle(relay_url, msg_enum.subscription_id, msg_enum.event)
+
+                self.nostr_client.last_message_time = asyncio.get_event_loop().time()
+
+                if msg_enum.event.kind() == Kind(4):
+                    self.nostr_client.direct_message = msg_enum.event
+
+                if msg_enum.event.kind() == Kind(1059):
+
+                    try:
+                        unwrapped_gift = (
+                            await self.nostr_client.client.unwrap_gift_wrap(
+                                msg_enum.event
+                            )
+                        )
+                    except Exception as e:
+                        self.nostr_client.logger.error(f"Error unwrapping gift: {e}")
+                        raise
+                    unsigned_event = unwrapped_gift.rumor()
+                    # Assign the unsigned event to the NostrClient private message
+                    # to be processed in the _async_process_unsigned_event method
+                    self.nostr_client.private_message = unsigned_event
+            else:
+                self.nostr_client.logger.debug(
+                    f"Received unknown message from {relay_url}: {msg}"
+                )
+
+        async def handle(self, relay_url: str, subscription_id: str, event: Event):
+            """
+            Handle an event from the relay.
+            """
+            if self.nostr_client.stop_event.is_set():
+                return
+
+            self.nostr_client.last_message_time = asyncio.get_event_loop().time()
+            if event.kind() == Kind(4):
+                self.nostr_client.direct_message = event
+            if event.kind() == Kind(1059):
+                try:
+                    unwrapped_gift = await self.nostr_client.client.unwrap_gift_wrap(
+                        event
+                    )
+                except Exception as e:
+                    self.nostr_client.logger.error(f"Error unwrapping gift: {e}")
+                    raise
+                unsigned_event = unwrapped_gift.rumor()
+                self.nostr_client.logger.debug(
+                    f"Received event kind: {unsigned_event.kind()}"
+                )
+                self.nostr_client.private_message = unsigned_event
+                if unsigned_event.kind() == Kind(14):
+                    self.nostr_client.logger.debug(
+                        f"Received private message: {unsigned_event.content()}"
+                    )
+                    self.nostr_client.logger.debug(
+                        f"From: {unsigned_event.author().to_bech32()}"
+                    )
 
 
 def generate_keys(env_var: str, env_path: Path) -> NostrKeys:

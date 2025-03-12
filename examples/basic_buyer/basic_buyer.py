@@ -163,7 +163,7 @@ def reset_database() -> None:
     Base.metadata.create_all(engine)
 
 
-reset_database()
+# reset_database()
 
 vector_db = PgVector(
     table_name="sellers",
@@ -237,6 +237,21 @@ def buyer_cli() -> None:
     Command-line interface for the buyer agent.
     """
     print("\n🔹 Snoqualmie Valley Visitor Assistant (Type 'exit' to quit)\n")
+
+    # print("Downloading sellers from Snoqualmie Valley Marketplace...")
+    # response = buyer.run("populate your knowledge base")
+    # print(f"\n🤖 Visitor Assistant: {response.get_content_as_string()}\n")
+
+    # print("Downloading stalls from all sellers...")
+    # response = buyer.run("download the stalls from all sellers in your knowledge base")
+    # print(f"\n🤖 Visitor Assistant: {response.get_content_as_string()}\n")
+
+    # print("Downloading products from all sellers...")
+    # response = buyer.run(
+    #     "download the products from all sellers in your knowledge base"
+    # )
+    # print(f"\n🤖 Visitor Assistant: {response.get_content_as_string()}\n")
+
     while True:
         user_query = input("💬 You: ")
         if user_query.lower() in ["exit", "quit"]:

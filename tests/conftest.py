@@ -269,6 +269,7 @@ def stall_event_ids_fixture() -> List[str]:
 @pytest.fixture(scope="session", name="products")
 def products_fixture(
     product_shipping_costs: List[ProductShippingCost],
+    merchant_keys: NostrKeys,
 ) -> List[Product]:
     """Create Product test fixtures"""
     return [
@@ -284,6 +285,7 @@ def products_fixture(
             shipping=[product_shipping_costs[0], product_shipping_costs[1]],
             specs=[["length", "10cm"], ["material", "steel"]],
             categories=["hardware", "tools"],
+            seller=merchant_keys.get_public_key(),
         ),
         Product(
             id="bcf00Rx8",
@@ -297,6 +299,7 @@ def products_fixture(
             shipping=[product_shipping_costs[0], product_shipping_costs[1]],
             specs=[["length", "100 cm"], ["material", "steel"]],
             categories=["hardware", "tools"],
+            seller=merchant_keys.get_public_key(),
         ),
         Product(
             id="ccf00Rx1",
@@ -310,6 +313,7 @@ def products_fixture(
             shipping=[product_shipping_costs[2]],
             specs=[["type", "online"], ["media", "video"]],
             categories=["education", "hardware tools"],
+            seller=merchant_keys.get_public_key(),
         ),
     ]
 

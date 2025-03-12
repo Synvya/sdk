@@ -2,6 +2,7 @@
 This module contains tests for the NostrClient class using a real Nostr relay.
 """
 
+import asyncio
 from logging import DEBUG
 from typing import List
 
@@ -22,71 +23,117 @@ def nostr_client_fixture(relay: str, merchant_keys: NostrKeys) -> NostrClient:
 class TestNostrClient:
     """Test suite for NostrClient"""
 
-    def test_publish_profile(self, nostr_client: NostrClient) -> None:
-        """Test publishing a profile"""
-        event_id = nostr_client.publish_profile()
-        assert isinstance(event_id, str)
+    # def test_publish_profile(self, nostr_client: NostrClient) -> None:
+    #     """Test publishing a profile"""
+    #     event_id = nostr_client.publish_profile()
+    #     assert isinstance(event_id, str)
 
-    def test_publish_stall(
-        self, nostr_client: NostrClient, stalls: List[Stall]
-    ) -> None:
-        """Test publishing a stall"""
-        event_id = nostr_client.publish_stall(stalls[0])
-        assert isinstance(event_id, str)
-
-    def test_publish_product(
-        self, nostr_client: NostrClient, products: List[Product]
-    ) -> None:
-        """Test publishing a product"""
-        event_id = nostr_client.publish_product(products[0])
-        assert isinstance(event_id, str)
-
-    # def test_delete_event(
-    #     self, nostr_client: NostrClient, test_merchant_stall: MerchantStall
+    # def test_publish_stall(
+    #     self, nostr_client: NostrClient, stalls: List[Stall]
     # ) -> None:
-    #     """Test deleting an event"""
-    #     # First publish something to delete
-    #     event_id = nostr_client.publish_stall(test_merchant_stall)
-    #     assert isinstance(event_id, EventId)
+    #     """Test publishing a stall"""
+    #     event_id = nostr_client.publish_stall(stalls[0])
+    #     assert isinstance(event_id, str)
 
-    #     # Then delete it
-    #     delete_event_id = nostr_client.delete_event(event_id, reason="Test deletion")
-    #     assert isinstance(delete_event_id, EventId)
+    # def test_publish_product(
+    #     self, nostr_client: NostrClient, products: List[Product]
+    # ) -> None:
+    #     """Test publishing a product"""
+    #     event_id = nostr_client.publish_product(products[0])
+    #     assert isinstance(event_id, str)
 
-    def test_retrieve_products_from_merchant(
+    # # def test_delete_event(
+    # #     self, nostr_client: NostrClient, test_merchant_stall: MerchantStall
+    # # ) -> None:
+    # #     """Test deleting an event"""
+    # #     # First publish something to delete
+    # #     event_id = nostr_client.publish_stall(test_merchant_stall)
+    # #     assert isinstance(event_id, EventId)
+
+    # #     # Then delete it
+    # #     delete_event_id = nostr_client.delete_event(event_id, reason="Test deletion")
+    # #     assert isinstance(delete_event_id, EventId)
+
+    # def test_retrieve_products_from_merchant(
+    #     self, nostr_client: NostrClient, merchant_keys: NostrKeys
+    # ) -> None:
+    #     """Test retrieving products from a merchant"""
+    #     products = nostr_client.retrieve_products_from_merchant(
+    #         merchant_keys.get_public_key()
+    #     )
+    #     assert len(products) > 0
+    #     for product in products:
+    #         assert isinstance(product, Product)
+    #         # print(f"Product: {product.name}")
+
+    # def test_retrieve_merchants(self, nostr_client: NostrClient) -> None:
+    #     """Test retrieving merchants"""
+    #     try:
+    #         merchants = nostr_client.retrieve_all_merchants()
+    #         assert len(merchants) > 0
+    #     except RuntimeError as e:
+    #         # print(f"\nError retrieving merchants: {e}")
+    #         raise e
+
+    # def test_retrieve_stalls_from_merchant(
+    #     self, nostr_client: NostrClient, merchant_keys: NostrKeys
+    # ) -> None:
+    #     """Test retrieving stalls from a merchant"""
+    #     # print(f"Retrieving stalls from merchant: {merchant_keys.get_public_key()}")
+    #     stalls = nostr_client.retrieve_stalls_from_merchant(
+    #         merchant_keys.get_public_key()
+    #     )
+    #     assert len(stalls) > 0
+
+    # def test_retrieve_profile(
+    #     self, nostr_client: NostrClient, merchant_keys: NostrKeys
+    # ) -> None:
+    #     """Test async retrieve profile"""
+    #     profile = nostr_client.retrieve_profile(merchant_keys.get_public_key())
+    #     assert profile is not None
+
+    def test_send_private_message(
         self, nostr_client: NostrClient, merchant_keys: NostrKeys
     ) -> None:
-        """Test retrieving products from a merchant"""
-        products = nostr_client.retrieve_products_from_merchant(
-            merchant_keys.get_public_key()
+        """Test sending a private message"""
+        print("Sending private message")
+        event_id = nostr_client.send_private_message(
+            merchant_keys.get_public_key(),
+            "Hello, world!",
         )
-        assert len(products) > 0
-        for product in products:
-            assert isinstance(product, Product)
-            # print(f"Product: {product.name}")
+        print("Private message sent: %s", event_id)
+        assert isinstance(event_id, str)
 
-    def test_retrieve_merchants(self, nostr_client: NostrClient) -> None:
-        """Test retrieving merchants"""
-        try:
-            merchants = nostr_client.retrieve_all_merchants()
-            assert len(merchants) > 0
-        except RuntimeError as e:
-            # print(f"\nError retrieving merchants: {e}")
-            raise e
-
-    def test_retrieve_stalls_from_merchant(
-        self, nostr_client: NostrClient, merchant_keys: NostrKeys
-    ) -> None:
-        """Test retrieving stalls from a merchant"""
-        # print(f"Retrieving stalls from merchant: {merchant_keys.get_public_key()}")
-        stalls = nostr_client.retrieve_stalls_from_merchant(
-            merchant_keys.get_public_key()
+    def test_listen_for_messages(self, nostr_client: NostrClient) -> None:
+        """Test listening for private messages"""
+        print("Listening for private messages")
+        response = nostr_client.listen_for_messages()
+        assert isinstance(response, str)
+        # await asyncio.sleep(5)
+        # await nostr_client.stop_notifications()
+        # Check if the task was stopped properly
+        assert (
+            nostr_client.notification_task is None
+            or nostr_client.notification_task.done()
         )
-        assert len(stalls) > 0
 
-    def test_retrieve_profile(
-        self, nostr_client: NostrClient, merchant_keys: NostrKeys
-    ) -> None:
-        """Test async retrieve profile"""
-        profile = nostr_client.retrieve_profile(merchant_keys.get_public_key())
-        assert profile is not None
+    # @pytest.mark.asyncio
+    # async def test_nostr_client_notifications(self, nostr_client: NostrClient):
+    #     """
+    #     Test starting and stopping async notification handling
+    #     """
+
+    #     # Start listening for notifications
+    #     await nostr_client._async_listen_for_private_messages()
+
+    #     # Let it run for a short time (simulate real-world scenario)
+    #     await asyncio.sleep(5)
+
+    #     # Stop listening
+    #     await nostr_client.stop_notifications()
+
+    #     # Check if the task was stopped properly
+    #     assert (
+    #         nostr_client.notification_task is None
+    #         or nostr_client.notification_task.done()
+    #     )

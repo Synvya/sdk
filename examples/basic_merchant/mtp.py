@@ -98,6 +98,7 @@ products = [
         shipping=[product_shipping_costs[0], product_shipping_costs[1]],
         specs=[["length", "10cm"], ["material", "steel"]],
         categories=["hardware", "tools"],
+        seller=keys.get_public_key(),
     ),
     Product(
         id="bcf00Rx8",
@@ -111,6 +112,7 @@ products = [
         shipping=[product_shipping_costs[0], product_shipping_costs[1]],
         specs=[["length", "100 cm"], ["material", "steel"]],
         categories=["hardware", "tools"],
+        seller=keys.get_public_key(),
     ),
     Product(
         id="ccf00Rx1",
@@ -124,6 +126,7 @@ products = [
         shipping=[product_shipping_costs[2]],
         specs=[["type", "online"], ["media", "video"]],
         categories=["education", "hardware tools"],
+        seller=keys.get_public_key(),
     ),
 ]
 
