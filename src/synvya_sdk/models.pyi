@@ -1,3 +1,4 @@
+from enum import Enum
 from logging import Logger
 from typing import ClassVar, List, Set
 

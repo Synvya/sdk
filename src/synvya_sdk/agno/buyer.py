@@ -322,7 +322,7 @@ class BuyerTools(Toolkit):
 
         # Choosing the first shipping zone for now
         # Address is hardcoded for now. Add it to the buyer profile later.
-        order_msg = self._create_order(
+        order_msg = self._create_customer_order(
             product.id,
             quantity,
             product.shipping[0].get_id(),
@@ -341,7 +341,7 @@ class BuyerTools(Toolkit):
             }
         )
 
-    def _create_order(
+    def _create_customer_order(
         self,
         product_id: str,
         quantity: int,
@@ -351,10 +351,10 @@ class BuyerTools(Toolkit):
         random_order_id = randint(
             0, 999999999
         )  # Generate a number between 0 and 999999999
-        order_id_str = f"{random_order_id:09d}"
+        customer_order_id_str = f"{random_order_id:09d}"
 
-        order = {
-            "id": order_id_str,
+        customer_order = {
+            "id": customer_order_id_str,
             "type": 0,
             "name": self.profile.name,
             "address": address,
@@ -369,7 +369,7 @@ class BuyerTools(Toolkit):
         }
 
         return json.dumps(
-            order, indent=2
+            customer_order, indent=2
         )  # Convert to JSON string with pretty printing
 
     def _get_product_from_kb(self, product_name: str) -> Product:

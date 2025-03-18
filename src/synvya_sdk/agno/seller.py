@@ -74,6 +74,8 @@ class SellerTools(Toolkit):
         self.register(self.get_products)
         self.register(self.get_stalls)
         self.register(self.listen_for_orders)
+        self.register(self.process_order)
+        self.register(self.trigger_order_workflow)
         self.register(self.publish_all_products)
         self.register(self.publish_all_stalls)
         self.register(self.publish_new_product)
@@ -128,17 +130,56 @@ class SellerTools(Toolkit):
         Listens for orders to be processed by the Nostr relay
 
         Returns:
-            str: content of the private message or an error message
+            str: JSON string of the content of the private message or an error message
 
         Raises:
             RuntimeError: if unable to listen for private messages
         """
         try:
-            response = self._nostr_client.listen_for_messages()
-            return response
+            order = self._nostr_client.listen_for_messages()
+            logger.info("Received order: %s", order)
+            return json.dumps(order)
         except RuntimeError as e:
             logger.error("Unable to listen for messages. Error %s", e)
             raise e
+
+    def process_order(self, order: str, payment_type: str, payment_url: str) -> str:
+        """
+        Processes an order
+
+        Args:
+            order: JSON string of the order
+            payment_type: Type of payment
+            payment_url: URL of the payment
+
+        Returns:
+            str: JSON string of the payment request
+        """
+        try:
+            order_dict = json.loads(order)
+        except json.JSONDecodeError:
+            return json.dumps({"status": "error", "message": "Invalid order format"})
+        order_id = order_dict.get("id")
+
+        is_valid_payment_type = payment_type in ["URL", "BTC", "LN", "LNURL"]
+        if not is_valid_payment_type:
+            return json.dumps({"status": "error", "message": "Invalid payment type"})
+
+        payment_request = self._create_payment_request(
+            order_id, payment_type, payment_url
+        )
+        return json.dumps(payment_request)
+
+    def trigger_order_workflow(self, order: str, parameters: str) -> str:
+        """
+        Triggers the order workflow
+        """
+        return json.dumps(
+            {
+                "status": "success",
+                "message": f"Workflow triggered for order: {order} with parameters: {parameters}",
+            }
+        )
 
     def publish_all_products(
         self,
@@ -996,3 +1037,32 @@ class SellerTools(Toolkit):
             return json.dumps(
                 [{"status": "error", "message": str(e), "stall_name": "unknown"}]
             )
+
+    def _create_payment_request(
+        self,
+        order_id: str,
+        payment_type: str,
+        payment_url: str,
+    ) -> str:
+        """
+        Create a payment request in JSON format.
+
+        Args:
+            order_id (str): ID of the order.
+            payment_type (PaymentType): Type of payment.
+            payment_url (str): URL of the payment.
+
+        Returns:
+            str: JSON string of the payment request.
+        """
+
+        payment_request = {
+            "id": order_id,
+            "type": 1,
+            "message": "Thank you for your business!",
+            "payment_options": [{"type": payment_type.lower(), "link": payment_url}],
+        }
+
+        return json.dumps(
+            payment_request, indent=2
+        )  # Convert to JSON string with pretty printing
