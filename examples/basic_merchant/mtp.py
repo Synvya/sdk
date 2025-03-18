@@ -32,12 +32,15 @@ else:
     keys = NostrKeys.from_private_key(NSEC)
 
 # --*-- Merchant info
-NAME = "Merchant Test Profile"
-DESCRIPTION = "A merchant test profile"
+ABOUT = "A merchant test profile"
+BANNER = "https://i.nostr.build/ENQ6OuMhoi2L17WD.png"
+DISPLAY_NAME = "Merchant Test Profile"
+NAME = "merchant"
+NIP05 = "merchant@synvya.com"
 PICTURE = "https://i.nostr.build/ocjZ5GlAKwrvgRhx.png"
 CURRENCY = "Sats"
 GEOHASH = "000000000"
-WEBSITE = "https://merchant.test"
+WEBSITE = "https://synvya.com"
 
 stall_shipping_methods = [
     StallShippingMethod(
@@ -131,7 +134,10 @@ products = [
 ]
 
 profile = Profile(keys.get_public_key())
+profile.set_about(ABOUT)
+profile.set_banner(BANNER)
+profile.set_display_name(DISPLAY_NAME)
 profile.set_name(NAME)
-profile.set_about(DESCRIPTION)
+profile.set_nip05(NIP05)
 profile.set_picture(PICTURE)
 profile.set_website(WEBSITE)
