@@ -88,7 +88,19 @@ def merchant_location_fixture() -> str:
 @pytest.fixture(scope="session", name="merchant_name")
 def merchant_name_fixture() -> str:
     """Fixture providing the test profile name"""
+    return "merchant"
+
+
+@pytest.fixture(scope="session", name="merchant_display_name")
+def merchant_display_name_fixture() -> str:
+    """Fixture providing the test profile display name"""
     return "Merchant Test Profile"
+
+
+@pytest.fixture(scope="session", name="merchant_nip05")
+def merchant_nip05_fixture() -> str:
+    """Fixture providing the test profile nip_05"""
+    return "airplanes-inc@synvya.com"
 
 
 @pytest.fixture(scope="session", name="merchant_picture")
@@ -110,8 +122,10 @@ def merchant_profile_fixture(
     merchant_banner: str,
     merchant_location: str,
     merchant_name: str,
+    merchant_display_name: str,
     merchant_picture: str,
     merchant_website: str,
+    merchant_nip05: str,
 ) -> Profile:
     """Fixture providing the test merchant profile"""
     profile = Profile(merchant_keys.get_public_key())
@@ -119,6 +133,8 @@ def merchant_profile_fixture(
     profile.set_about(merchant_about)
     profile.set_banner(merchant_banner)
     profile.set_name(merchant_name)
+    profile.set_display_name(merchant_display_name)
+    profile.set_nip05(merchant_nip05)
     profile.set_picture(merchant_picture)
     profile.set_website(merchant_website)
     return profile

@@ -9,6 +9,8 @@ from datetime import timedelta
 from pathlib import Path
 from typing import Dict, List, Optional
 
+import httpx
+
 from .models import NostrKeys, Product, Profile, Stall
 
 try:
@@ -30,7 +32,6 @@ try:
         PublicKey,
         RelayMessage,
         SingleLetterTag,
-        SubscribeOutput,
         Tag,
         TagKind,
         TagStandard,
@@ -489,6 +490,30 @@ class NostrClient:
         except Exception as e:
             raise RuntimeError(f"Failed to send private message: {e}") from e
 
+    def set_profile(self, profile: Profile) -> str:
+        """
+        Sets the properties of the profile associated with the Nostr client.
+        The public key of profile must match the private key of the Nostr client.
+        The profile is automatically published to the relay.
+
+        Args:
+            profile: Profile object with new properties
+
+        Returns:
+            str: id of the event publishing the profile
+
+        Raises:
+            RuntimeError: if the profile can't be published
+            ValueError: if the public key of the profile does not match the private
+            key of the Nostr client
+        """
+        if profile.get_public_key() != self.keys.public_key().to_bech32():
+            raise ValueError(
+                "Public key of the profile does not match the private key of the Nostr client"
+            )
+        self.profile = profile
+        return self.publish_profile()
+
     async def stop_notifications(self) -> None:
         """
         Gracefully stop handling notifications, with debug logs.
@@ -768,9 +793,14 @@ class NostrClient:
         Raises:
             RuntimeError: if the profile can't be published
         """
-        metadata_content = Metadata().set_name(self.profile.get_name())
-        metadata_content = metadata_content.set_about(self.profile.get_about())
+
+        metadata_content = Metadata().set_about(self.profile.get_about())
         metadata_content = metadata_content.set_banner(self.profile.get_banner())
+        metadata_content = metadata_content.set_display_name(
+            self.profile.get_display_name()
+        )
+        metadata_content = metadata_content.set_name(self.profile.get_name())
+        metadata_content = metadata_content.set_nip05(self.profile.get_nip05())
         metadata_content = metadata_content.set_picture(self.profile.get_picture())
         metadata_content = metadata_content.set_website(self.profile.get_website())
         event_builder = EventBuilder.metadata(metadata_content)
@@ -901,7 +931,8 @@ class NostrClient:
             metadata = await self.client.fetch_metadata(
                 public_key=public_key, timeout=timedelta(seconds=2)
             )
-            return Profile.from_metadata(metadata, public_key.to_bech32())
+            profile = await Profile.from_metadata(metadata, public_key.to_bech32())
+            return profile
         except Exception as e:
             raise RuntimeError(f"Unable to retrieve metadata: {e}") from e
 

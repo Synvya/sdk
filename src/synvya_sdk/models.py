@@ -2,10 +2,12 @@ import json
 import logging
 from typing import List, Optional
 
+import httpx
 from nostr_sdk import (
     Keys,
     Metadata,
     ProductData,
+    PublicKey,
     ShippingCost,
     ShippingMethod,
     StallData,
@@ -35,6 +37,8 @@ class Profile:
         self.display_name = ""
         self.locations: set[str] = set()
         self.name = ""
+        self.nip05 = ""
+        self.nip05_validated = False
         self.picture = ""
         self.profile_url = self.PROFILE_URL_PREFIX + public_key
         self.public_key = public_key
@@ -70,19 +74,34 @@ class Profile:
     def get_name(self) -> str:
         return self.name
 
+    def get_nip05(self) -> str:
+        return self.nip05
+
     def get_picture(self) -> str:
         return self.picture
 
     def get_profile_url(self) -> str:
         return self.profile_url
 
-    def get_public_key(self) -> str:
+    def get_public_key(self, encoding: str = "bech32") -> str:
         """Get the public key of the Nostr profile.
 
+        Args:
+            encoding: encoding to use for the public key.
+            Must be 'bech32' or 'hex'. Default is 'bech32'.
+
         Returns:
-            str: bech32 encoded public key of the Nostr profile
+            str: public key of the Nostr profile in the specified encoding
+
+        Raises:
+            ValueError: if the encoding is not 'bech32' or 'hex'
         """
-        return self.public_key
+        if encoding == "bech32":
+            return self.public_key
+        if encoding == "hex":
+            return PublicKey.parse(self.public_key).to_hex()
+        else:
+            raise ValueError("Invalid encoding. Must be 'bech32' or 'hex'.")
 
     def get_website(self) -> str:
         return self.website
@@ -90,11 +109,14 @@ class Profile:
     def is_bot(self) -> bool:
         return self.bot
 
+    def is_nip05_validated(self) -> bool:
+        return self.nip05_validated
+
     def set_about(self, about: str) -> None:
         self.about = about
 
     def set_banner(self, banner: str) -> None:
-        self.banner = banner
+        self.banner = self._validate_url(banner) if banner else ""
 
     def set_bot(self, bot: bool) -> None:
         self.bot = bot
@@ -105,11 +127,14 @@ class Profile:
     def set_name(self, name: str) -> None:
         self.name = name
 
+    def set_nip05(self, nip05: str) -> None:
+        self.nip05 = nip05
+
     def set_picture(self, picture: str) -> None:
-        self.picture = picture
+        self.picture = self._validate_url(picture) if picture else ""
 
     def set_website(self, website: str) -> None:
-        self.website = website
+        self.website = self._validate_url(website) if website else ""
 
     def to_dict(self) -> dict:
         """
@@ -119,32 +144,33 @@ class Profile:
             dict: dictionary representation of the PublicProfile
         """
         return {
-            "profile_url": self.profile_url,
-            "public_key": self.public_key,
-            "locations": list(self.locations),  # Convert set to list
-            "name": self.name,
-            "display_name": self.display_name,
             "about": self.about,
             "banner": self.banner,
-            "picture": self.picture,
-            "website": self.website,
             "bot": self.bot,
+            "display_name": self.display_name,
+            "locations": list(self.locations),  # Convert set to list
+            "name": self.name,
+            "nip05": self.nip05,
+            "picture": self.picture,
+            "profile_url": self.profile_url,
+            "public_key": self.public_key,
+            "website": self.website,
         }
 
     def to_json(self) -> str:
         data = {
-            "name": self.name,
-            "display_name": self.display_name,
             "about": self.about,
             "banner": self.banner,
+            "bot": str(self.bot),
+            "display_name": self.display_name,
+            # Convert set to list
+            "locations": (list(self.locations) if self.locations else []),
+            "name": self.name,
+            "nip05": self.nip05,
             "picture": self.picture,
-            "website": self.website,
             "profile_url": self.profile_url,
             "public_key": self.public_key,
-            "locations": (
-                list(self.locations) if self.locations else []
-            ),  # Convert set to list
-            "bot": str(self.bot),
+            "website": self.website,
         }
         return json.dumps(data)
 
@@ -156,15 +182,85 @@ class Profile:
     def __hash__(self) -> int:
         return hash(str(self.public_key))
 
+    async def _fetch_nip05_metadata(self, nip05: str) -> dict:
+        """
+        Fetch NIP-05 metadata from the well-known URL.
+
+        Args:
+            nip05: NIP-05 identifier in the format username@domain
+
+        Returns:
+            dict: Parsed JSON response containing metadata
+
+        Raises:
+            RuntimeError: if the request fails or returns an error
+        """
+        if "@" not in nip05:
+            raise ValueError("Invalid NIP-05 format. Expected name@domain.")
+
+        name, domain = nip05.split("@")
+        url = f"https://{domain}/.well-known/nostr.json?name={name}"
+
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await client.get(url)
+                response.raise_for_status()  # Raise an error for bad responses
+                return response.json()
+        except httpx.HTTPStatusError as e:
+            raise RuntimeError(
+                f"Failed to fetch NIP-05 metadata: {e.response.text}"
+            ) from e
+        except Exception as e:
+            raise RuntimeError(
+                f"An error occurred while fetching NIP-05 metadata: {e}"
+            ) from e
+
+    async def _validate_profile_nip05(self) -> bool:
+        """
+        Validate the NIP-05 of the profile.
+        """
+        if self.nip05 is None:
+            self.logger.error("Profile has no NIP-05")
+            return False
+        if self.nip05.startswith("@"):
+            self.logger.error("Profile NIP-05 must not start with @")
+            return False
+
+        nostr_json = await self._fetch_nip05_metadata(self.nip05)
+        if "names" in nostr_json:
+            for name, public_key in nostr_json["names"].items():
+                if name == self.name and public_key == self.get_public_key("hex"):
+                    self.logger.info("Profile NIP-05 validated successfully.")
+                    return True
+        self.logger.error("Profile NIP-05 validation failed.")
+        return False
+
+    def _validate_url(self, url: str) -> str:
+        """Validate and normalize URL.
+
+        Args:
+            url: URL to validate
+
+        Returns:
+            str: Validated URL or empty string if invalid
+        """
+        if not url:
+            return ""
+        if not url.startswith(("http://", "https://")):
+            return ""
+        return url
+
     @classmethod
-    def from_metadata(cls, metadata: Metadata, public_key: str) -> "Profile":
+    async def from_metadata(cls, metadata: Metadata, public_key: str) -> "Profile":
         profile = cls(public_key)
         profile.set_about(metadata.get_about())
         profile.set_banner(metadata.get_banner())
         profile.set_display_name(metadata.get_display_name())
         profile.set_name(metadata.get_name())
+        profile.set_nip05(metadata.get_nip05())
         profile.set_picture(metadata.get_picture())
         profile.set_website(metadata.get_website())
+        profile.nip05_validated = await profile._validate_profile_nip05()
         return profile
 
     @classmethod
@@ -182,8 +278,10 @@ class Profile:
         profile = cls(public_key=data["public_key"])
         profile.set_about(data.get("about", ""))
         profile.set_banner(data.get("banner", ""))
+        profile.set_bot(data.get("bot", False))
         profile.set_display_name(data.get("display_name", ""))
         profile.set_name(data.get("name", ""))
+        profile.set_nip05(data.get("nip05", ""))
         profile.set_picture(data.get("picture", ""))
         profile.set_website(data.get("website", ""))
         profile.locations = set(data.get("locations", []))
@@ -227,11 +325,28 @@ class NostrKeys(BaseModel):
         return cls(keys.public_key().to_bech32(), private_key)
 
     @classmethod
-    def parse(cls, private_key: str) -> str:
+    def derive_public_key(cls, private_key: str, encoding: str = "bech32") -> str:
         """
-        Class method to parse a private key and return a public key in bech32 format.
+        Class method to parse a private key and return a public key
+        in bech32 or hex format.
+
+        Args:
+            private_key (str): The private key to derive the public key from.
+            encoding (str): The encoding to use for the public key. Must be
+            'bech32' or 'hex'. Default is 'bech32'.
+
+        Returns:
+            str: The public key in the specified encoding.
+
+        Raises:
+            ValueError: If the encoding is not 'bech32' or 'hex'.
         """
-        return Keys.parse(private_key).public_key().to_bech32()
+        if encoding not in {"bech32", "hex"}:
+            raise ValueError("Invalid format. Must be 'bech32' or 'hex'.")
+        if encoding == "bech32":
+            return Keys.parse(private_key).public_key().to_bech32()
+        if encoding == "hex":
+            return Keys.parse(private_key).public_key().to_hex()
 
 
 class ProductShippingCost(BaseModel):
@@ -350,12 +465,16 @@ class Product(BaseModel):
         the seller's public key.
 
         Args:
-            seller: str
+            seller: str in bech32 format
         """
         self.seller = seller
 
     def get_seller(self) -> str:
-        """Get the seller of the product."""
+        """Get the seller of the product.
+
+        Returns:
+            str: seller of the product in bech32 format
+        """
         return self.seller
 
     @classmethod

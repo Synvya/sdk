@@ -320,6 +320,14 @@ class BuyerTools(Toolkit):
             logger.error("Error getting product from knowledge base: %s", e)
             return json.dumps({"status": "error", "message": str(e)})
 
+        # Confirm seller has valid NIP-05
+        seller_profile = self._nostr_client.retrieve_profile(product.get_seller())
+        if not seller_profile.is_nip05_validated():
+            logger.error("Seller %s does not have a valid NIP-05", product.get_seller())
+            return json.dumps(
+                {"status": "error", "message": "Seller does not have a valid NIP-05"}
+            )
+
         # Choosing the first shipping zone for now
         # Address is hardcoded for now. Add it to the buyer profile later.
         order_msg = self._create_customer_order(
