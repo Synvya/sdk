@@ -93,9 +93,11 @@ class NostrClient:
         try:
             # Download the profile from the relay if it already exists
             self.profile = self.retrieve_profile(self.keys.public_key().to_bech32())
-        except RuntimeError:
+        except ValueError:
             # If the profile doesn't exist, create a new one
             self.profile = Profile(self.keys.public_key().to_bech32())
+        except RuntimeError as e:
+            raise RuntimeError(f"Unable to connect to relay: {e}") from e
 
     def delete_event(self, event_id: str, reason: Optional[str] = None) -> str:
         """
@@ -200,23 +202,6 @@ class NostrClient:
         except RuntimeError as e:
             raise RuntimeError(f"Failed to publish product: {e}") from e
 
-    def publish_profile(self) -> str:
-        """
-        Publish the Nostr client profile
-
-        Returns:
-            str: id of the event publishing the profile
-
-        Raises:
-            RuntimeError: if the profile can't be published
-        """
-        # Run the async publishing function synchronously
-        try:
-            event_id_obj = asyncio.run(self._async_publish_profile())
-            return event_id_obj.to_bech32()
-        except RuntimeError as e:
-            raise RuntimeError(f"Failed to publish profile: {e}") from e
-
     def publish_stall(self, stall: Stall) -> str:
         """Publish a stall to nostr
 
@@ -294,7 +279,7 @@ class NostrClient:
             (skips authors with missing metadata)
 
         Raises:
-            RuntimeError: if the stalls can't be retrieved
+            RuntimeError: if it can't connect to the relay
         """
 
         # First we retrieve all stalls from the relay
@@ -322,8 +307,10 @@ class NostrClient:
                         # Add profile to the dictionary
                         # associated with the author's PublicKey
                         authors[event.author()] = profile
-                    except RuntimeError:
+                    except ValueError:
                         continue
+                    except RuntimeError as e:
+                        raise e
 
                 # Now we add locations from the event locations to the profile
 
@@ -414,19 +401,22 @@ class NostrClient:
             Profile: profile of the author
 
         Raises:
-            RuntimeError: if the profile can't be retrieved
+            ValueError: if the public key is invalid
+            RuntimeError: if it can't connect to the relay
         """
 
         # Convert public_key to PublicKey
         try:
             public_key_obj = PublicKey.parse(public_key)
         except Exception as e:
-            raise RuntimeError(f"Invalid public key: {e}") from e
+            raise ValueError(f"Invalid public key: {e}") from e
 
         try:
             return asyncio.run(self._async_retrieve_profile(public_key_obj))
-        except Exception as e:
-            raise RuntimeError(f"Failed to retrieve profile: {e}") from e
+        except RuntimeError as e:
+            raise e
+        except ValueError as e:
+            raise e
 
     def retrieve_stalls_from_merchant(self, merchant: str) -> List[Stall]:
         """
@@ -512,7 +502,11 @@ class NostrClient:
                 "Public key of the profile does not match the private key of the Nostr client"
             )
         self.profile = profile
-        return self.publish_profile()
+        try:
+            event_id_obj = asyncio.run(self._async_publish_profile())
+            return event_id_obj.to_bech32()
+        except RuntimeError as e:
+            raise RuntimeError(f"Failed to publish profile: {e}") from e
 
     async def stop_notifications(self) -> None:
         """
@@ -922,7 +916,8 @@ class NostrClient:
             Profile: profile associated with the public key
 
         Raises:
-            RuntimeError: if the profile can't be retrieved
+            RuntimeError: if it can't connect to the relay
+            ValueError: if a profile is not found
         """
         try:
             if not self.connected:
@@ -933,8 +928,10 @@ class NostrClient:
             )
             profile = await Profile.from_metadata(metadata, public_key.to_bech32())
             return profile
+        except RuntimeError as e:
+            raise RuntimeError(f"Unable to connect to relay: {e}") from e
         except Exception as e:
-            raise RuntimeError(f"Unable to retrieve metadata: {e}") from e
+            raise ValueError(f"Unable to retrieve metadata: {e}") from e
 
     async def _async_retrieve_stalls_from_merchant(self, merchant: PublicKey) -> Events:
         """

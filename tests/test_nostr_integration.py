@@ -22,6 +22,8 @@ def nostr_client_fixture(relay: str, merchant_keys: NostrKeys) -> NostrClient:
     """Fixture providing a NostrClient instance"""
     nostr_client = NostrClient(relay, merchant_keys.get_private_key())
     nostr_client.set_logging_level(logging.DEBUG)
+    print(f"Merchant public key: {merchant_keys.get_public_key()}")
+    print(f"Merchant public key hex: {merchant_keys.get_public_key(encoding='hex')}")
     return nostr_client
 
 
@@ -37,6 +39,7 @@ class TestNostrClient:
         merchant_name: str,
         merchant_nip05: str,
         merchant_picture: str,
+        merchant_website: str,
     ) -> None:
         """Test publishing a profile"""
         profile = nostr_client.get_profile()
@@ -46,6 +49,7 @@ class TestNostrClient:
         profile.set_name(merchant_name)
         profile.set_nip05(merchant_nip05)
         profile.set_picture(merchant_picture)
+        profile.set_website(merchant_website)
         event_id = nostr_client.set_profile(profile)
 
         assert isinstance(event_id, str)
@@ -110,6 +114,7 @@ class TestNostrClient:
     ) -> None:
         """Test async retrieve profile"""
         profile = nostr_client.retrieve_profile(merchant_keys.get_public_key())
+        print(f"Profile: {profile}")
         assert profile is not None
         assert profile.is_nip05_validated()
 
