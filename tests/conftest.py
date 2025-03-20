@@ -79,6 +79,12 @@ def merchant_banner_fixture() -> str:
     return "https://i.nostr.build/ENQ6OuMhoi2L17WD.png"
 
 
+@pytest.fixture(scope="session", name="merchant_bot")
+def merchant_bot_fixture() -> bool:
+    """Fixture providing the test profile bot"""
+    return True
+
+
 @pytest.fixture(scope="session", name="merchant_location")
 def merchant_location_fixture() -> str:
     """Fixture providing the test location"""
@@ -120,6 +126,7 @@ def merchant_profile_fixture(
     merchant_keys: NostrKeys,
     merchant_about: str,
     merchant_banner: str,
+    merchant_bot: bool,
     merchant_location: str,
     merchant_name: str,
     merchant_display_name: str,
@@ -132,6 +139,7 @@ def merchant_profile_fixture(
     profile.add_location(merchant_location)
     profile.set_about(merchant_about)
     profile.set_banner(merchant_banner)
+    profile.set_bot(merchant_bot)
     profile.set_name(merchant_name)
     profile.set_display_name(merchant_display_name)
     profile.set_nip05(merchant_nip05)

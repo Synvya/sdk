@@ -4,6 +4,7 @@ from typing import List, Optional
 
 import httpx
 from nostr_sdk import (
+    JsonValue,
     Keys,
     Metadata,
     ProductData,
@@ -264,6 +265,11 @@ class Profile:
         profile.set_nip05(metadata.get_nip05())
         profile.set_picture(metadata.get_picture())
         profile.set_website(metadata.get_website())
+        json_bot = metadata.get_custom_field("bot")
+        if isinstance(json_bot, JsonValue.BOOL):
+            profile.set_bot(json_bot.bool)
+        else:
+            profile.set_bot(False)
         try:
             profile.nip05_validated = await profile._validate_profile_nip05()
         except Exception as e:

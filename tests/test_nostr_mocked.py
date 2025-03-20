@@ -28,7 +28,7 @@ def mock_nostr_client(  # type: ignore[no-untyped-def]
     with patch("synvya_sdk.NostrClient") as mock_client:
         instance = mock_client.return_value
         instance.profile = merchant_profile
-        instance.publish_profile.return_value = profile_event_id
+        instance.set_profile.return_value = profile_event_id
         instance.publish_stall.return_value = stall_event_ids[0]
         instance.publish_product.return_value = product_event_ids[0]
         instance.retrieve_products_from_merchant.return_value = products
@@ -41,9 +41,11 @@ def mock_nostr_client(  # type: ignore[no-untyped-def]
 class TestNostrClientMocked:
     """Mocked test suite for NostrClient"""
 
-    def test_publish_profile(self, nostr_client: NostrClient) -> None:
+    def test_publish_profile(
+        self, nostr_client: NostrClient, merchant_profile: Profile
+    ) -> None:
         """Test publishing a profile"""
-        event_id = nostr_client.publish_profile()
+        event_id = nostr_client.set_profile(merchant_profile)
         assert isinstance(event_id, str)
 
     def test_publish_stall(
