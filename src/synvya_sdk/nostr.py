@@ -24,6 +24,7 @@ try:
         Events,
         Filter,
         HandleNotification,
+        JsonValue,
         Keys,
         Kind,
         Metadata,
@@ -797,6 +798,9 @@ class NostrClient:
         metadata_content = metadata_content.set_nip05(self.profile.get_nip05())
         metadata_content = metadata_content.set_picture(self.profile.get_picture())
         metadata_content = metadata_content.set_website(self.profile.get_website())
+        metadata_content = metadata_content.set_custom_field(
+            key="bot", value=JsonValue.BOOL(self.profile.is_bot())
+        )
         event_builder = EventBuilder.metadata(metadata_content)
         return await self._async_publish_event(event_builder)
 
