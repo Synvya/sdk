@@ -134,7 +134,7 @@ def test_profile_operations(
         assert profile["name"] == merchant_name
         assert profile["about"] == merchant_about
 
-    with patch.object(seller_tools._nostr_client, "publish_profile") as mock_publish:
-        mock_publish.return_value = profile_event_id
-        result = seller_tools.publish_profile()
+    with patch.object(seller_tools._nostr_client, "set_profile") as mock_set_profile:
+        mock_set_profile.return_value = profile_event_id
+        result = seller_tools.set_profile(merchant_profile)
         assert isinstance(result, str)

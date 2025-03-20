@@ -28,7 +28,7 @@ class Profile:
     """
 
     PROFILE_URL_PREFIX: str = "https://primal.net/p/"
-    logger = logging.getLogger("PublicProfile")
+    logger = logging.getLogger("Profile")
 
     def __init__(self, public_key: str) -> None:
         self.about = ""
@@ -226,7 +226,11 @@ class Profile:
             self.logger.error("Profile NIP-05 must not start with @")
             return False
 
-        nostr_json = await self._fetch_nip05_metadata(self.nip05)
+        try:
+            nostr_json = await self._fetch_nip05_metadata(self.nip05)
+        except Exception as e:
+            self.logger.error(f"Failed to fetch NIP-05 metadata: {e}")
+            return False
         if "names" in nostr_json:
             for name, public_key in nostr_json["names"].items():
                 if name == self.name and public_key == self.get_public_key("hex"):
@@ -260,7 +264,11 @@ class Profile:
         profile.set_nip05(metadata.get_nip05())
         profile.set_picture(metadata.get_picture())
         profile.set_website(metadata.get_website())
-        profile.nip05_validated = await profile._validate_profile_nip05()
+        try:
+            profile.nip05_validated = await profile._validate_profile_nip05()
+        except Exception as e:
+            profile.logger.error(f"Failed to validate NIP-05: {e}")
+            profile.nip05_validated = False
         return profile
 
     @classmethod
@@ -302,9 +310,26 @@ class NostrKeys(BaseModel):
         self.public_key = public_key
         self.private_key = private_key
 
-    def get_public_key(self) -> str:
-        """Get the public key."""
-        return self.public_key
+    def get_public_key(self, encoding: str = "bech32") -> str:
+        """
+        Get the public key.
+
+        Args:
+            encoding (str, optional): The encoding format for the public key.
+            Must be 'bech32' or 'hex'. Default is 'bech32'.
+
+        Returns:
+            str: public key
+
+        Raises:
+            ValueError: If the encoding is not 'bech32' or 'hex'.
+        """
+        if encoding == "bech32":
+            return self.public_key
+        elif encoding == "hex":
+            return PublicKey.parse(self.public_key).to_hex()
+        else:
+            raise ValueError("Invalid encoding. Must be 'bech32' or 'hex'.")
 
     def get_private_key(self) -> str:
         """Get the private key."""

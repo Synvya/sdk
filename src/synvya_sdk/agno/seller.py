@@ -9,7 +9,7 @@ from typing import Any, List, Optional, Tuple, Union
 from nostr_sdk import EventId
 from pydantic import ConfigDict
 
-from synvya_sdk import NostrClient, Product, Stall
+from synvya_sdk import NostrClient, Product, Profile, Stall
 
 try:
     from agno.tools import Toolkit
@@ -81,13 +81,13 @@ class SellerTools(Toolkit):
         self.register(self.publish_new_product)
         self.register(self.publish_product_by_name)
         self.register(self.publish_products_by_stall_name)
-        self.register(self.publish_profile)
         self.register(self.publish_new_stall)
         self.register(self.publish_stall_by_name)
         self.register(self.remove_all_products)
         self.register(self.remove_all_stalls)
         self.register(self.remove_product_by_name)
         self.register(self.remove_stall_by_name)
+        # self.register(self.set_profile)
 
     def get_profile(self) -> str:
         """
@@ -495,9 +495,10 @@ class SellerTools(Toolkit):
                 [{"status": "error", "message": str(e), "arguments": str(arguments)}]
             )
 
-    def publish_profile(self) -> str:
+    def set_profile(self, profile: Profile) -> str:
         """
-        Publishes the profile to Nostr
+        Sets the profile used by the Toolkit.
+        The profile is also published to the Nostr network.
 
         Returns:
             str: id of the event publishing the profile
@@ -510,7 +511,7 @@ class SellerTools(Toolkit):
             raise ValueError("NostrClient not initialized")
 
         try:
-            return self._nostr_client.publish_profile()
+            return self._nostr_client.set_profile(profile)
         except RuntimeError as e:
             logger.error("Unable to publish the profile: %s", e)
             raise RuntimeError(f"Unable to publish the profile: {e}") from e

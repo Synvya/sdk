@@ -94,13 +94,13 @@ def merchant_name_fixture() -> str:
 @pytest.fixture(scope="session", name="merchant_display_name")
 def merchant_display_name_fixture() -> str:
     """Fixture providing the test profile display name"""
-    return "Merchant Test Profile"
+    return "Merchant Inc."
 
 
 @pytest.fixture(scope="session", name="merchant_nip05")
 def merchant_nip05_fixture() -> str:
     """Fixture providing the test profile nip_05"""
-    return "airplanes-inc@synvya.com"
+    return "merchant@synvya.com"
 
 
 @pytest.fixture(scope="session", name="merchant_picture")
@@ -112,7 +112,7 @@ def merchant_picture_fixture() -> str:
 @pytest.fixture(scope="session", name="merchant_website")
 def merchant_website_fixture() -> str:
     """Fixture providing the test profile website"""
-    return "https://merchant.test"
+    return "https://www.synvya.com"
 
 
 @pytest.fixture(scope="session", name="merchant_profile")
