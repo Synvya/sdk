@@ -269,7 +269,7 @@ class MerchantTools(Toolkit):
                 logger.debug(
                     "Published product %s with categories %s",
                     product.name,
-                    product.categories,
+                    ", ".join(product.categories),
                 )
                 self.product_db[i] = (product, event_id)
                 results.append(
