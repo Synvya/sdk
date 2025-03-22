@@ -220,9 +220,6 @@ class MerchantTools(Toolkit):
                     product,
                     event_id,
                 )
-            logger.debug(
-                f"Published product {product.name} with categories {', '.join(product.categories)}"
-            )
             return json.dumps(
                 {
                     "status": "success",
@@ -269,9 +266,12 @@ class MerchantTools(Toolkit):
                 continue
             try:
                 event_id = self._nostr_client.set_product(product)
+                categories = product.categories if product.categories else []
+                categories_str = ", ".join(categories)
                 logger.debug(
-                    f"Published product {product.name} with categories {', '.join(product.categories)}"
+                    f"Published product {product.name} with categories {categories_str}"
                 )
+
                 self.product_db[i] = (product, event_id)
                 results.append(
                     {
