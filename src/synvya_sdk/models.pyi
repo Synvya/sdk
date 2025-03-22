@@ -1,11 +1,43 @@
 from enum import Enum
 from logging import Logger
-from typing import ClassVar, List, Set
+from typing import ClassVar, List, Optional, Set
 
 from nostr_sdk import Metadata, ProductData, ShippingCost, ShippingMethod, StallData
 from pydantic import BaseModel
 
-class Profile:
+class ProfileCategory(Enum):
+    """
+    Represents a profile category.
+    """
+
+    RETAIL = "retail"
+    RESTAURANT = "restaurant"
+    SERVICE = "service"
+    BUSINESS = "business"
+    ENTERTAINMENT = "entertainment"
+    OTHER = "other"
+    GAMER = "gamer"
+
+class ProfileFilter(BaseModel):
+    """
+    Represents a profile filter.
+    """
+
+    namespace: str
+    category: ProfileCategory
+    hashtags: List[str]
+
+    def __init__(
+        self,
+        namespace: str,
+        category: ProfileCategory,
+        hashtags: Optional[List[str]] = None,
+    ) -> None: ...
+    def to_json(self) -> str: ...
+    @classmethod
+    def from_json(cls, json_str: str) -> "ProfileFilter": ...
+
+class Profile(BaseModel):
     """
     Nostr Profile class with public key only. Used to represent a third party profile.
     """
@@ -146,6 +178,7 @@ class Product(BaseModel):
     def to_product_data(self) -> ProductData: ...
     def to_dict(self) -> dict: ...
     def to_json(self) -> str: ...
+    def __eq__(self, other: object) -> bool: ...
 
 class Stall(BaseModel):
     id: str

@@ -9,9 +9,7 @@ from datetime import timedelta
 from pathlib import Path
 from typing import Dict, List, Optional
 
-import httpx
-
-from .models import NostrKeys, Product, Profile, Stall
+from .models import NostrKeys, Product, Profile, ProfileFilter, Stall
 
 try:
     from nostr_sdk import (
@@ -56,6 +54,10 @@ class NostrClient:
 
     logger = logging.getLogger("NostrClient")
 
+    # ----------------------------------------------------------------
+    # Public methods
+    # ----------------------------------------------------------------
+
     def __init__(self, relay: str, private_key: str) -> None:
         """
         Initialize the Nostr client.
@@ -93,7 +95,10 @@ class NostrClient:
 
         try:
             # Download the profile from the relay if it already exists
-            self.profile = self.retrieve_profile(self.keys.public_key().to_bech32())
+            # self.profile = self.retrieve_profile(self.keys.public_key().to_bech32())
+            self.profile = asyncio.run(
+                self._async_get_profile_from_relay(self.keys.public_key())
+            )
         except ValueError:
             # If the profile doesn't exist, create a new one
             self.profile = Profile(self.keys.public_key().to_bech32())
@@ -124,156 +129,17 @@ class NostrClient:
         return_event_id_obj = asyncio.run(self._async_publish_event(event_builder))
         return return_event_id_obj.to_bech32()
 
-    def listen_for_messages(self) -> str:
-        """Listen for direct messages and private messages from the relay
-
-        Returns:
-            str: The response from listening
-
-        Raises:
-            RuntimeError: if encountering an error while listening
-        """
-        try:
-            response = asyncio.run(self._async_listen_for_messages())
-            NostrClient.logger.debug("Message received: %s", response)
-            return response
-        except RuntimeError as e:
-            raise RuntimeError(f"Failed to listen for messages: {e}") from e
-
-    def publish_event(self, kind: int, content: str) -> str:
-        """Publish a generic Nostr event to the relay
-
-        Args:
-            kind: kind of the event
-            content: content of the event
-            tags: tags of the event
-
-        Returns:
-            str: id of the event published
-
-        Raises:
-            RuntimeError: if the event can't be published
-        """
-        raise NotImplementedError("This function is not implemented yet")
-
-    def get_profile(self) -> Profile:
-        """Get the Nostr profile of the client
-
-        Returns:
-            Profile: Nostr profile of the client
-        """
-        return self.profile
-
-    def publish_note(self, text: str) -> str:
-        """Publish note with event kind 1
-
-        Args:
-            text: text to be published as kind 1 event
-
-        Returns:
-            str: id of the event publishing the note
-
-        Raises:
-            RuntimeError: if the note can't be published
-        """
-        # Run the async publishing function synchronously
-        try:
-            event_id_obj = asyncio.run(self._async_publish_note(text))
-            return event_id_obj.to_bech32()
-        except RuntimeError as e:
-            raise RuntimeError(f"Failed to publish note: {e}") from e
-
-    def publish_product(self, product: Product) -> str:
-        """
-        Create or update a NIP-15 Marketplace product with event kind 30018
-
-        Args:
-            product: Product to be published
-
-        Returns:
-            str: id of the event publishing the product
-
-        Raises:
-            RuntimeError: if the product can't be published
-        """
-        # Run the async publishing function synchronously
-        try:
-            event_id_obj = asyncio.run(self._async_publish_product(product))
-            return event_id_obj.to_bech32()
-        except RuntimeError as e:
-            raise RuntimeError(f"Failed to publish product: {e}") from e
-
-    def publish_stall(self, stall: Stall) -> str:
-        """Publish a stall to nostr
-
-        Args:
-            stall: Stall to be published
-
-        Returns:
-            str: id of the event publishing the stall
-
-        Raises:
-            RuntimeError: if the stall can't be published
-        """
-        try:
-            event_id_obj = asyncio.run(self._async_publish_stall(stall))
-            return event_id_obj.to_bech32()
-        except RuntimeError as e:
-            raise RuntimeError(f"Failed to publish stall: {e}") from e
-
-    def retrieve_marketplace_merchants(
-        self, owner: str, marketplace_name: str
+    def get_merchants(
+        self, profile_filter: Optional[ProfileFilter] = None
     ) -> set[Profile]:
         """
-        Retrieve all merchants associated with a given marketplace.
+        Retrieve all merchants from the relay that match the filter.
+
+        If no ProfileFilter is provided, all Nostr profiles that have published a stall
+        are included in the results.
 
         Args:
-            owner: Nostr public key of the marketplace owner in bech32 or hex format
-            marketplace_name: name of the marketplace
-
-        Returns:
-            set[Profile]: set of merchant profiles.
-            (skips authors with missing metadata)
-
-        Raises:
-            RuntimeError: if the owner key is invalid
-            RuntimeError: if the marketplace can't be retrieved
-        """
-
-        # Convert owner to PublicKey
-        try:
-            owner_key = PublicKey.parse(owner)
-        except Exception as e:
-            raise RuntimeError(f"Invalid owner key: {e}") from e
-
-        events_filter = Filter().kind(Kind(30019)).authors([owner_key])
-        try:
-            events = asyncio.run(self._async_retrieve_events(events_filter))
-        except Exception as e:
-            raise RuntimeError(f"Failed to retrieve marketplace: {e}") from e
-
-        events_list = events.to_vec()
-        merchants_dict: Dict[PublicKey, Profile] = {}
-
-        for event in events_list:
-            content = json.loads(event.content())
-            if content.get("name") == marketplace_name:
-                merchants = content.get("merchants", [])
-                for merchant in merchants:
-                    try:
-                        public_key = PublicKey.parse(merchant)
-                        profile = asyncio.run(self._async_retrieve_profile(public_key))
-                        merchants_dict[public_key] = profile
-                    except RuntimeError:
-                        continue
-
-        return set(merchants_dict.values())
-
-    def retrieve_all_merchants(self) -> set[Profile]:
-        """
-        Retrieve all merchants from the relay.
-        Merchants are npubs who have published a stall.
-        Return set may be empty if metadata can't be retrieved for any author.
+            profile_filter: filter to apply to the results
 
         Returns:
             set[Profile]: set of merchant profiles
@@ -283,10 +149,13 @@ class NostrClient:
             RuntimeError: if it can't connect to the relay
         """
 
-        # First we retrieve all stalls from the relay
+        if profile_filter is not None:
+            raise NotImplementedError("Filtering not implemented.")
+
+        # No filtering is applied, so we retrieve all stalls from the relay
 
         try:
-            events = asyncio.run(self._async_retrieve_all_stalls())
+            events = asyncio.run(self._async_get_stalls())
         except Exception as e:
             raise RuntimeError(f"Failed to retrieve stalls: {e}") from e
 
@@ -303,7 +172,7 @@ class NostrClient:
                     # Let's add the profile to the dictionary
                     try:
                         profile = asyncio.run(
-                            self._async_retrieve_profile(event.author())
+                            self._async_get_profile_from_relay(event.author())
                         )
                         # Add profile to the dictionary
                         # associated with the author's PublicKey
@@ -332,13 +201,79 @@ class NostrClient:
         # once we're done iterating over the events, we return the set of profiles
         return set(authors.values())
 
-    def retrieve_products_from_merchant(self, merchant: str) -> List[Product]:
+    def get_merchants_in_marketplace(
+        self,
+        marketplace_owner: str,
+        marketplace_name: str,
+        profile_filter: Optional[ProfileFilter] = None,
+    ) -> set[Profile]:
+        """
+        Retrieve all merchants from the relay that belong to the marketplace
+        and match the filter.
+
+        If no ProfileFilter is provided, all Nostr profiles included in the marketplace
+        are included in the results.
+
+        Args:
+            marketplace_owner: Nostr public key of the marketplace owner in bech32 or hex format
+            marketplace_name: name of the marketplace
+            profile_filter: filter to apply to the results
+
+        Returns:
+            set[Profile]: set of merchant profiles
+            (skips authors with missing metadata)
+
+        Raises:
+            ValueError: if the owner key is invalid
+            RuntimeError: if the marketplace can't be retrieved
+        """
+
+        if profile_filter is not None:
+            raise NotImplementedError("Filtering not implemented.")
+
+        # Downloading all merchants in the marketplace
+
+        # Convert owner to PublicKey
+        try:
+            owner_key = PublicKey.parse(marketplace_owner)
+        except Exception as e:
+            raise ValueError(f"Invalid owner key: {e}") from e
+
+        events_filter = Filter().kind(Kind(30019)).author(owner_key)
+        try:
+            events = asyncio.run(self._async_get_events(events_filter))
+        except Exception as e:
+            raise RuntimeError(f"Failed to retrieve marketplace: {e}") from e
+
+        events_list = events.to_vec()
+        merchants_dict: Dict[PublicKey, Profile] = {}
+
+        for event in events_list:
+            content = json.loads(event.content())
+            if content.get("name") == marketplace_name:
+                merchants = content.get("merchants", [])
+                for merchant in merchants:
+                    try:
+                        public_key = PublicKey.parse(merchant)
+                        profile = asyncio.run(
+                            self._async_get_profile_from_relay(public_key)
+                        )
+                        merchants_dict[public_key] = profile
+                    except RuntimeError:
+                        continue
+
+        return set(merchants_dict.values())
+
+    def get_products(
+        self, merchant: str, stall: Optional[Stall] = None
+    ) -> List[Product]:
         """
         Retrieve all products from a given merchant.
+        Optional stall argument to only retrieve products from a specific stall.
 
         Args:
             merchant: Nostr public key of the merchant in bech32 or hex format
-
+            stall: Optional stall to filter products by
         Returns:
             List[Product]: list of products from the merchant
 
@@ -355,9 +290,7 @@ class NostrClient:
             raise RuntimeError(f"Invalid merchant key: {e}") from e
 
         try:
-            events = asyncio.run(
-                self._async_retrieve_products_from_merchant(merchant_key)
-            )
+            events = asyncio.run(self._async_get_products(merchant_key, stall))
             events_list = events.to_vec()
             for event in events_list:
                 content = json.loads(event.content())
@@ -391,35 +324,32 @@ class NostrClient:
         except Exception as e:
             raise RuntimeError(f"Failed to retrieve products: {e}") from e
 
-    def retrieve_profile(self, public_key: str) -> Profile:
+    def get_profile(self, public_key: Optional[str] = None) -> Profile:
         """
-        Retrieve a Nostr profile from the relay.
+        Get the Nostr profile of the client if no argument is provided.
+        Otherwise, get the Nostr profile of the public key provided as argument.
 
         Args:
-            public_key: public key of the profile to retrieve in bech32 or hex format
+            public_key: public key in bech32 or hex format of the profile to retrieve
 
         Returns:
-            Profile: profile of the author
+            Profile: own profile if no argument is provided, otherwise the profile
+            of the given public key
 
         Raises:
-            ValueError: if the public key is invalid
-            RuntimeError: if it can't connect to the relay
+            RuntimeError: if the profile can't be retrieved
         """
+        if public_key is None:
+            return self.profile
 
-        # Convert public_key to PublicKey
         try:
-            public_key_obj = PublicKey.parse(public_key)
+            return asyncio.run(
+                self._async_get_profile_from_relay(PublicKey.parse(public_key))
+            )
         except Exception as e:
-            raise ValueError(f"Invalid public key: {e}") from e
+            raise RuntimeError(f"Failed to retrieve profile: {e}") from e
 
-        try:
-            return asyncio.run(self._async_retrieve_profile(public_key_obj))
-        except RuntimeError as e:
-            raise e
-        except ValueError as e:
-            raise e
-
-    def retrieve_stalls_from_merchant(self, merchant: str) -> List[Stall]:
+    def get_stalls(self, merchant: str) -> List[Stall]:
         """
         Retrieve all stalls from a given merchant.
 
@@ -441,9 +371,7 @@ class NostrClient:
             raise RuntimeError(f"Invalid merchant key: {e}") from e
 
         try:
-            events = asyncio.run(
-                self._async_retrieve_stalls_from_merchant(merchant_key)
-            )
+            events = asyncio.run(self._async_get_stalls(merchant_key))
             events_list = events.to_vec()
             for event in events_list:
                 try:
@@ -459,9 +387,46 @@ class NostrClient:
         except Exception as e:
             raise RuntimeError(f"Failed to retrieve stalls: {e}") from e
 
-    def send_private_message(self, public_key: str, message: str) -> str:
+    def publish_note(self, text: str) -> str:
+        """Publish note with event kind 1
+
+        Args:
+            text: text to be published as kind 1 event
+
+        Returns:
+            str: id of the event publishing the note
+
+        Raises:
+            RuntimeError: if the note can't be published
         """
-        Send a private message to a given Nostr public key.
+        # Run the async publishing function synchronously
+        try:
+            event_id_obj = asyncio.run(self._async_publish_note(text))
+            return event_id_obj.to_bech32()
+        except RuntimeError as e:
+            raise RuntimeError(f"Failed to publish note: {e}") from e
+
+    def receive_message(self) -> str:
+        """
+        Listen for messages from the relay.
+        Supports NIP-17 messages as well as (deprecated) NIP-04 messages.
+
+        Returns:
+            str: The response from listening
+
+        Raises:
+            RuntimeError: if encountering an error while listening
+        """
+        try:
+            response = asyncio.run(self._async_receive_message())
+            NostrClient.logger.debug("Message received: %s", response)
+            return response
+        except RuntimeError as e:
+            raise RuntimeError(f"Failed to listen for messages: {e}") from e
+
+    def send_message(self, public_key: str, message: str) -> str:
+        """
+        Send a NIP-17 Direct Message kind `14` to a Nostr public key.
 
         Args:
             public_key: public key of the recipient in bech32 or hex format
@@ -475,11 +440,31 @@ class NostrClient:
         """
         try:
             event_id_obj = asyncio.run(
-                self._async_send_private_message(PublicKey.parse(public_key), message)
+                self._async_send_message(PublicKey.parse(public_key), message)
             )
             return event_id_obj.to_bech32()
         except Exception as e:
-            raise RuntimeError(f"Failed to send private message: {e}") from e
+            raise RuntimeError(f"Failed to send message: {e}") from e
+
+    def set_product(self, product: Product) -> str:
+        """
+        Create or update a NIP-15 Marketplace product with event kind 30018
+
+        Args:
+            product: Product to be published
+
+        Returns:
+            str: id of the event publishing the product
+
+        Raises:
+            RuntimeError: if the product can't be published
+        """
+        # Run the async publishing function synchronously
+        try:
+            event_id_obj = asyncio.run(self._async_set_product(product))
+            return event_id_obj.to_bech32()
+        except RuntimeError as e:
+            raise RuntimeError(f"Failed to publish product: {e}") from e
 
     def set_profile(self, profile: Profile) -> str:
         """
@@ -504,10 +489,28 @@ class NostrClient:
             )
         self.profile = profile
         try:
-            event_id_obj = asyncio.run(self._async_publish_profile())
+            event_id_obj = asyncio.run(self._async_set_profile())
             return event_id_obj.to_bech32()
         except RuntimeError as e:
             raise RuntimeError(f"Failed to publish profile: {e}") from e
+
+    def set_stall(self, stall: Stall) -> str:
+        """Publish a stall to nostr
+
+        Args:
+            stall: Stall to be published
+
+        Returns:
+            str: id of the event publishing the stall
+
+        Raises:
+            RuntimeError: if the stall can't be published
+        """
+        try:
+            event_id_obj = asyncio.run(self._async_set_stall(stall))
+            return event_id_obj.to_bech32()
+        except RuntimeError as e:
+            raise RuntimeError(f"Failed to publish stall: {e}") from e
 
     async def stop_notifications(self) -> None:
         """
@@ -544,6 +547,10 @@ class NostrClient:
         # Step 4: Clean up
         self.notification_task = None
         NostrClient.logger.debug("_stop_notifications() completed.")
+
+    # ----------------------------------------------------------------
+    # Class methods
+    # ----------------------------------------------------------------
 
     @classmethod
     def set_logging_level(cls, logging_level: int) -> None:
@@ -585,101 +592,122 @@ class NostrClient:
                     f"Unable to connect to relay {self.relay}. Exception: {e}."
                 ) from e
 
-    async def _async_listen_for_messages(self) -> str:
+    async def _async_get_events(self, events_filter: Filter) -> Events:
         """
-        Listen for private messages from the relay
+        Asynchronous function to retrieve events from the relay
+
+        Args:
+            events_filter: Filter to apply to the events
 
         Returns:
-            str: content of the private message or an error message
+            Events: list of events
+
+        Raises:
+            RuntimeError: if the events can't be retrieved
+        """
+        try:
+            if not self.connected:
+                await self._async_connect()
+
+            events = await self.client.fetch_events_from(
+                urls=[self.relay], filter=events_filter, timeout=timedelta(seconds=2)
+            )
+            return events
+        except Exception as e:
+            raise RuntimeError(f"Unable to retrieve stalls: {e}") from e
+
+    async def _async_get_products(
+        self, merchant: PublicKey, stall: Optional[Stall] = None
+    ) -> Events:
+        """
+        Asynchronous function to retrieve the products for a given merchant
+
+        Args:
+            merchant: PublicKey of the merchant
+            stall: Optional Stall to filter products by
+        Returns:
+            Events: list of events containing the products of the merchant
+
+        Raises:
+            RuntimeError: if the products can't be retrieved
+        """
+        try:
+            if not self.connected:
+                await self._async_connect()
+
+            # print(f"Retrieving products from seller: {seller}")
+            events_filter = Filter().kind(Kind(30018)).author(merchant)
+            if stall is not None:
+                coordinate_tag = Coordinate(
+                    Kind(30017),
+                    merchant,
+                    stall.id,
+                )
+                events_filter = events_filter.coordinate(coordinate_tag)
+            events = await self.client.fetch_events_from(
+                urls=[self.relay], filter=events_filter, timeout=timedelta(seconds=2)
+            )
+            return events
+        except Exception as e:
+            raise RuntimeError(f"Unable to retrieve stalls: {e}") from e
+
+    async def _async_get_profile_from_relay(self, profile_key: PublicKey) -> Profile:
+        """
+        Asynchronous function to retrieve from the Nostr relay the profile
+        for a given author
+
+        Args:
+            profile_key: PublicKey of the profile to retrieve
+
+        Returns:
+            Profile: profile associated with the public key
 
         Raises:
             RuntimeError: if it can't connect to the relay
-            RuntimeError: if it can't subscribe to private messages
-            RuntimeError: if it can't receive a message
+            ValueError: if a profile is not found
         """
-
-        NostrClient.logger.debug("Listening for private messages.")
-
-        if not self.connected:
-            try:
-                await self._async_connect()
-                NostrClient.logger.debug("Connected to relay %s.", self.relay)
-            except Exception as e:
-                NostrClient.logger.error("Connection failed: %s", e)
-                raise RuntimeError(
-                    f"Unable to connect to relay {self.relay}. Exception: {e}."
-                ) from e
-
         try:
-            messages_filter = (
-                Filter()
-                .kinds([Kind(1059), Kind(4)])
-                .pubkey(self.keys.public_key())
-                .limit(0)
+            if not self.connected:
+                await self._async_connect()
+
+            metadata = await self.client.fetch_metadata(
+                public_key=profile_key, timeout=timedelta(seconds=2)
             )
-
-            subscription = await self.client.subscribe(messages_filter, None)
-            NostrClient.logger.debug("Subscribed to private messages: %s", subscription)
-
-            if not hasattr(subscription, "success") or not subscription.success:
-                raise RuntimeError("Failed to subscribe to private messages")
-
-            self.received_eose = False  # Reset the EOSE flag before listening
-            self.last_message_time = (
-                asyncio.get_event_loop().time()
-            )  # Track the last received message time
-
-            # Start handling notifications in the background
-            await self._start_notifications()
-
-            response = "No messages received"
-
-            # Wait for new messages while checking periodically if we should stop
-            timeout_seconds = 15  # Adjust this timeout as needed
-            while not self.stop_event.is_set():
-                await asyncio.sleep(5)  #  Check every 5 seconds
-
-                if self.received_eose:
-                    NostrClient.logger.debug("Received EOSE")
-                    time_since_last_msg = (
-                        asyncio.get_event_loop().time() - self.last_message_time
-                    )
-
-                    if time_since_last_msg > timeout_seconds:
-                        response = (
-                            f"No messages received after {timeout_seconds} seconds"
-                        )
-                        break  # Stop listening after timeout
-
-                if self.private_message and self.private_message.kind() == Kind(14):
-                    response = self.private_message.content()
-                    self.private_message = None
-                    break
-                if self.private_message and self.private_message.kind() == Kind(15):
-                    response = self.private_message.content()
-                    # TODO: process tags with file type
-                    self.private_message = None
-                    break
-                if self.direct_message:
-                    try:
-                        response = await self.nostr_signer.nip04_decrypt(
-                            self.direct_message.author(), self.direct_message.content()
-                        )
-                    except Exception as e:
-                        raise RuntimeError(
-                            f"Unable to decrypt direct message: {e}"
-                        ) from e
-                    self.direct_message = None
-                    break
-                NostrClient.logger.debug("Not received private message: %s", response)
+            profile = await Profile.from_metadata(metadata, profile_key.to_bech32())
+            return profile
+        except RuntimeError as e:
+            raise RuntimeError(f"Unable to connect to relay: {e}") from e
         except Exception as e:
-            raise RuntimeError(
-                f"Unable to listen for private messages. Exception: {e}."
-            ) from e
-        finally:
-            await self.stop_notifications()
+            raise ValueError(f"Unable to retrieve metadata: {e}") from e
 
-        return response
+    async def _async_get_stalls(self, merchant: Optional[PublicKey] = None) -> Events:
+        """
+        Asynchronous function to retrieve the stall from a relay.
+        If a merchant is provided, only the stalls from the merchant are retrieved.
+
+        Args:
+            merchant: Optional PublicKey of the merchant to retrieve the stall for
+
+        Returns:
+            Events: list of events containing the stalls
+
+        Raises:
+            RuntimeError: if the stall can't be retrieved
+        """
+        try:
+            if not self.connected:
+                await self._async_connect()
+
+            events_filter = Filter().kind(Kind(30017))
+            if merchant is not None:
+                events_filter = events_filter.authors([merchant])
+
+            events = await self.client.fetch_events_from(
+                urls=[self.relay], filter=events_filter, timeout=timedelta(seconds=2)
+            )
+            return events
+        except Exception as e:
+            raise RuntimeError(f"Unable to retrieve stalls: {e}") from e
 
     async def _async_publish_event(self, event_builder: EventBuilder) -> EventId:
         """
@@ -731,7 +759,132 @@ class NostrClient:
         event_builder = EventBuilder.text_note(text)
         return await self._async_publish_event(event_builder)
 
-    async def _async_publish_product(self, product: Product) -> EventId:
+    async def _async_receive_message(self) -> str:
+        """
+        Listen for private messages from the relay
+
+        Returns:
+            str: content of the private message or an error message
+
+        Raises:
+            RuntimeError: if it can't connect to the relay
+            RuntimeError: if it can't subscribe to private messages
+            RuntimeError: if it can't receive a message
+        """
+
+        NostrClient.logger.debug("Listening for private messages.")
+
+        if not self.connected:
+            try:
+                await self._async_connect()
+                NostrClient.logger.debug("Connected to relay %s.", self.relay)
+            except Exception as e:
+                NostrClient.logger.error("Connection failed: %s", e)
+                raise RuntimeError(
+                    f"Unable to connect to relay {self.relay}. Exception: {e}."
+                ) from e
+
+        try:
+            messages_filter = (
+                Filter()
+                .kinds([Kind(1059), Kind(4)])
+                .pubkey(self.keys.public_key())
+                .limit(0)
+            )
+
+            subscription = await self.client.subscribe(messages_filter, None)
+            NostrClient.logger.debug("Subscribed to private messages: %s", subscription)
+
+            if not hasattr(subscription, "success") or not subscription.success:
+                raise RuntimeError("Failed to subscribe to private messages")
+
+            self.received_eose = False  # Reset the EOSE flag before listening
+            self.last_message_time = (
+                asyncio.get_event_loop().time()
+            )  # Track the last received message time
+
+            # Start handling notifications in the background
+            await self._async_start_notifications()
+
+            response = "No messages received"
+
+            # Wait for new messages while checking periodically if we should stop
+            timeout_seconds = 15  # Adjust this timeout as needed
+            while not self.stop_event.is_set():
+                await asyncio.sleep(5)  #  Check every 5 seconds
+
+                if self.received_eose:
+                    NostrClient.logger.debug("Received EOSE")
+                    time_since_last_msg = (
+                        asyncio.get_event_loop().time() - self.last_message_time
+                    )
+
+                    if time_since_last_msg > timeout_seconds:
+                        response = (
+                            f"No messages received after {timeout_seconds} seconds"
+                        )
+                        break  # Stop listening after timeout
+
+                if self.private_message and self.private_message.kind() == Kind(14):
+                    response = self.private_message.content()
+                    self.private_message = None
+                    break
+                if self.private_message and self.private_message.kind() == Kind(15):
+                    response = self.private_message.content()
+                    # TODO: process tags with file type
+                    self.private_message = None
+                    break
+                if self.direct_message:
+                    try:
+                        response = await self.nostr_signer.nip04_decrypt(
+                            self.direct_message.author(), self.direct_message.content()
+                        )
+                    except Exception as e:
+                        raise RuntimeError(
+                            f"Unable to decrypt direct message: {e}"
+                        ) from e
+                    self.direct_message = None
+                    break
+                NostrClient.logger.debug("Not received private message: %s", response)
+        except Exception as e:
+            raise RuntimeError(
+                f"Unable to listen for private messages. Exception: {e}."
+            ) from e
+        finally:
+            await self.stop_notifications()
+
+        return response
+
+    async def _async_send_message(self, public_key: PublicKey, message: str) -> EventId:
+        """
+        Asynchronous function to send a NIP-17 Direct Message to a Nostr public key
+
+        Args:
+            public_key: public key of the recipient in bech32 or hex format
+            message: message to send
+
+        Returns:
+            EventId: event id of the message
+
+        Raises:
+            RuntimeError: if the message can't be sent
+        """
+        try:
+            output = await self.client.send_private_msg(public_key, message)
+            if len(output.success) > 0:
+                NostrClient.logger.info(
+                    "Message sent to %s: %s", public_key.to_bech32(), message
+                )
+                return output.id
+            # no relay received the message
+            NostrClient.logger.error(
+                "Message not sent to %s: %s", public_key.to_bech32(), message
+            )
+            raise RuntimeError("Unable to send private message:")
+        except Exception as e:
+            raise RuntimeError(f"Unable to send private message: {e}") from e
+
+    async def _async_set_product(self, product: Product) -> EventId:
         """
         Asynchronous function to create or update a NIP-15
         Marketplace product with event kind 30018
@@ -778,7 +931,7 @@ class NostrClient:
         NostrClient.logger.info("Good event builder: %s", good_event_builder)
         return await self._async_publish_event(good_event_builder)
 
-    async def _async_publish_profile(self) -> EventId:
+    async def _async_set_profile(self) -> EventId:
         """
         Asynchronous function to publish a Nostr profile with event kind 0
 
@@ -787,24 +940,34 @@ class NostrClient:
 
         Raises:
             RuntimeError: if the profile can't be published
+            ValueError: if the mandatory field `name` is missing
         """
 
-        metadata_content = Metadata().set_about(self.profile.get_about())
-        metadata_content = metadata_content.set_banner(self.profile.get_banner())
-        metadata_content = metadata_content.set_display_name(
-            self.profile.get_display_name()
-        )
-        metadata_content = metadata_content.set_name(self.profile.get_name())
-        metadata_content = metadata_content.set_nip05(self.profile.get_nip05())
-        metadata_content = metadata_content.set_picture(self.profile.get_picture())
-        metadata_content = metadata_content.set_website(self.profile.get_website())
-        metadata_content = metadata_content.set_custom_field(
-            key="bot", value=JsonValue.BOOL(self.profile.is_bot())
-        )
+        metadata_content = Metadata()
+        if (name := self.profile.get_name()) == "":
+            raise ValueError("A profile must have a value for the field `name`.")
+
+        metadata_content = metadata_content.set_name(name)
+        if (about := self.profile.get_about()) != "":
+            metadata_content = metadata_content.set_about(about)
+        if (banner := self.profile.get_banner()) != "":
+            metadata_content = metadata_content.set_banner(banner)
+        if (display_name := self.profile.get_display_name()) != "":
+            metadata_content = metadata_content.set_display_name(display_name)
+        if (nip05 := self.profile.get_nip05()) != "":
+            metadata_content = metadata_content.set_nip05(nip05)
+        if (picture := self.profile.get_picture()) != "":
+            metadata_content = metadata_content.set_picture(picture)
+        if (website := self.profile.get_website()) != "":
+            metadata_content = metadata_content.set_website(website)
+        if (bot := self.profile.is_bot()) != "":
+            metadata_content = metadata_content.set_custom_field(
+                key="bot", value=JsonValue.BOOL(bot)
+            )
         event_builder = EventBuilder.metadata(metadata_content)
         return await self._async_publish_event(event_builder)
 
-    async def _async_publish_stall(self, stall: Stall) -> EventId:
+    async def _async_set_stall(self, stall: Stall) -> EventId:
         """
         Asynchronous function to create or update a NIP-15
         Marketplace stall with event kind 30017
@@ -819,10 +982,6 @@ class NostrClient:
             RuntimeError: if the Stall can't be published
         """
 
-        # good_event_builder = EventBuilder(Kind(30018), content).tags(
-        #     [Tag.identifier(product.id), Tag.coordinate(coordinate_tag)]
-        # )
-
         NostrClient.logger.info("Stall: %s", stall)
         event_builder = EventBuilder.stall_data(stall.to_stall_data()).tags(
             [
@@ -834,166 +993,7 @@ class NostrClient:
         )
         return await self._async_publish_event(event_builder)
 
-    async def _async_retrieve_all_stalls(self) -> Events:
-        """
-        Asynchronous function to retreive all stalls from a relay
-        This function is used internally to find Merchants.
-
-        Returns:
-            Events: events containing all stalls.
-
-        Raises:
-            RuntimeError: if the stalls can't be retrieved
-        """
-        try:
-            if not self.connected:
-                await self._async_connect()
-
-            events_filter = Filter().kind(Kind(30017))
-            events = await self.client.fetch_events_from(
-                urls=[self.relay], filter=events_filter, timeout=timedelta(seconds=2)
-            )
-            return events
-        except Exception as e:
-            raise RuntimeError(f"Unable to retrieve stalls: {e}") from e
-
-    async def _async_retrieve_events(self, events_filter: Filter) -> Events:
-        """
-        Asynchronous function to retrieve events from the relay
-
-        Args:
-            events_filter: Filter to apply to the events
-
-        Returns:
-            Events: list of events
-
-        Raises:
-            RuntimeError: if the events can't be retrieved
-        """
-        try:
-            if not self.connected:
-                await self._async_connect()
-
-            events = await self.client.fetch_events_from(
-                urls=[self.relay], filter=events_filter, timeout=timedelta(seconds=2)
-            )
-            return events
-        except Exception as e:
-            raise RuntimeError(f"Unable to retrieve stalls: {e}") from e
-
-    async def _async_retrieve_products_from_merchant(
-        self, merchant: PublicKey
-    ) -> Events:
-        """
-        Asynchronous function to retrieve the products for a given merchant
-
-        Args:
-            merchant: PublicKey of the merchant
-
-        Returns:
-            Events: list of events containing the products of the merchant
-
-        Raises:
-            RuntimeError: if the products can't be retrieved
-        """
-        try:
-            if not self.connected:
-                await self._async_connect()
-
-            # print(f"Retrieving products from seller: {seller}")
-            events_filter = Filter().kind(Kind(30018)).authors([merchant])
-            events = await self.client.fetch_events_from(
-                urls=[self.relay], filter=events_filter, timeout=timedelta(seconds=2)
-            )
-            return events
-        except Exception as e:
-            raise RuntimeError(f"Unable to retrieve stalls: {e}") from e
-
-    async def _async_retrieve_profile(self, public_key: PublicKey) -> Profile:
-        """
-        Asynchronous function to retrieve the profile for a given author
-
-        Args:
-            public_key: public key of the profile to retrieve
-
-        Returns:
-            Profile: profile associated with the public key
-
-        Raises:
-            RuntimeError: if it can't connect to the relay
-            ValueError: if a profile is not found
-        """
-        try:
-            if not self.connected:
-                await self._async_connect()
-
-            metadata = await self.client.fetch_metadata(
-                public_key=public_key, timeout=timedelta(seconds=2)
-            )
-            profile = await Profile.from_metadata(metadata, public_key.to_bech32())
-            return profile
-        except RuntimeError as e:
-            raise RuntimeError(f"Unable to connect to relay: {e}") from e
-        except Exception as e:
-            raise ValueError(f"Unable to retrieve metadata: {e}") from e
-
-    async def _async_retrieve_stalls_from_merchant(self, merchant: PublicKey) -> Events:
-        """
-        Asynchronous function to retrieve the stall for a given merchant
-
-        Args:
-            seller: PublicKey of the merchant to retrieve the stall for
-
-        Returns:
-            Events: list of events containing the stalls of the merchant
-
-        Raises:
-            RuntimeError: if the stall can't be retrieved
-        """
-        try:
-            if not self.connected:
-                await self._async_connect()
-
-            events_filter = Filter().kind(Kind(30017)).authors([merchant])
-            events = await self.client.fetch_events_from(
-                urls=[self.relay], filter=events_filter, timeout=timedelta(seconds=2)
-            )
-            return events
-        except Exception as e:
-            raise RuntimeError(f"Unable to retrieve stalls: {e}") from e
-
-    async def _async_send_private_message(
-        self, public_key: PublicKey, message: str
-    ) -> EventId:
-        """
-        Asynchronous function to send a private message to a given Nostr public key
-
-        Args:
-            public_key: public key of the recipient in bech32 or hex format
-            message: message to send
-
-        Returns:
-            EventId: event id of the message
-
-        Raises:
-            RuntimeError: if the message can't be sent
-        """
-        try:
-            output = await self.client.send_private_msg(public_key, message)
-            if len(output.success) > 0:
-                NostrClient.logger.info(
-                    "Message sent to %s: %s", public_key.to_bech32(), message
-                )
-                return output.id
-            # no relay received the message
-            NostrClient.logger.error(
-                "Message not sent to %s: %s", public_key.to_bech32(), message
-            )
-            raise RuntimeError("Unable to send private message:")
-        except Exception as e:
-            raise RuntimeError(f"Unable to send private message: {e}") from e
-
-    async def _start_notifications(self) -> None:
+    async def _async_start_notifications(self) -> None:
         """
         Start handling notifications in the background.
         """

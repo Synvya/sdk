@@ -4,6 +4,7 @@ Nostr utility functions.
 
 from os import getenv
 from pathlib import Path
+from sys import exit
 
 from dotenv import load_dotenv
 
@@ -31,36 +32,37 @@ if NSEC is None:
 else:
     keys = NostrKeys.from_private_key(NSEC)
     print(f"Private Key: {keys.get_private_key()}")
-    print(f"Public Key: {keys.get_public_key()}")
+    print(f"Public Key (bech32): {keys.get_public_key()}")
+    print(f"Public Key (hex): {keys.get_public_key(encoding='hex')}")
 
 # event_list: List[str] = [
 #     "1a5c33f81eb7908668445736e8075b885df1e376fa479b2132da6e0c09fb5621"
 # ]
 
-nostr_client = NostrClient(relay=RELAY, private_key=NSEC)
+# nostr_client = NostrClient(relay=RELAY, private_key=NSEC)
 
-ABOUT = (
-    "Welcome to the Northwest Railway Museum where you can experience "
-    "how The Railway Changed Everything"
-)
+# ABOUT = (
+#     "Welcome to the Northwest Railway Museum where you can experience "
+#     "how The Railway Changed Everything"
+# )
 
-BANNER = "https://i.nostr.build/seoK5FZi5VCC7nXO.jpg"
-DISPLAY_NAME = "Northwest Railway Museum"
-NAME = "nrm"
-NIP05 = "nrm@synvya.com"
-PICTURE = "https://i.nostr.build/eZvrJNK9kFni5QR3.jpg"
-WEBSITE = "https://trainmuseum.org"
+# BANNER = "https://i.nostr.build/seoK5FZi5VCC7nXO.jpg"
+# DISPLAY_NAME = "Northwest Railway Museum"
+# NAME = "nrm"
+# NIP05 = "nrm@synvya.com"
+# PICTURE = "https://i.nostr.build/eZvrJNK9kFni5QR3.jpg"
+# WEBSITE = "https://trainmuseum.org"
 
-profile = Profile(keys.get_public_key())
-profile.set_about(ABOUT)
-profile.set_banner(BANNER)
-profile.set_display_name(DISPLAY_NAME)
-profile.set_name(NAME)
-profile.set_nip05(NIP05)
-profile.set_picture(PICTURE)
-profile.set_website(WEBSITE)
+# profile = Profile(keys.get_public_key())
+# profile.set_about(ABOUT)
+# profile.set_banner(BANNER)
+# profile.set_display_name(DISPLAY_NAME)
+# profile.set_name(NAME)
+# profile.set_nip05(NIP05)
+# profile.set_picture(PICTURE)
+# profile.set_website(WEBSITE)
 
-nostr_client.set_profile(profile)
+# nostr_client.set_profile(profile)
 # nostr_client.publish_profile()
 
 # for event in event_list:

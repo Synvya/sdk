@@ -4,11 +4,11 @@ Module implementing the BuyerTools Toolkit for Agno agents.
 
 import json
 from random import randint
-from typing import Optional
+from typing import List, Optional
 
 from pydantic import ConfigDict
 
-from synvya_sdk import NostrClient, Product, Profile, Stall
+from synvya_sdk import NostrClient, Product, Profile, ProfileFilter, Stall
 
 try:
     from agno.agent import AgentKnowledge  # type: ignore
@@ -78,58 +78,119 @@ class BuyerTools(Toolkit):
         self._nostr_client = NostrClient(relay, private_key)
         self._nostr_client.set_logging_level(logger.getEffectiveLevel())
         self.profile = self._nostr_client.get_profile()
-        self.sellers: set[Profile] = set()
+        self.merchants: set[Profile] = set()
 
         # Register methods
-        self.register(self.download_all_sellers)
-        self.register(self.download_products_from_seller)
-        self.register(self.download_sellers_from_marketplace)
-        self.register(self.download_stalls_from_seller)
-        self.register(self.get_all_products_from_knowledge_base)
-        self.register(self.get_all_sellers_from_knowledge_base)
-        self.register(self.get_all_stalls_from_knowledge_base)
-        self.register(self.get_own_profile)
-        self.register(self.get_products_from_knowledge_base_by_category)
+        self.register(self.get_merchants)
+        self.register(self.get_merchants_from_knowledge_base)
+        self.register(self.get_merchants_in_marketplace)
+        self.register(self.get_products)
+        self.register(self.get_products_from_knowledge_base)
+        # self.register(self.get_products_from_knowledge_base_by_category)
+        self.register(self.get_profile)
         self.register(self.get_relay)
+        self.register(self.get_stalls)
+        self.register(self.get_stalls_from_knowledge_base)
         self.register(self.purchase_product)
 
-    def download_all_sellers(self) -> str:
+    def get_merchants(self) -> str:
         """
-        Download all sellers from the Nostr relay and store their Nostr
+        Download from the Nostr relay all merchants and store their Nostr
         profile in the knowledge base.
 
-        A seller is defined as a Nostr profile that has published a stall.
-
         Returns:
-            str: JSON string with status and count of sellers refreshed
+            str: JSON string with status and count of merchants refreshed
         """
-        logger.debug("Downloading all sellers from the Nostr relay")
+        logger.debug("Downloading all merchants from the Nostr relay")
         try:
-            self.sellers = self._nostr_client.retrieve_all_merchants()
-            for seller in self.sellers:
-                self._store_profile_in_kb(seller)
-            response = json.dumps({"status": "success", "count": len(self.sellers)})
+            self.merchants = self._nostr_client.get_merchants()
+            for merchant in self.merchants:
+                self._store_profile_in_kb(merchant)
+            response = json.dumps({"status": "success", "count": len(self.merchants)})
         except RuntimeError as e:
-            logger.error("Error downloading all sellers from the Nostr relay: %s", e)
+            logger.error("Error downloading all merchants from the Nostr relay: %s", e)
             response = json.dumps({"status": "error", "message": str(e)})
 
         return response
 
-    def download_products_from_seller(self, public_key: str) -> str:
+    def get_merchants_from_knowledge_base(self) -> str:
         """
-        Download all products published by a seller on Nostr and store them
+        Get the list of merchants stored in the knowledge base.
+
+        Returns:
+            str: JSON string of merchants
+        """
+        logger.debug("Getting merchants from knowledge base")
+
+        documents = self.knowledge_base.search(
+            query="", num_documents=100, filters=[{"type": "merchant"}]
+        )
+        for doc in documents:
+            logger.debug("Document: %s", doc.to_dict())
+
+        merchants_json = [doc.content for doc in documents]
+        logger.debug("Found %d merchants in the knowledge base", len(merchants_json))
+        return json.dumps(merchants_json)
+
+    def get_merchants_in_marketplace(
+        self,
+        owner_public_key: str,
+        name: str,
+        profile_filter: Optional[ProfileFilter] = None,
+    ) -> str:
+        """
+        Download from the Nostr relay all merchants included in a Nostr
+        marketplace and store their Nostr profile in the knowledge base.
+
+        Args:
+            owner_public_key: bech32 encoded public key of the owner of the marketplace
+            name: name of the marketplace to download merchants from
+
+        Returns:
+            str: JSON string with status and count of merchants downloaded
+
+        TBD: Implement profile filter.
+        """
+        logger.debug("Downloading merchants from the Nostr marketplace %s", name)
+        try:
+            # Retrieve merchants from the Nostr marketplace
+            self.merchants = self._nostr_client.get_merchants_in_marketplace(
+                owner_public_key, name, profile_filter
+            )
+            # Store merchants in the knowledge base
+            for merchant in self.merchants:
+                self._store_profile_in_kb(merchant)
+
+            # Return the number of merchants downloaded
+            response = json.dumps({"status": "success", "count": len(self.merchants)})
+        except RuntimeError as e:
+            logger.error(
+                "Error downloading merchants from the Nostr marketplace %s: %s",
+                name,
+                e,
+            )
+            response = json.dumps({"status": "error", "message": str(e)})
+
+        return response
+
+    def get_products(
+        self, merchant_public_key: str, stall: Optional[Stall] = None
+    ) -> str:
+        """
+        Download all products published by a merchant on Nostr and store them
         in the knowledge base.
 
         Args:
-            public_key: public key of the seller
+            merchant_public_key: public key of the merchant
+            stall: optional stall to filter products by
 
         Returns:
-            str: JSON string with all products published by the seller
+            str: JSON string with all products published by the merchant
         """
-        logger.debug("Downloading products from seller %s", public_key)
+        logger.debug("Downloading products from merchant %s", merchant_public_key)
         try:
             # retrieve products from the Nostr relay
-            products = self._nostr_client.retrieve_products_from_merchant(public_key)
+            products = self._nostr_client.get_products(merchant_public_key, stall)
 
             # store products in the knowledge base
             for product in products:
@@ -138,80 +199,45 @@ class BuyerTools(Toolkit):
             response = json.dumps([product.to_dict() for product in products])
 
         except RuntimeError as e:
-            logger.error("Error downloading products from seller %s: %s", public_key, e)
-            response = json.dumps({"status": "error", "message": str(e)})
-
-        return response
-
-    def download_sellers_from_marketplace(self, public_key: str, name: str) -> str:
-        """
-        Download sellers included in a Nostr marketplace and store their Nostr
-        profile in the knowledge base.
-
-        Args:
-            public_key: bech32 encoded public key of the owner of the marketplace
-            name: name of the marketplace to download sellers from
-
-        Returns:
-            str: JSON string with status and count of sellers downloaded
-        """
-        logger.debug("Downloading sellers from the Nostr marketplace %s", name)
-        try:
-            # Retrieve sellers from the Nostr marketplace
-            self.sellers = self._nostr_client.retrieve_marketplace_merchants(
-                public_key, name
-            )
-            # Store sellers in the knowledge base
-            for seller in self.sellers:
-                self._store_profile_in_kb(seller)
-
-            # Return the number of sellers downloaded
-            response = json.dumps({"status": "success", "count": len(self.sellers)})
-        except RuntimeError as e:
             logger.error(
-                "Error downloading sellers from the Nostr marketplace %s: %s", name, e
+                "Error downloading products from merchant %s: %s",
+                merchant_public_key,
+                e,
             )
             response = json.dumps({"status": "error", "message": str(e)})
 
         return response
 
-    def download_stalls_from_seller(self, public_key: str) -> str:
+    def get_products_from_knowledge_base(
+        self,
+        merchant_public_key: Optional[str] = None,
+        categories: Optional[List[str]] = None,
+    ) -> str:
         """
-        Download all stalls published by a seller on Nostr and store them
-        in the knowledge base.
+        Get a list of products stored in the knowledge base. Optionally filter by
+        merchant or categories.
 
         Args:
-            public_key: public key of the seller
-
-        Returns:
-            str: JSON string with all stalls published by the seller
-        """
-        logger.debug("Downloading stalls from seller %s", public_key)
-        try:
-            # retrieve stalls from the Nostr relay
-            stalls = self._nostr_client.retrieve_stalls_from_merchant(public_key)
-
-            # store stalls in the knowledge base
-            for stall in stalls:
-                self._store_stall_in_kb(stall)
-
-            # convert stalls to JSON string
-            response = json.dumps([stall.to_dict() for stall in stalls])
-        except RuntimeError as e:
-            logger.error("Error downloading stalls from seller %s: %s", public_key, e)
-            response = json.dumps({"status": "error", "message": str(e)})
-
-        return response
-
-    def get_all_products_from_knowledge_base(self) -> str:
-        """Get the list of products stored in the knowledge base.
+            merchant_public_key: optional filter bymerchant
+            categories: optional filter by the list of categories
 
         Returns:
             str: JSON string of products
         """
         logger.debug("Getting products from knowledge base")
+
+        if merchant_public_key is not None:
+            search_query = merchant_public_key
+        else:
+            search_query = ""
+
+        search_filters = [
+            {"type": "product"},
+            {"categories": categories},
+        ]
+
         documents = self.knowledge_base.search(
-            query="", num_documents=100, filters=[{"type": "product"}]
+            query=search_query, num_documents=100, filters=search_filters
         )
         for doc in documents:
             logger.debug("Document: %s", doc.to_dict())
@@ -220,76 +246,15 @@ class BuyerTools(Toolkit):
         logger.debug("Found %d products in the knowledge base", len(products_json))
         return json.dumps(products_json)
 
-    def get_all_sellers_from_knowledge_base(self) -> str:
-        """Get the list of sellers stored in the knowledge base.
-
-        Returns:
-            str: JSON string of sellers
+    def get_profile(self) -> str:
         """
-        logger.debug("Getting sellers from knowledge base")
-
-        documents = self.knowledge_base.search(
-            query="", num_documents=100, filters=[{"type": "seller"}]
-        )
-        for doc in documents:
-            logger.debug("Document: %s", doc.to_dict())
-
-        sellers_json = [doc.content for doc in documents]
-        logger.debug("Found %d sellers in the knowledge base", len(sellers_json))
-        return json.dumps(sellers_json)
-
-    def get_all_stalls_from_knowledge_base(self) -> str:
-        """Get the list of stalls stored in the knowledge base.
-
-        Returns:
-            str: JSON string of stalls
-        """
-        logger.debug("Getting stalls from knowledge base")
-        documents = self.knowledge_base.search(
-            query="", num_documents=100, filters=[{"type": "stall"}]
-        )
-        for doc in documents:
-            logger.debug("Document: %s", doc.to_dict())
-
-        stalls_json = [doc.content for doc in documents]
-        logger.debug("Found %d stalls in the knowledge base", len(stalls_json))
-        return json.dumps(stalls_json)
-
-    def get_own_profile(self) -> str:
-        """Get the Nostr profile of the buyer agent.
+        Get the Nostr profile of the buyer agent.
 
         Returns:
             str: buyer profile json string
         """
         logger.debug("Getting own profile")
         return self.profile.to_json()
-
-    def get_products_from_knowledge_base_by_category(self, category: str) -> str:
-        """
-        Get the list of products stored in the knowledge base for a given category.
-
-        Returns:
-            str: JSON string of products
-        """
-        logger.debug("Getting products from knowledge base by category: %s", category)
-
-        search_filters = [
-            {"type": "product"},
-            {"categories": [category]},
-        ]
-
-        documents = self.knowledge_base.search(
-            query="",
-            num_documents=100,
-            filters=search_filters,
-        )
-
-        logger.debug("Found %d documents with category %s", len(documents), category)
-        for doc in documents:
-            logger.debug("Document: %s", doc.to_dict())
-
-        products_json = [doc.content for doc in documents]
-        return json.dumps(products_json)
 
     def get_relay(self) -> str:
         """Get the Nostr relay that the buyer agent is using.
@@ -299,11 +264,101 @@ class BuyerTools(Toolkit):
         """
         return self.relay
 
+    def get_stalls(self, merchant_public_key: str) -> str:
+        """
+        Download all stalls published by a merchant on Nostr and store them
+        in the knowledge base.
+
+        Args:
+            merchant_public_key: public key of the merchant
+
+        Returns:
+            str: JSON string with all stalls published by the merchant
+        """
+        logger.debug("Downloading stalls from merchant %s", merchant_public_key)
+        try:
+            # retrieve stalls from the Nostr relay
+            stalls = self._nostr_client.get_stalls(merchant_public_key)
+
+            # store stalls in the knowledge base
+            for stall in stalls:
+                self._store_stall_in_kb(stall)
+
+            # convert stalls to JSON string
+            response = json.dumps([stall.to_dict() for stall in stalls])
+        except RuntimeError as e:
+            logger.error(
+                "Error downloading stalls from merchant %s: %s",
+                merchant_public_key,
+                e,
+            )
+            response = json.dumps({"status": "error", "message": str(e)})
+
+        return response
+
+    def get_stalls_from_knowledge_base(
+        self, merchant_public_key: Optional[str] = None
+    ) -> str:
+        """
+        Get the list of stalls stored in the knowledge base.
+        Optionally filter by merchant.
+
+        Args:
+            merchant_public_key: optional filter by merchant
+
+        Returns:
+            str: JSON string of stalls
+        """
+        logger.debug("Getting stalls from knowledge base")
+
+        if merchant_public_key is not None:
+            search_query = merchant_public_key
+        else:
+            search_query = ""
+
+        documents = self.knowledge_base.search(
+            query=search_query, num_documents=100, filters=[{"type": "stall"}]
+        )
+        for doc in documents:
+            logger.debug("Document: %s", doc.to_dict())
+
+        stalls_json = [doc.content for doc in documents]
+        logger.debug("Found %d stalls in the knowledge base", len(stalls_json))
+        return json.dumps(stalls_json)
+
+    # def get_products_from_knowledge_base_by_category(self, category: str) -> str:
+    #     """
+    #     Get the list of products stored in the knowledge base for a given category.
+
+    #     Returns:
+    #         str: JSON string of products
+    #     """
+    #     logger.debug("Getting products from knowledge base by category: %s", category)
+
+    #     search_filters = [
+    #         {"type": "product"},
+    #         {"categories": [category]},
+    #     ]
+
+    #     documents = self.knowledge_base.search(
+    #         query="",
+    #         num_documents=100,
+    #         filters=search_filters,
+    #     )
+
+    #     logger.debug("Found %d documents with category %s", len(documents), category)
+    #     for doc in documents:
+    #         logger.debug("Document: %s", doc.to_dict())
+
+    #     products_json = [doc.content for doc in documents]
+    #     return json.dumps(products_json)
+
     def purchase_product(self, product_name: str, quantity: int) -> str:
         """
         Purchase a product.
 
-        TBD: Implement this function. Returning a fixed message for now.
+        TBD: Complete flow. Today it just sends first message
+        and returns a fixed response.
 
         Args:
             product_name: name of the product to purchase
@@ -321,11 +376,13 @@ class BuyerTools(Toolkit):
             return json.dumps({"status": "error", "message": str(e)})
 
         # Confirm seller has valid NIP-05
-        seller_profile = self._nostr_client.retrieve_profile(product.get_seller())
-        if not seller_profile.is_nip05_validated():
-            logger.error("Seller %s does not have a valid NIP-05", product.get_seller())
+        merchant = self._nostr_client.get_profile(product.get_seller())
+        if not merchant.is_nip05_validated():
+            logger.error(
+                "Merchant %s does not have a valid NIP-05", product.get_seller()
+            )
             return json.dumps(
-                {"status": "error", "message": "Seller does not have a valid NIP-05"}
+                {"status": "error", "message": "Merchant does not have a valid NIP-05"}
             )
 
         # Choosing the first shipping zone for now
@@ -337,7 +394,7 @@ class BuyerTools(Toolkit):
             "123 Main St, Anytown, USA",
         )
 
-        self._nostr_client.send_private_message(
+        self._nostr_client.send_message(
             product.get_seller(),
             order_msg,
         )
@@ -345,9 +402,28 @@ class BuyerTools(Toolkit):
         return json.dumps(
             {
                 "status": "success",
-                "message": f"Product {product_name} purchased from seller {product.get_seller()}",
+                "message": f"Product {product_name} purchased from merchant {product.get_seller()}",
             }
         )
+
+    def set_profile(self, profile: Profile) -> str:
+        """
+        Set the Nostr profile of the buyer agent.
+
+        Args:
+            profile: Nostr profile to set
+
+        Returns:
+            str: Nostr profile json string
+        """
+        self.profile = profile
+        try:
+            self._nostr_client.set_profile(profile)
+        except (RuntimeError, ValueError) as e:
+            logger.error("Error setting profile: %s", e)
+            return json.dumps({"status": "error", "message": str(e)})
+
+        return json.dumps({"status": "success"})
 
     def _create_customer_order(
         self,
@@ -404,11 +480,11 @@ class BuyerTools(Toolkit):
         doc = Document(
             content=profile.to_json(),
             name=profile.name,
-            meta_data={"type": "seller"},
+            meta_data={"type": "merchant"},
         )
 
         # Store response
-        self.knowledge_base.load_document(document=doc, filters=[{"type": "seller"}])
+        self.knowledge_base.load_document(document=doc, filters=[{"type": "merchant"}])
 
     def _store_product_in_kb(self, product: Product) -> None:
         """

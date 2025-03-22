@@ -72,16 +72,12 @@ if DB_NAME is None:
 
 
 # Buyer profile constants
-NAME = "Business Name Inc."
-DESCRIPTION = "I'm in the business of doing business."
+NAME = "buyer-agent"
+DESCRIPTION = "A buyer agent for the Snoqualmie Valley Marketplace."
 PICTURE = "https://i.nostr.build/ocjZ5GlAKwrvgRhx.png"
-DISPLAY_NAME = "Buyer Agent for Business Name Inc."
-# Initialize a buyer profile
-profile = Profile(keys.get_public_key())
-profile.set_name(NAME)
-profile.set_about(DESCRIPTION)
-profile.set_display_name(DISPLAY_NAME)
-profile.set_picture(PICTURE)
+DISPLAY_NAME = "Buyer Agent"
+NIP05 = "buyer-agent@synvya.com"
+
 
 # Initialize database connection
 DB_URL = (
@@ -163,7 +159,7 @@ def reset_database() -> None:
     Base.metadata.create_all(engine)
 
 
-# reset_database()
+reset_database()
 
 vector_db = PgVector(
     table_name="sellers",
@@ -185,17 +181,25 @@ vector_db = PgVector(
 knowledge_base = AgentKnowledge(vector_db=vector_db)
 # json_knowledge_base = AgentKnowledge(vector_db=json_vector_db)
 
+buyer_tools = BuyerTools(
+    knowledge_base=knowledge_base,
+    relay=RELAY,
+    private_key=keys.get_private_key(),
+)
+
+# Update the buyer profile
+profile = Profile(keys.get_public_key())
+profile.set_name(NAME)
+profile.set_about(DESCRIPTION)
+profile.set_display_name(DISPLAY_NAME)
+profile.set_picture(PICTURE)
+profile.set_nip05(NIP05)
+buyer_tools.set_profile(profile)
 
 buyer = Agent(  # type: ignore[call-arg]
     name=f"AI Agent for {profile.get_name()}",
     model=OpenAIChat(id="gpt-4o-mini", api_key=OPENAI_API_KEY),
-    tools=[
-        BuyerTools(
-            knowledge_base=knowledge_base,
-            relay=RELAY,
-            private_key=keys.get_private_key(),
-        )
-    ],
+    tools=[buyer_tools],
     add_history_to_messages=True,
     num_history_responses=10,
     read_chat_history=True,
@@ -203,7 +207,7 @@ buyer = Agent(  # type: ignore[call-arg]
     knowledge=knowledge_base,
     search_knowledge=True,
     show_tool_calls=True,
-    debug_mode=False,
+    debug_mode=True,
     # async_mode=True,
     instructions=[
         """
@@ -243,12 +247,12 @@ def buyer_cli() -> None:
     # print(f"\n🤖 Visitor Assistant: {response.get_content_as_string()}\n")
 
     # print("Downloading stalls from all sellers...")
-    # response = buyer.run("download the stalls from all sellers in your knowledge base")
+    # response = buyer.run("download the stalls for all the merchants in your knowledge base")
     # print(f"\n🤖 Visitor Assistant: {response.get_content_as_string()}\n")
 
     # print("Downloading products from all sellers...")
     # response = buyer.run(
-    #     "download the products from all sellers in your knowledge base"
+    #     "download the products for all the merchants in your knowledge base"
     # )
     # print(f"\n🤖 Visitor Assistant: {response.get_content_as_string()}\n")
 

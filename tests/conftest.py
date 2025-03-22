@@ -21,7 +21,7 @@ from synvya_sdk import (
     StallShippingMethod,
     generate_keys,
 )
-from synvya_sdk.agno import BuyerTools, SellerTools
+from synvya_sdk.agno import BuyerTools, MerchantTools
 
 # Get directory where the script is located
 script_dir = Path(__file__).parent
@@ -352,15 +352,24 @@ def product_event_ids_fixture() -> List[str]:
     ]
 
 
-@pytest.fixture(scope="session", name="seller_tools")
-def seller_tools_fixture(
+@pytest.fixture(scope="session", name="products_in_stall_event_ids")
+def products_in_stall_event_ids_fixture() -> List[str]:
+    """Fixture providing  valid but dummy hex test product event ids"""
+    return [
+        "d1441f3532a44772fba7c57eb7c71c94c3971246722ae6e372cf50c198af784a",
+        "b6a81ca6cbd5fa59e564208796a76af670a7a402ec0bb4621c999688ed10e43e",
+    ]
+
+
+@pytest.fixture(scope="function", name="merchant_tools")
+def merchant_tools_fixture(
     relay: str,
     merchant_keys: NostrKeys,
     stalls: List[Stall],
     products: List[Product],
-) -> SellerTools:
-    """Create a Seller instance for testing"""
-    return SellerTools(relay, merchant_keys.get_private_key(), stalls, products)
+) -> MerchantTools:
+    """Create a Merchant instance for testing"""
+    return MerchantTools(relay, merchant_keys.get_private_key(), stalls, products)
 
 
 @pytest.fixture(scope="session", name="mock_knowledge_base")

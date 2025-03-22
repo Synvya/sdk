@@ -9,7 +9,7 @@ from mtp import keys, products, profile, stalls
 # --***---
 from agno.agent import Agent  # type: ignore
 from agno.models.openai import OpenAIChat  # type: ignore
-from synvya_sdk.agno import SellerTools
+from synvya_sdk.agno import MerchantTools
 
 # --***---
 # Collect sample data from the merchant examples
@@ -34,17 +34,19 @@ if OPENAI_API_KEY is None:
     raise ValueError("OPENAI_API_KEY is not set")
 # print(f"OpenAI API key: {openai_api_key}")
 
+merchant_tools = MerchantTools(
+    relay=RELAY,
+    private_key=keys.get_private_key(),
+    stalls=stalls,
+    products=products,
+)
+
+merchant_tools.set_profile(profile)
+
 merchant = Agent(  # type: ignore[call-arg]
     name=f"AI Agent for {profile.get_name()}",
     model=OpenAIChat(id="gpt-4o", api_key=OPENAI_API_KEY),
-    tools=[
-        SellerTools(
-            relay=RELAY,
-            private_key=keys.get_private_key(),
-            stalls=stalls,
-            products=products,
-        )
-    ],
+    tools=[merchant_tools],
     show_tool_calls=True,
     debug_mode=False,
     add_history_to_messages=True,

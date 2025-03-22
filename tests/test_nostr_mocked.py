@@ -29,69 +29,63 @@ def mock_nostr_client(  # type: ignore[no-untyped-def]
         instance = mock_client.return_value
         instance.profile = merchant_profile
         instance.set_profile.return_value = profile_event_id
-        instance.publish_stall.return_value = stall_event_ids[0]
-        instance.publish_product.return_value = product_event_ids[0]
-        instance.retrieve_products_from_merchant.return_value = products
-        instance.retrieve_all_merchants.return_value = [merchant_profile]
-        instance.retrieve_stalls_from_merchant.return_value = stalls
-        instance.retrieve_profile.return_value = merchant_profile
+        instance.set_stall.return_value = stall_event_ids[0]
+        instance.set_product.return_value = product_event_ids[0]
+        instance.get_products.return_value = products
+        instance.get_merchants.return_value = [merchant_profile]
+        instance.get_stalls.return_value = stalls
+        instance.get_profile.return_value = merchant_profile
         yield instance
 
 
 class TestNostrClientMocked:
     """Mocked test suite for NostrClient"""
 
-    def test_publish_profile(
+    def test_set_profile(
         self, nostr_client: NostrClient, merchant_profile: Profile
     ) -> None:
         """Test publishing a profile"""
         event_id = nostr_client.set_profile(merchant_profile)
         assert isinstance(event_id, str)
 
-    def test_publish_stall(
-        self, nostr_client: NostrClient, stalls: List[Stall]
-    ) -> None:
+    def test_set_stall(self, nostr_client: NostrClient, stalls: List[Stall]) -> None:
         """Test publishing a stall"""
-        event_id = nostr_client.publish_stall(stalls[0])
+        event_id = nostr_client.set_stall(stalls[0])
         assert isinstance(event_id, str)
 
-    def test_publish_product(
+    def test_set_product(
         self, nostr_client: NostrClient, products: List[Product]
     ) -> None:
         """Test publishing a product"""
-        event_id = nostr_client.publish_product(products[0])
+        event_id = nostr_client.set_product(products[0])
         assert isinstance(event_id, str)
 
-    def test_retrieve_products_from_seller(
+    def test_get_products(
         self, nostr_client: NostrClient, merchant_keys: NostrKeys
     ) -> None:
         """Test retrieving products from a merchant"""
-        products = nostr_client.retrieve_products_from_merchant(
-            merchant_keys.get_public_key()
-        )
+        products = nostr_client.get_products(merchant_keys.get_public_key())
         assert len(products) > 0
         for product in products:
             assert isinstance(product, Product)
 
-    def test_retrieve_all_merchants(self, nostr_client: NostrClient) -> None:
+    def test_get_merchants(self, nostr_client: NostrClient) -> None:
         """Test retrieving all merchants"""
-        merchants = nostr_client.retrieve_all_merchants()
+        merchants = nostr_client.get_merchants()
         assert len(merchants) > 0
 
-    def test_retrieve_stalls_from_merchant(
+    def test_get_stalls(
         self, nostr_client: NostrClient, merchant_keys: NostrKeys
     ) -> None:
         """Test retrieving stalls from a merchant"""
-        stalls = nostr_client.retrieve_stalls_from_merchant(
-            merchant_keys.get_public_key()
-        )
+        stalls = nostr_client.get_stalls(merchant_keys.get_public_key())
         assert len(stalls) > 0
 
-    def test_retrieve_profile(
+    def test_get_profile(
         self, nostr_client: NostrClient, merchant_keys: NostrKeys
     ) -> None:
-        """Test async retrieve profile"""
-        profile = nostr_client.retrieve_profile(merchant_keys.get_public_key())
+        """Test get profile"""
+        profile = nostr_client.get_profile()
         assert profile is not None
 
     def test_profile_operations(self, merchant_profile: Profile) -> None:
