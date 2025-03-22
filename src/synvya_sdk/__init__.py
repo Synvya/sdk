@@ -11,6 +11,7 @@ from .models import (
     Product,
     ProductShippingCost,
     Profile,
+    ProfileFilter,
     Stall,
     StallShippingMethod,
 )
@@ -31,6 +32,7 @@ __all__ = [
     "NostrClient",
     "generate_keys",
     "Profile",
+    "ProfileFilter",
     "ProductShippingCost",
     "StallShippingMethod",
     "Product",

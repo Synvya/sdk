@@ -60,24 +60,20 @@ def test_buyer_profile_creation(
 #         assert merchant_keys.get_public_key() in result
 
 
-def test_download_stalls_from_seller(
+def test_get_stalls(
     buyer_tools: BuyerTools,
     merchant_profile: Profile,
     stalls: List[Stall],
 ) -> None:
     """Test the retrieval of a seller's stalls"""
-    with patch.object(
-        buyer_tools._nostr_client, "retrieve_stalls_from_merchant"
-    ) as mock_get_seller_stalls:
-        mock_get_seller_stalls.return_value = stalls
+    with patch.object(buyer_tools._nostr_client, "get_stalls") as mock_get_stalls:
+        mock_get_stalls.return_value = stalls
 
-        result = buyer_tools.download_stalls_from_seller(
-            merchant_profile.get_public_key()
-        )
+        result = buyer_tools.get_stalls(merchant_profile.get_public_key())
         assert result is not None
 
 
-def test_download_products_from_seller(
+def test_get_products(
     buyer_tools: BuyerTools,
     merchant_profile: Profile,
     products: List[Product],
@@ -85,17 +81,15 @@ def test_download_products_from_seller(
     """Test the retrieval of a seller's products"""
     with patch.object(
         buyer_tools._nostr_client,
-        "retrieve_products_from_merchant",
+        "get_products",
         return_value=products,
-    ) as mock_download_products_from_seller:
-        result = buyer_tools.download_products_from_seller(
-            merchant_profile.get_public_key()
-        )
+    ) as mock_get_products:
+        result = buyer_tools.get_products(merchant_profile.get_public_key())
         assert isinstance(result, str)  # Ensure it's a JSON string
 
         # ✅ Verify that the mocked method was called
-        mock_download_products_from_seller.assert_called_once_with(
-            merchant_profile.get_public_key()
+        mock_get_products.assert_called_once_with(
+            merchant_profile.get_public_key(), None
         )
 
         products = json.loads(result)  # Convert JSON string back to a Python list

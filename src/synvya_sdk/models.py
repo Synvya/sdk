@@ -1,6 +1,7 @@
 import json
 import logging
-from typing import List, Optional
+from enum import Enum
+from typing import ClassVar, List, Optional, Set
 
 import httpx
 from nostr_sdk import (
@@ -15,37 +16,88 @@ from nostr_sdk import (
 )
 from pydantic import BaseModel, ConfigDict, Field
 
-# __all__ = [
-#     "Profile",
-#     "Product",
-#     "Stall",
-# ]
+
+class ProfileCategory(Enum):
+    """
+    Represents a profile category.
+    """
+
+    RETAIL = "retail"
+    RESTAURANT = "restaurant"
+    SERVICE = "service"
+    BUSINESS = "business"
+    ENTERTAINMENT = "entertainment"
+    OTHER = "other"
+    GAMER = "gamer"
 
 
-class Profile:
+class ProfileFilter(BaseModel):
+    """
+    Represents a profile filter.
+    """
+
+    namespace: str
+    category: ProfileCategory
+    hashtags: List[str]
+
+    def __init__(
+        self,
+        namespace: str,
+        category: ProfileCategory,
+        hashtags: Optional[List[str]] = None,
+    ) -> None:
+        """
+        Initialize a ProfileFilter instance.
+        """
+        super().__init__(
+            namespace=namespace,
+            category=category,
+            hashtags=hashtags,
+        )
+        self.namespace = namespace
+        self.category = category
+        self.hashtags = hashtags
+
+    def to_json(self) -> str:
+        """
+        Convert the ProfileFilter to a JSON string.
+        """
+        return json.dumps(self.model_dump())
+
+    @classmethod
+    def from_json(cls, json_str: str) -> "ProfileFilter":
+        """
+        Create a ProfileFilter instance from a JSON string.
+        """
+        data = json.loads(json_str)
+        return cls.model_validate(data)
+
+
+class Profile(BaseModel):
     """
     Nostr Profile class.
     Contains public key only.
     """
 
-    PROFILE_URL_PREFIX: str = "https://primal.net/p/"
-    logger = logging.getLogger("Profile")
+    PROFILE_URL_PREFIX: ClassVar[str] = "https://primal.net/p/"
+    logger: ClassVar[logging.Logger] = logging.getLogger("Profile")
 
-    def __init__(self, public_key: str) -> None:
-        self.about = ""
-        self.banner = ""
-        self.bot = False  # future use
-        self.display_name = ""
-        self.locations: set[str] = set()
-        self.name = ""
-        self.nip05 = ""
-        self.nip05_validated = False
-        self.picture = ""
+    public_key: str
+    about: str = ""
+    banner: str = ""
+    bot: bool = False
+    display_name: str = ""
+    locations: Set[str] = Field(default_factory=set)
+    name: str = ""
+    nip05: str = ""
+    nip05_validated: bool = False
+    picture: str = ""
+    profile_url: str = ""
+    website: str = ""
+
+    def __init__(self, public_key: str, **data) -> None:
+        super().__init__(public_key=public_key, **data)
         self.profile_url = self.PROFILE_URL_PREFIX + public_key
-        self.public_key = public_key
-        self.website = ""
-
-        # Initialize the locations set here, per-instance
 
     def add_location(self, location: str) -> None:
         """Add a location to the Nostr profile.
@@ -312,6 +364,9 @@ class NostrKeys(BaseModel):
     private_key: str
 
     def __init__(self, public_key: str, private_key: str) -> None:
+        """
+        Initialize a NostrKeys instance.
+        """
         super().__init__(public_key=public_key, private_key=private_key)
         self.public_key = public_key
         self.private_key = private_key
@@ -643,6 +698,11 @@ class Product(BaseModel):
             specs=data.get("specs", []),
             seller=data["seller"],
         )
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, Product):
+            return False
+        return str(self.id) == str(other.id)
 
 
 class Stall(BaseModel):

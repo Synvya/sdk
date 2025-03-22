@@ -81,17 +81,18 @@ if DB_NAME is None:
     raise ValueError("DB_NAME environment variable is not set")
 
 # Buyer profile constants
-NAME = "Snoqualmie Valley Chamber of Commerce"
-DESCRIPTION = "Supporting the Snoqualmie Valley business community."
+NAME = "snovalley"
+ABOUT = "Supporting the Snoqualmie Valley business community."
 PICTURE = "https://i.nostr.build/ocjZ5GlAKwrvgRhx.png"
 DISPLAY_NAME = "Snoqualmie Valley Chamber of Commerce"
-
+WEBSITE = "https://www.snovalley.org"
 # Initialize a buyer profile
 profile = Profile(keys.get_public_key())
 profile.set_name(NAME)
-profile.set_about(DESCRIPTION)
+profile.set_about(ABOUT)
 profile.set_display_name(DISPLAY_NAME)
 profile.set_picture(PICTURE)
+profile.set_website(WEBSITE)
 
 # Initialize database connection
 db_url = (
@@ -147,7 +148,7 @@ def reset_database() -> None:
     Base.metadata.create_all(engine)
 
 
-reset_database()
+# reset_database()
 
 vector_db = PgVector(
     table_name="sellers",
@@ -159,17 +160,17 @@ vector_db = PgVector(
 
 knowledge_base = AgentKnowledge(vector_db=vector_db)
 
+buyer_tools = BuyerTools(
+    knowledge_base=knowledge_base,
+    relay=RELAY,
+    private_key=keys.get_private_key(),
+)
 
+buyer_tools.set_profile(profile)
 buyer = Agent(  # type: ignore[call-arg]
     name="Virtual Guide for the Snoqualmie Valley",
     model=OpenAIChat(id="gpt-4o", api_key=OPENAI_API_KEY),
-    tools=[
-        BuyerTools(
-            knowledge_base=knowledge_base,
-            relay=RELAY,
-            private_key=keys.get_private_key(),
-        )
-    ],
+    tools=[buyer_tools],
     add_history_to_messages=True,
     num_history_responses=10,
     read_chat_history=True,
