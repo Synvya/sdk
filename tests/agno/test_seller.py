@@ -38,11 +38,11 @@ def test_publish_product(
     with patch.object(merchant_tools._nostr_client, "set_product") as mock_set_product:
         mock_set_product.return_value = product_event_ids[0]
 
-        result = json.loads(merchant_tools.publish_product(products[0]))
+        result = json.loads(merchant_tools.publish_product(products[0].name))
         assert result["status"] == "success"
         assert result["product_name"] == products[0].name
 
-        result = json.loads(merchant_tools.publish_product(products[0]))
+        result = json.loads(merchant_tools.publish_product(products[0].name))
         assert result["status"] == "success"
         assert result["product_name"] == products[0].name
 
@@ -56,7 +56,7 @@ def test_publish_stall(
     with patch.object(merchant_tools._nostr_client, "set_stall") as mock_set_stall:
         mock_set_stall.return_value = stall_event_ids[0]
 
-        result = json.loads(merchant_tools.publish_stall(stalls[0]))
+        result = json.loads(merchant_tools.publish_stall(stalls[0].name))
         assert result["status"] == "success"
         assert result["stall_name"] == stalls[0].name
 

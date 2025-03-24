@@ -261,7 +261,7 @@ class Profile(BaseModel):
                 return response.json()
         except httpx.HTTPStatusError as e:
             raise RuntimeError(
-                f"Failed to fetch NIP-05 metadata: {e.response.text}"
+                f"Failed to fetch NIP-05 metadata for {nip05}: {e.response.text}"
             ) from e
         except Exception as e:
             raise RuntimeError(

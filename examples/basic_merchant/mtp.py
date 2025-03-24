@@ -134,10 +134,11 @@ products = [
 ]
 
 profile = Profile(keys.get_public_key())
+profile.set_name(NAME)
+profile.set_display_name(DISPLAY_NAME)
 profile.set_about(ABOUT)
 profile.set_banner(BANNER)
-profile.set_display_name(DISPLAY_NAME)
-profile.set_name(NAME)
-profile.set_nip05(NIP05)
 profile.set_picture(PICTURE)
 profile.set_website(WEBSITE)
+profile.set_nip05(NIP05)
+profile.set_bot(True)

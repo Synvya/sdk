@@ -159,7 +159,9 @@ def reset_database() -> None:
     Base.metadata.create_all(engine)
 
 
-reset_database()
+# remove comment to delete the contents of the database for the
+# knowlege base and start fresh
+# reset_database()
 
 vector_db = PgVector(
     table_name="sellers",
@@ -207,7 +209,7 @@ buyer = Agent(  # type: ignore[call-arg]
     knowledge=knowledge_base,
     search_knowledge=True,
     show_tool_calls=True,
-    debug_mode=True,
+    debug_mode=False,
     # async_mode=True,
     instructions=[
         """
@@ -220,17 +222,26 @@ buyer = Agent(  # type: ignore[call-arg]
         from the marketplace "Historic Downtown Snoqualmie" with the public key
         "npub1nar4a3vv59qkzdlskcgxrctkw9f0ekjgqaxn8vd0y82f9kdve9rqwjcurn".
         
-        Under no circumstances use the tool `download_all_sellers` from BuyerTools.
-        
-        Once you're done with these steps, you will answer questions from the user with 
-        the information stored in your knowledge base.
-
         Only provide information about the businesses that are in your knowledge base.
 
         Include pictures of the businesses in your response when possible.
 
         Include in your response an offer to purchase the products or make a reservation
         for the user.
+
+        When asked to purchase a product, you will: 
+        1. use the tool `get_products_from_knowledge_base` to get the product details from
+        the knowledge base 
+        2. use the tool `submit_order` to submit one order to the seller for the product
+        3. use the tool `listen_for_message` to listen for a payment request from the seller
+        4. Coontinue listening for a payment request from the seller until you receive one
+        4. use the tool `submit_payment` to submit the payment with the information sent by
+        the seller in the payment request
+        5. use the tool `listen_for_message` to listen for a payment verification from the seller
+       
+
+        Only if you can't find the product in the knowledge base, you will use the tool 
+        `get_products`.
         """.strip(),
     ],
 )
@@ -242,19 +253,13 @@ def buyer_cli() -> None:
     """
     print("\n🔹 Snoqualmie Valley Visitor Assistant (Type 'exit' to quit)\n")
 
-    # print("Downloading sellers from Snoqualmie Valley Marketplace...")
-    # response = buyer.run("populate your knowledge base")
-    # print(f"\n🤖 Visitor Assistant: {response.get_content_as_string()}\n")
-
-    # print("Downloading stalls from all sellers...")
-    # response = buyer.run("download the stalls for all the merchants in your knowledge base")
-    # print(f"\n🤖 Visitor Assistant: {response.get_content_as_string()}\n")
-
-    # print("Downloading products from all sellers...")
-    # response = buyer.run(
-    #     "download the products for all the merchants in your knowledge base"
-    # )
-    # print(f"\n🤖 Visitor Assistant: {response.get_content_as_string()}\n")
+    ##---###
+    # Example prompts to run when populating the database
+    # "Populate your knowledge base"
+    # "Download the stalls for all the merchants in your knowledge base"
+    # Download the products for all the merchants in your knowledge base"
+    # Purchase `xyz`
+    ##---###
 
     while True:
         user_query = input("💬 You: ")

@@ -47,12 +47,12 @@ merchant = Agent(  # type: ignore[call-arg]
     name=f"AI Agent for {profile.get_name()}",
     model=OpenAIChat(id="gpt-4o", api_key=OPENAI_API_KEY),
     tools=[merchant_tools],
-    show_tool_calls=True,
+    show_tool_calls=False,
     debug_mode=False,
     add_history_to_messages=True,
-    num_history_responses=10,
-    read_chat_history=True,
-    read_tool_call_history=True,
+    num_history_responses=5,
+    read_chat_history=False,
+    read_tool_call_history=False,
     # async_mode=True,
     instructions=[
         """
@@ -61,6 +61,35 @@ merchant = Agent(  # type: ignore[call-arg]
         publishing a merchant profile and products to the Nostr network.
         If you encounter any errors, first try again, then, let me know
         with specific details for each error message.
+
+        To publish a single product or a single stall, use the tools `publish_product`
+        and `publish_stall` with the exact name of the product or stall. To find the exact name
+        of the product or stall, use the tool `get_products` or `get_stalls` and match the 
+        name property to the input provided by the user.
+
+        When you receive an order, you must take one of the following actions:
+        - Process the order if the order value (price x quantity) is less than 1000 
+        - Trigger a manual workflow for the order if the order value (price x quantity)
+        is greater than 1000        
+        
+	    To determine the price, use the tool get_products to find the product ordered
+	    in your database and its price.
+
+	    To process an order follow these steps:
+        1. Use the tool `send_payment_request` with the following arguments:
+        - buyer
+	    - order
+        - "kind:14" as kind
+	    - "BTC" as payment type
+	    - "bc123456" as payment url
+
+        2. Wait a few seconds and then use the tool `verify_payment` with
+        the same arguments as `send_payment_request`
+        3. If the payment is verified, use the tool `send_payment_verification`
+        with the arguments:
+        - buyer
+        - order
+        - "kind:14" as kind
         """.strip(),
     ],
 )
@@ -71,14 +100,25 @@ def merchant_cli() -> None:
     """
     Command-line interface for example merchant agent.
     """
-    print("\n🔹 Merchant Agent CLI (Type 'exit' to quit)\n")
-    while True:
-        user_query = input("💬 You: ")
-        if user_query.lower() in ["exit", "quit"]:
-            print("\n👋 Exiting Merchant Agent CLI. Goodbye!\n")
-            break
+    # publishing stalls
+    print("Publishing all stalls")
+    response = merchant.run("publish all stalls")
+    print(f"\n🤖 Merchant Agent: {response.get_content_as_string()}\n")
 
-        response = merchant.run(user_query)  # Get response from agent
+    print("Publishing all products")
+    response = merchant.run(
+        "publish all products, one at a time, wait 2 seconds in between each product"
+    )
+    print(f"\n🤖 Merchant Agent: {response.get_content_as_string()}\n")
+
+    print("\n🔹 Merchant Agent CLI (Press Ctrl+C to quit)\n")
+    while True:
+        response = merchant.run(
+            """listen for orders with a timeout of 10 seconds.
+            if no orders are received, respond with '...waiting for orders...
+            press ctrl+c to quit'
+            """
+        )
         print(f"\n🤖 Merchant Agent: {response.get_content_as_string()}\n")
 
 

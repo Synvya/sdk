@@ -118,8 +118,9 @@ class TestNostrClient:
     ) -> None:
         """Test sending a NIP-17 message"""
         event_id = nostr_client.send_message(
-            merchant_keys.get_public_key(),
-            "Hello, world!",
+            kind="kind:14",
+            public_key=merchant_keys.get_public_key(),
+            message="Hello, world!",
         )
         assert isinstance(event_id, str)
 

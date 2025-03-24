@@ -80,16 +80,18 @@ class MerchantTools(Toolkit):
         self.register(self.get_stalls)
         self.register(self.listen_for_orders)
         self.register(self.manual_order_workflow)
-        self.register(self.process_order)
         self.register(self.publish_product)
         self.register(self.publish_products)
         self.register(self.publish_stall)
         self.register(self.publish_stalls)
+        self.register(self.send_payment_request)
+        self.register(self.send_payment_verification)
         self.register(self.set_products)
         self.register(self.set_profile)
         self.register(self.set_stalls)
         self.register(self.remove_products)
         self.register(self.remove_stalls)
+        self.register(self.verify_payment)
 
     def get_profile(self) -> str:
         """
@@ -127,29 +129,62 @@ class MerchantTools(Toolkit):
         """
         return json.dumps([s.to_dict() for s, _ in self.stall_db])
 
-    def listen_for_orders(self) -> str:
+    def listen_for_orders(self, timeout: int = 5) -> str:
         """
-        Listens for orders to be processed by the Nostr relay
+        Listens for incoming orders from the Nostr relay.
+        Returns one order in JSON format.
+
+        If there are no orders, returns a JSON string with
+        {"type": "none", "content": "No orders received after <timeout> seconds"}
+
+        Args:
+            timeout: timeout for the listen operation
 
         Returns:
-            str: JSON string of the content of the private message or an error message
+            str: JSON string
+            {
+                "type": "order", "none",
+                "kind": "kind:4", "kind:14", "none",
+                "buyer": "<buyer bech32 public key>", "none",
+                "content": "<order content>"
+            }
+
 
         Raises:
             RuntimeError: if unable to listen for private messages
         """
         try:
-            order = self._nostr_client.receive_message()
-            logger.info("Received order: %s", order)
-            return json.dumps(order)
+            message = self._nostr_client.receive_message(timeout)
+            message_dict = json.loads(message)
+            message_kind = message_dict.get("type")
+            if message_kind == "kind:4" or message_kind == "kind:14":
+                if self._message_is_order(message_dict.get("content")):
+                    return json.dumps(
+                        {
+                            "type": "order",
+                            "kind": message_kind,
+                            "buyer": message_dict.get("sender"),
+                            "content": message_dict.get("content"),
+                        }
+                    )
+            return json.dumps(
+                {
+                    "type": "none",
+                    "kind": "none",
+                    "buyer": "none",
+                    "content": f"No orders received after {timeout} seconds",
+                }
+            )
         except RuntimeError as e:
             logger.error("Unable to listen for messages. Error %s", e)
             raise e
 
-    def manual_order_workflow(self, order: str, parameters: str) -> str:
+    def manual_order_workflow(self, buyer: str, order: str, parameters: str) -> str:
         """
         Placeholder for a manual order workflow
 
         Args:
+            buyer: buyer bech32 public key
             order: JSON string of the order
             parameters: JSON string of the parameters
 
@@ -159,22 +194,27 @@ class MerchantTools(Toolkit):
         return json.dumps(
             {
                 "status": "success",
-                "message": f"Workflow triggered for order: {order} with parameters: {parameters}",
+                "message": f"Workflow triggered for order: {order} from {buyer} with parameters: {parameters}",
             }
         )
 
-    def process_order(self, order: str, payment_type: str, payment_url: str) -> str:
+    def send_payment_request(
+        self, buyer: str, order: str, kind: str, payment_type: str, payment_url: str
+    ) -> str:
         """
         Processes an order
 
         Args:
+            buyer: buyer bech32 public key
             order: JSON string of the order
+            kind: message kind to use (kind:4 or kind:14)
             payment_type: Type of payment
             payment_url: URL of the payment
 
         Returns:
             str: JSON string of the payment request
         """
+        logger.info("process_order: Processing order: %s", order)
         try:
             order_dict = json.loads(order)
         except json.JSONDecodeError:
@@ -188,16 +228,19 @@ class MerchantTools(Toolkit):
         payment_request = self._create_payment_request(
             order_id, payment_type, payment_url
         )
-        return json.dumps(payment_request)
+        response = self._nostr_client.send_message(
+            kind,
+            buyer,
+            payment_request,
+        )
+        return json.dumps(response)
 
-    def publish_product(self, product: Product) -> str:
+    def publish_product(self, product_name: str) -> str:
         """
         Publishes to Nostr a single product.
-        Adds the product to the Product DB if it is not already present.
-        Updates the Product DB with new event id if the product is already present.
 
         Args:
-            product: Product to be published
+            product: string with name of product
 
         Returns:
             str: JSON string with status of the operation
@@ -208,6 +251,13 @@ class MerchantTools(Toolkit):
         if self._nostr_client is None:
             logger.error("NostrClient not initialized")
             raise ValueError("NostrClient not initialized")
+
+        # let's find the product
+        product = next((p for p, _ in self.product_db if p.name == product_name), None)
+        if product is None:
+            return json.dumps(
+                {"status": "error", "message": f"Product {product_name} not found"}
+            )
 
         try:
             event_id = self._nostr_client.set_product(product)
@@ -280,8 +330,8 @@ class MerchantTools(Toolkit):
                         "product_name": product.name,
                     }
                 )
-                # Pause for 0.5 seconds to avoid rate limiting
-                time.sleep(0.5)
+                # Pause for 1 seconds to rate limiting by relay
+                time.sleep(1)
             except RuntimeError as e:
                 logger.error("Unable to publish product %s. Error %s", product, e)
                 results.append(
@@ -290,7 +340,7 @@ class MerchantTools(Toolkit):
 
         return json.dumps(results)
 
-    def publish_stall(self, stall: Stall) -> str:
+    def publish_stall(self, stall_name: str) -> str:
         """
         Publishes to Nostr a single stall.
         Adds the stall to the Stall DB if it is not already present.
@@ -300,7 +350,7 @@ class MerchantTools(Toolkit):
         Call publish_products() to publish the products for the stall.
 
         Args:
-            stall: Stall to be published
+            stall_name: name of the stall to be published
 
         Returns:
             str: JSON string with status of the operation
@@ -311,6 +361,13 @@ class MerchantTools(Toolkit):
         if self._nostr_client is None:
             logger.error("NostrClient not initialized")
             raise ValueError("NostrClient not initialized")
+
+        # let's find the stall
+        stall = next((s for s, _ in self.stall_db if s.name == stall_name), None)
+        if stall is None:
+            return json.dumps(
+                {"status": "error", "message": f"Stall {stall_name} not found"}
+            )
 
         try:
             event_id = self._nostr_client.set_stall(stall)
@@ -827,242 +884,328 @@ class MerchantTools(Toolkit):
 
         return json.dumps(results)
 
-    # def remove_product_by_name(self, arguments: str) -> str:
-    #     """
-    #     Removes from Nostr a product with the given name
+        # def remove_product_by_name(self, arguments: str) -> str:
+        #     """
+        #     Removes from Nostr a product with the given name
 
-    #     Args:
-    #         arguments: JSON string that may contain {"name": "product_name"}
-    #         or just "product_name"
+        #     Args:
+        #         arguments: JSON string that may contain {"name": "product_name"}
+        #         or just "product_name"
 
-    #     Returns:
-    #         str: JSON string with status of the operation
+        #     Returns:
+        #         str: JSON string with status of the operation
 
-    #     Raises:
-    #         ValueError: if NostrClient is not initialized
-    #     """
-    #     if self._nostr_client is None:
-    #         logger.error("NostrClient not initialized")
-    #         raise ValueError("NostrClient not initialized")
+        #     Raises:
+        #         ValueError: if NostrClient is not initialized
+        #     """
+        #     if self._nostr_client is None:
+        #         logger.error("NostrClient not initialized")
+        #         raise ValueError("NostrClient not initialized")
 
-    #     try:
-    #         # Try to parse as JSON first
-    #         if isinstance(arguments, dict):
-    #             parsed = arguments
-    #         else:
-    #             parsed = json.loads(arguments)
-    #         name = parsed.get(
-    #             "name", parsed
-    #         )  # Get name if exists, otherwise use whole value
-    #     except json.JSONDecodeError:
-    #         # If not JSON, use the raw string
-    #         name = arguments
+        #     try:
+        #         # Try to parse as JSON first
+        #         if isinstance(arguments, dict):
+        #             parsed = arguments
+        #         else:
+        #             parsed = json.loads(arguments)
+        #         name = parsed.get(
+        #             "name", parsed
+        #         )  # Get name if exists, otherwise use whole value
+        #     except json.JSONDecodeError:
+        #         # If not JSON, use the raw string
+        #         name = arguments
 
-    #     # Find the product and its event_id in the product_db
-    #     for i, (product, event_id) in enumerate(self.product_db):
-    #         if product.name == name:
-    #             if event_id is None:
-    #                 return json.dumps(
-    #                     {
-    #                         "status": "error",
-    #                         "message": f"Product '{name}' has not been published yet",
-    #                         "product_name": name,
-    #                     }
-    #                 )
+        #     # Find the product and its event_id in the product_db
+        #     for i, (product, event_id) in enumerate(self.product_db):
+        #         if product.name == name:
+        #             if event_id is None:
+        #                 return json.dumps(
+        #                     {
+        #                         "status": "error",
+        #                         "message": f"Product '{name}' has not been published yet",
+        #                         "product_name": name,
+        #                     }
+        #                 )
 
-    #             try:
-    #                 # Delete the event using the SDK's method
-    #                 self._nostr_client.delete_event(
-    #                     event_id, reason=f"Product '{name}' removed"
-    #                 )
-    #                 # Remove the event_id, keeping the product in the database
-    #                 self.product_db[i] = (product, None)
-    #                 # Pause for 0.5 seconds to avoid rate limiting
-    #                 time.sleep(0.5)
-    #                 return json.dumps(
-    #                     {
-    #                         "status": "success",
-    #                         "message": f"Product '{name}' removed",
-    #                         "product_name": name,
-    #                         "event_id": str(event_id),
-    #                     }
-    #                 )
-    #             except RuntimeError as e:
-    #                 logger.error("Unable to remove product %s. Error %s", name, e)
-    #                 return json.dumps(
-    #                     {"status": "error", "message": str(e), "product_name": name}
-    #                 )
+        #             try:
+        #                 # Delete the event using the SDK's method
+        #                 self._nostr_client.delete_event(
+        #                     event_id, reason=f"Product '{name}' removed"
+        #                 )
+        #                 # Remove the event_id, keeping the product in the database
+        #                 self.product_db[i] = (product, None)
+        #                 # Pause for 0.5 seconds to avoid rate limiting
+        #                 time.sleep(0.5)
+        #                 return json.dumps(
+        #                     {
+        #                         "status": "success",
+        #                         "message": f"Product '{name}' removed",
+        #                         "product_name": name,
+        #                         "event_id": str(event_id),
+        #                     }
+        #                 )
+        #             except RuntimeError as e:
+        #                 logger.error("Unable to remove product %s. Error %s", name, e)
+        #                 return json.dumps(
+        #                     {"status": "error", "message": str(e), "product_name": name}
+        #                 )
 
-    #     # If we get here, we didn't find the product
-    #     return json.dumps(
-    #         {
-    #             "status": "error",
-    #             "message": f"Product '{name}' not found in database",
-    #             "product_name": name,
-    #         }
-    #     )
+        #     # If we get here, we didn't find the product
+        #     return json.dumps(
+        #         {
+        #             "status": "error",
+        #             "message": f"Product '{name}' not found in database",
+        #             "product_name": name,
+        #         }
+        #     )
 
-    # def remove_stall_by_name(self, arguments: Union[str, dict]) -> str:
-    #     """
-    #     Remove from Nostr a stall and its products by name
+        # def remove_stall_by_name(self, arguments: Union[str, dict]) -> str:
+        #     """
+        #     Remove from Nostr a stall and its products by name
 
-    #     Args:
-    #         arguments: str or dict with the stall name. Can be in formats:
-    #             - {"name": "stall_name"}
-    #             - {"arguments": "{\"name\": \"stall_name\"}"}
-    #             - "stall_name"
+        #     Args:
+        #         arguments: str or dict with the stall name. Can be in formats:
+        #             - {"name": "stall_name"}
+        #             - {"arguments": "{\"name\": \"stall_name\"}"}
+        #             - "stall_name"
 
-    #     Returns:
-    #         str: JSON array with status of the operation
+        #     Returns:
+        #         str: JSON array with status of the operation
 
-    #     Raises:
-    #         ValueError: if NostrClient is not initialized
-    #     """
-    #     if self._nostr_client is None:
-    #         logger.error("NostrClient not initialized")
-    #         raise ValueError("NostrClient not initialized")
+        #     Raises:
+        #         ValueError: if NostrClient is not initialized
+        #     """
+        #     if self._nostr_client is None:
+        #         logger.error("NostrClient not initialized")
+        #         raise ValueError("NostrClient not initialized")
 
-    #     try:
-    #         # Parse arguments to get stall_name
-    #         stall_name: str
-    #         if isinstance(arguments, str):
-    #             try:
-    #                 parsed = json.loads(arguments)
-    #                 if isinstance(parsed, dict):
-    #                     raw_name: Optional[Any] = parsed.get("name")
-    #                     stall_name = str(raw_name) if raw_name is not None else ""
-    #                 else:
-    #                     stall_name = arguments
-    #             except json.JSONDecodeError:
-    #                 stall_name = arguments
-    #         else:
-    #             if "arguments" in arguments:
-    #                 nested = json.loads(arguments["arguments"])
-    #                 if isinstance(nested, dict):
-    #                     raw_name = nested.get("name")
-    #                     stall_name = str(raw_name) if raw_name is not None else ""
-    #                 else:
-    #                     raw_name = nested
-    #                     stall_name = str(raw_name) if raw_name is not None else ""
-    #             else:
-    #                 raw_name = arguments.get("name", arguments)
-    #                 stall_name = str(raw_name) if raw_name is not None else ""
+        #     try:
+        #         # Parse arguments to get stall_name
+        #         stall_name: str
+        #         if isinstance(arguments, str):
+        #             try:
+        #                 parsed = json.loads(arguments)
+        #                 if isinstance(parsed, dict):
+        #                     raw_name: Optional[Any] = parsed.get("name")
+        #                     stall_name = str(raw_name) if raw_name is not None else ""
+        #                 else:
+        #                     stall_name = arguments
+        #             except json.JSONDecodeError:
+        #                 stall_name = arguments
+        #         else:
+        #             if "arguments" in arguments:
+        #                 nested = json.loads(arguments["arguments"])
+        #                 if isinstance(nested, dict):
+        #                     raw_name = nested.get("name")
+        #                     stall_name = str(raw_name) if raw_name is not None else ""
+        #                 else:
+        #                     raw_name = nested
+        #                     stall_name = str(raw_name) if raw_name is not None else ""
+        #             else:
+        #                 raw_name = arguments.get("name", arguments)
+        #                 stall_name = str(raw_name) if raw_name is not None else ""
 
-    #         results = []
-    #         stall_index = None
-    #         stall_id = None
+        #         results = []
+        #         stall_index = None
+        #         stall_id = None
 
-    #         # Find the stall and its event_id in the stall_db
-    #         for i, (stall, event_id) in enumerate(self.stall_db):
-    #             if stall.name == stall_name:
-    #                 stall_index = i
-    #                 stall_id = stall.id
-    #                 break
+        #         # Find the stall and its event_id in the stall_db
+        #         for i, (stall, event_id) in enumerate(self.stall_db):
+        #             if stall.name == stall_name:
+        #                 stall_index = i
+        #                 stall_id = stall.id
+        #                 break
 
-    #         # If stall_id is empty, then we found no match
-    #         if stall_id is None:
-    #             return json.dumps(
-    #                 [
-    #                     {
-    #                         "status": "error",
-    #                         "message": f"Stall '{stall_name}' not found in database",
-    #                         "stall_name": stall_name,
-    #                     }
-    #                 ]
-    #             )
+        #         # If stall_id is empty, then we found no match
+        #         if stall_id is None:
+        #             return json.dumps(
+        #                 [
+        #                     {
+        #                         "status": "error",
+        #                         "message": f"Stall '{stall_name}' not found in database",
+        #                         "stall_name": stall_name,
+        #                     }
+        #                 ]
+        #             )
 
-    #         # First remove all products in this stall
-    #         for i, (product, event_id) in enumerate(self.product_db):
-    #             if product.stall_id == stall_id:
-    #                 if event_id is None:
-    #                     results.append(
-    #                         {
-    #                             "status": "skipped",
-    #                             "message": "Unpublished product",
-    #                             "product_name": product.name,
-    #                             "stall_name": stall_name,
-    #                         }
-    #                     )
-    #                     continue
+        #         # First remove all products in this stall
+        #         for i, (product, event_id) in enumerate(self.product_db):
+        #             if product.stall_id == stall_id:
+        #                 if event_id is None:
+        #                     results.append(
+        #                         {
+        #                             "status": "skipped",
+        #                             "message": "Unpublished product",
+        #                             "product_name": product.name,
+        #                             "stall_name": stall_name,
+        #                         }
+        #                     )
+        #                     continue
 
-    #                 try:
-    #                     self._nostr_client.delete_event(
-    #                         event_id, reason=f"Stall for '{product.name}' removed"
-    #                     )
-    #                     self.product_db[i] = (product, None)
-    #                     results.append(
-    #                         {
-    #                             "status": "success",
-    #                             "message": f"Product '{product.name}' removed",
-    #                             "product_name": product.name,
-    #                             "stall_name": stall_name,
-    #                             "event_id": str(event_id),
-    #                         }
-    #                     )
-    #                     # Pause for 0.5 seconds to avoid rate limiting
-    #                     time.sleep(0.5)
-    #                 except RuntimeError as e:
-    #                     logger.error(
-    #                         "Unable to remove product %s. Error %s", product, e
-    #                     )
-    #                     results.append(
-    #                         {
-    #                             "status": "error",
-    #                             "message": str(e),
-    #                             "product_name": product.name,
-    #                             "stall_name": stall_name,
-    #                         }
-    #                     )
+        #                 try:
+        #                     self._nostr_client.delete_event(
+        #                         event_id, reason=f"Stall for '{product.name}' removed"
+        #                     )
+        #                     self.product_db[i] = (product, None)
+        #                     results.append(
+        #                         {
+        #                             "status": "success",
+        #                             "message": f"Product '{product.name}' removed",
+        #                             "product_name": product.name,
+        #                             "stall_name": stall_name,
+        #                             "event_id": str(event_id),
+        #                         }
+        #                     )
+        #                     # Pause for 0.5 seconds to avoid rate limiting
+        #                     time.sleep(0.5)
+        #                 except RuntimeError as e:
+        #                     logger.error(
+        #                         "Unable to remove product %s. Error %s", product, e
+        #                     )
+        #                     results.append(
+        #                         {
+        #                             "status": "error",
+        #                             "message": str(e),
+        #                             "product_name": product.name,
+        #                             "stall_name": stall_name,
+        #                         }
+        #                     )
 
-    #         # Now remove the stall itself
-    #         if stall_index is not None:
-    #             _, stall_event_id = self.stall_db[stall_index]
-    #             if stall_event_id is None:
-    #                 results.append(
-    #                     {
-    #                         "status": "skipped",
-    #                         "message": (
-    #                             f"Stall '{stall_name}' has not been published yet"
-    #                         ),
-    #                         "stall_name": stall_name,
-    #                     }
-    #                 )
-    #             else:
-    #                 try:
-    #                     self._nostr_client.delete_event(
-    #                         stall_event_id, reason=f"Stall '{stall_name}' removed"
-    #                     )
-    #                     self.stall_db[stall_index] = (
-    #                         self.stall_db[stall_index][0],
-    #                         None,
-    #                     )
-    #                     results.append(
-    #                         {
-    #                             "status": "success",
-    #                             "message": f"Stall '{stall_name}' removed",
-    #                             "stall_name": stall_name,
-    #                             "event_id": str(stall_event_id),
-    #                         }
-    #                     )
-    #                 except RuntimeError as e:
-    #                     logger.error(
-    #                         "Unable to remove stall %s. Error %s", stall_name, e
-    #                     )
-    #                     results.append(
-    #                         {
-    #                             "status": "error",
-    #                             "message": str(e),
-    #                             "stall_name": stall_name,
-    #                         }
-    #                     )
+        #         # Now remove the stall itself
+        #         if stall_index is not None:
+        #             _, stall_event_id = self.stall_db[stall_index]
+        #             if stall_event_id is None:
+        #                 results.append(
+        #                     {
+        #                         "status": "skipped",
+        #                         "message": (
+        #                             f"Stall '{stall_name}' has not been published yet"
+        #                         ),
+        #                         "stall_name": stall_name,
+        #                     }
+        #                 )
+        #             else:
+        #                 try:
+        #                     self._nostr_client.delete_event(
+        #                         stall_event_id, reason=f"Stall '{stall_name}' removed"
+        #                     )
+        #                     self.stall_db[stall_index] = (
+        #                         self.stall_db[stall_index][0],
+        #                         None,
+        #                     )
+        #                     results.append(
+        #                         {
+        #                             "status": "success",
+        #                             "message": f"Stall '{stall_name}' removed",
+        #                             "stall_name": stall_name,
+        #                             "event_id": str(stall_event_id),
+        #                         }
+        #                     )
+        #                 except RuntimeError as e:
+        #                     logger.error(
+        #                         "Unable to remove stall %s. Error %s", stall_name, e
+        #                     )
+        #                     results.append(
+        #                         {
+        #                             "status": "error",
+        #                             "message": str(e),
+        #                             "stall_name": stall_name,
+        #                         }
+        #                     )
 
-    #         return json.dumps(results)
+        #         return json.dumps(results)
 
-    #     except RuntimeError as e:
-    #         logger.error("Unable to remove stall '%s'. Error %s", stall_name, e)
-    #         return json.dumps(
-    #             [{"status": "error", "message": str(e), "stall_name": "unknown"}]
-    #         )
+        #     except RuntimeError as e:
+        #         logger.error("Unable to remove stall '%s'. Error %s", stall_name, e)
+        #         return json.dumps(
+        #             [{"status": "error", "message": str(e), "stall_name": "unknown"}]
+        #
+
+    def verify_payment(
+        self,
+        buyer: str,
+        order: str,
+        kind: str,
+        payment_type: str,
+        payment_url: str,
+    ) -> str:
+        """
+        Verifies that payment has been received for an order
+        Assumes that payment has already been received
+        Sends a payment verification to the buyer
+        """
+        return json.dumps(
+            {
+                "status": "success",
+                "message": "Payment verified",
+            }
+        )
+
+    def send_payment_verification(self, buyer: str, order: str, kind: str) -> str:
+        """
+        Verifies that payment has been received for an order
+        Assumes that payment has already been received
+        Sends a payment verification to the buyer
+
+        TBD: confirm payment is received
+
+        Args:
+            buyer: Bech32 public key of the buyer
+            order: JSON string of the order
+            kind: message kind to use (kind:4 or kind:14)
+
+        Returns:
+            str: JSON string of the payment request
+        """
+        logger.info(
+            "send_payment_verification: Sending payment verification for order: %s",
+            order,
+        )
+        try:
+            order_dict = json.loads(order)
+        except json.JSONDecodeError:
+            return json.dumps({"status": "error", "message": "Invalid order format"})
+        order_id = order_dict.get("id")
+
+        payment_verification = self._create_payment_verification(order_id)
+        response = self._nostr_client.send_message(
+            kind,
+            buyer,
+            payment_verification,
+        )
+        return json.dumps(response)
+
+    def _message_is_order(self, message: str) -> bool:
+        """
+        Check if the message contains an order.
+
+        Args:
+            message (str): The message to check.
+
+        Returns:
+            bool: True if the message contains an order, False otherwise
+        """
+        try:
+            # Check if message is already a dictionary
+            if isinstance(message, dict):
+                content = message
+            else:
+                content = json.loads(message)
+
+            logger.debug("_message_is_order: content: %s", content)
+
+            if content.get("type") != 0:
+                return False
+
+            items = content.get("items", [])
+            if isinstance(items, list) and any(
+                isinstance(item, dict) and "product_id" in item and "quantity" in item
+                for item in items
+            ):
+                return True
+            return False
+        except json.JSONDecodeError:
+            return False
 
     def _create_payment_request(
         self,
@@ -1091,4 +1234,30 @@ class MerchantTools(Toolkit):
 
         return json.dumps(
             payment_request, indent=2
+        )  # Convert to JSON string with pretty printing
+
+    def _create_payment_verification(
+        self,
+        order_id: str,
+    ) -> str:
+        """
+        Create a payment verification in JSON format.
+
+        Args:
+            order_id (str): ID of the order.
+
+        Returns:
+            str: JSON string of the payment request.
+        """
+
+        payment_verification = {
+            "id": order_id,
+            "type": 2,
+            "message": "Thank you for your business!",
+            "paid": True,
+            "shipped": True,
+        }
+
+        return json.dumps(
+            payment_verification, indent=2
         )  # Convert to JSON string with pretty printing

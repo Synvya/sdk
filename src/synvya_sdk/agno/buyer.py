@@ -91,7 +91,9 @@ class BuyerTools(Toolkit):
         self.register(self.get_relay)
         self.register(self.get_stalls)
         self.register(self.get_stalls_from_knowledge_base)
-        self.register(self.purchase_product)
+        self.register(self.listen_for_message)
+        self.register(self.submit_order)
+        self.register(self.submit_payment)
 
     def get_merchants(self) -> str:
         """
@@ -231,10 +233,15 @@ class BuyerTools(Toolkit):
         else:
             search_query = ""
 
-        search_filters = [
-            {"type": "product"},
-            {"categories": categories},
-        ]
+        if categories is not None:
+            search_filters = [
+                {"type": "product"},
+                {"categories": categories},
+            ]
+        else:
+            search_filters = [
+                {"type": "product"},
+            ]
 
         documents = self.knowledge_base.search(
             query=search_query, num_documents=100, filters=search_filters
@@ -353,58 +360,59 @@ class BuyerTools(Toolkit):
     #     products_json = [doc.content for doc in documents]
     #     return json.dumps(products_json)
 
-    def purchase_product(self, product_name: str, quantity: int) -> str:
+    def listen_for_message(self, timeout: int = 5) -> str:
         """
-        Purchase a product.
-
-        TBD: Complete flow. Today it just sends first message
-        and returns a fixed response.
+        Listens for incoming messages from the Nostr relay.
+        Returns one message in JSON format.
 
         Args:
-            product_name: name of the product to purchase
-            quantity: quantity of the product to purchase
+            timeout: timeout for the listen operation
 
         Returns:
-            str: JSON string with status and message
-        """
-        logger.info("Purchasing product: %s", product_name)
-
-        try:
-            product = self._get_product_from_kb(product_name)
-        except RuntimeError as e:
-            logger.error("Error getting product from knowledge base: %s", e)
-            return json.dumps({"status": "error", "message": str(e)})
-
-        # Confirm seller has valid NIP-05
-        merchant = self._nostr_client.get_profile(product.get_seller())
-        if not merchant.is_nip05_validated():
-            logger.error(
-                "Merchant %s does not have a valid NIP-05", product.get_seller()
-            )
-            return json.dumps(
-                {"status": "error", "message": "Merchant does not have a valid NIP-05"}
-            )
-
-        # Choosing the first shipping zone for now
-        # Address is hardcoded for now. Add it to the buyer profile later.
-        order_msg = self._create_customer_order(
-            product.id,
-            quantity,
-            product.shipping[0].get_id(),
-            "123 Main St, Anytown, USA",
-        )
-
-        self._nostr_client.send_message(
-            product.get_seller(),
-            order_msg,
-        )
-
-        return json.dumps(
+            str: JSON string
             {
-                "status": "success",
-                "message": f"Product {product_name} purchased from merchant {product.get_seller()}",
+                "type": "payment request", "payment verification", "unknown",
+                "kind": "kind:4", "kind:14", "none",
+                "seller": "<seller bech32 public key>", "none",
+                "content": "<order content>"
             }
-        )
+
+
+        Raises:
+            RuntimeError: if unable to listen for private messages
+        """
+        try:
+            message = self._nostr_client.receive_message(timeout)
+            message_dict = json.loads(message)
+            message_kind = message_dict.get("type")
+            if message_kind in {"kind:4", "kind:14"}:
+                if self._message_is_payment_request(message_dict.get("content")):
+                    return json.dumps(
+                        {
+                            "type": "payment request",
+                            "seller": message_dict.get("sender"),
+                            "content": message_dict.get("content"),
+                        }
+                    )
+                if self._message_is_payment_verification(message_dict.get("content")):
+                    return json.dumps(
+                        {
+                            "type": "payment verification",
+                            "seller": message_dict.get("sender"),
+                            "content": message_dict.get("content"),
+                        }
+                    )
+            return json.dumps(
+                {
+                    "type": "unknown",
+                    "kind": message_kind,
+                    "buyer": "none",
+                    "content": f"No orders received after {timeout} seconds",
+                }
+            )
+        except RuntimeError as e:
+            logger.error("Unable to listen for messages. Error %s", e)
+            raise e
 
     def set_profile(self, profile: Profile) -> str:
         """
@@ -424,6 +432,82 @@ class BuyerTools(Toolkit):
             return json.dumps({"status": "error", "message": str(e)})
 
         return json.dumps({"status": "success"})
+
+    def submit_order(self, product_name: str, quantity: int) -> str:
+        """
+        Purchase a product.
+
+        TBD: Complete flow. Today it just sends first message
+        and returns a fixed response.
+
+        Args:
+            product_name: name of the product to purchase
+            quantity: quantity of the product to purchase
+
+        Returns:
+            str: JSON string with status and message
+        """
+
+        try:
+            product = self._get_product_from_kb(product_name)
+        except RuntimeError as e:
+            logger.error("Error getting product from knowledge base: %s", e)
+            return json.dumps({"status": "error", "message": str(e)})
+
+        # Confirm seller has valid NIP-05
+        merchant = self._nostr_client.get_profile(product.get_seller())
+        if not merchant.is_nip05_validated():
+            logger.error(
+                "Merchant %s does not have a verified NIP-05", product.get_seller()
+            )
+            return json.dumps(
+                {
+                    "status": "error",
+                    "message": "Merchant does not have a verified NIP-05",
+                }
+            )
+
+        # Choosing the first shipping zone for now
+        # Address is hardcoded for now. Add it to the buyer profile later.
+        order_msg = self._create_customer_order(
+            product.id,
+            quantity,
+            product.shipping[0].get_id(),
+            "123 Main St, Anytown, USA",
+        )
+
+        self._nostr_client.send_message(
+            "kind:14",
+            product.get_seller(),
+            order_msg,
+        )
+
+        return json.dumps(
+            {
+                "status": "success",
+                "message": f"Order placed for {quantity} units of {product_name}",
+                "seller": product.get_seller(),
+            }
+        )
+
+    def submit_payment(self, payment_request: str) -> str:
+        """
+        Submit a payment to the seller.
+        TBD: Complete flow. Today it just returns a fixed response.
+
+        Args:
+            payment_request: payment request to submit
+
+        Returns:
+            str: JSON string with status and message
+        """
+
+        return json.dumps(
+            {
+                "status": "success",
+                "message": "Payment submitted",
+            }
+        )
 
     def _create_customer_order(
         self,
@@ -467,6 +551,76 @@ class BuyerTools(Toolkit):
         if len(documents) == 0:
             raise RuntimeError(f"Product {product_name} not found in knowledge base")
         return Product.from_json(documents[0].content)
+
+    def _message_is_payment_request(self, message: str) -> bool:
+        """
+        Check if a message is a payment request.
+        Args:
+            message: message to check
+
+        Returns:
+            bool: True if the message is a payment request, False otherwise
+
+        Raises:
+            json.JSONDecodeError: if the message is not a valid JSON string
+        """
+        try:
+            # Check if message is already a dictionary
+            if isinstance(message, dict):
+                content = message
+            else:
+                content = json.loads(message)
+
+            logger.debug("_message_is_payment_request: content: %s", content)
+
+            if content.get("type") != 1:
+                return False
+
+            payment_options = content.get("payment_options", [])
+            if isinstance(payment_options, list) and any(
+                isinstance(payment_option, dict)
+                and "type" in payment_option
+                and "link" in payment_option
+                for payment_option in payment_options
+            ):
+                return True
+            return False
+        except json.JSONDecodeError:
+            return False
+
+    def _message_is_payment_verification(self, message: str) -> bool:
+        """
+        Check if a message is a payment verification.
+        Args:
+            message: message to check
+
+        Returns:
+            bool: True if the message is a payment verification, False otherwise
+
+        Raises:
+            json.JSONDecodeError: if the message is not a valid JSON string
+        """
+        try:
+            # Check if message is already a dictionary
+            if isinstance(message, dict):
+                content = message
+            else:
+                content = json.loads(message)
+
+            logger.debug("_message_is_payment_verification: content: %s", content)
+
+            if content.get("type") != 2:
+                return False
+
+            paid = content.get("paid")
+            shipped = content.get("shipped")
+
+            if isinstance(paid, bool) and isinstance(shipped, bool):
+                return True
+            return False
+
+        except json.JSONDecodeError:
+            return False
 
     def _store_profile_in_kb(self, profile: Profile) -> None:
         """
