@@ -2,13 +2,14 @@
 Nostr utility functions.
 """
 
+import json
 from os import getenv
 from pathlib import Path
 from sys import exit
 
 from dotenv import load_dotenv
 
-from synvya_sdk import NostrClient, NostrKeys, Profile
+from synvya_sdk import Namespace, NostrClient, NostrKeys, Profile, ProfileType
 
 ENV_KEY = "NOSTR_UTILS_KEY"
 
@@ -39,31 +40,43 @@ else:
 #     "1a5c33f81eb7908668445736e8075b885df1e376fa479b2132da6e0c09fb5621"
 # ]
 
-# nostr_client = NostrClient(relay=RELAY, private_key=NSEC)
+nostr_client = NostrClient(relay=RELAY, private_key=NSEC)
 
-# ABOUT = (
-#     "Welcome to the Northwest Railway Museum where you can experience "
-#     "how The Railway Changed Everything"
-# )
+ABOUT = (
+    "Welcome to the Northwest Railway Museum where you can experience "
+    "how The Railway Changed Everything"
+)
 
-# BANNER = "https://i.nostr.build/seoK5FZi5VCC7nXO.jpg"
-# DISPLAY_NAME = "Northwest Railway Museum"
-# NAME = "nrm"
-# NIP05 = "nrm@synvya.com"
-# PICTURE = "https://i.nostr.build/eZvrJNK9kFni5QR3.jpg"
-# WEBSITE = "https://trainmuseum.org"
+BANNER = "https://i.nostr.build/seoK5FZi5VCC7nXO.jpg"
+DISPLAY_NAME = "Northwest Railway Museum"
+NAME = "nrm"
+NIP05 = "nrm@synvya.com"
+PICTURE = "https://i.nostr.build/eZvrJNK9kFni5QR3.jpg"
+WEBSITE = "https://trainmuseum.org"
+CATEGORY = ProfileType.MERCHANT_RETAIL
+NAMESPACE = Namespace.MERCHANT
+HASHTAGS = ["railway", "museum", "history"]
 
-# profile = Profile(keys.get_public_key())
-# profile.set_about(ABOUT)
-# profile.set_banner(BANNER)
-# profile.set_display_name(DISPLAY_NAME)
-# profile.set_name(NAME)
-# profile.set_nip05(NIP05)
-# profile.set_picture(PICTURE)
-# profile.set_website(WEBSITE)
+profile = Profile(keys.get_public_key())
+profile.set_about(ABOUT)
+profile.set_banner(BANNER)
+profile.set_display_name(DISPLAY_NAME)
+profile.set_name(NAME)
+profile.set_nip05(NIP05)
+profile.set_picture(PICTURE)
+profile.set_website(WEBSITE)
+profile.set_profile_type(CATEGORY)
+profile.set_namespace(NAMESPACE)
+for hashtag in HASHTAGS:
+    profile.add_hashtag(hashtag)
 
-# nostr_client.set_profile(profile)
-# nostr_client.publish_profile()
+nostr_client.set_profile(profile)
+
+relay_profile = nostr_client.get_profile(keys.get_public_key())
+print(f"Profile type: {relay_profile.get_profile_type()}")
+print(f"Profile namespace: {relay_profile.get_namespace()}")
+print(f"Profile hashtags: {relay_profile.get_hashtags()}")
+
 
 # for event in event_list:
 #     event_id = EventId.parse(event)

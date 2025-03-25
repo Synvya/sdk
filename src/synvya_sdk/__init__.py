@@ -7,11 +7,13 @@ import logging
 
 # Import main classes to make them available at package level
 from .models import (
+    Namespace,
     NostrKeys,
     Product,
     ProductShippingCost,
     Profile,
     ProfileFilter,
+    ProfileType,
     Stall,
     StallShippingMethod,
 )
@@ -33,6 +35,8 @@ __all__ = [
     "generate_keys",
     "Profile",
     "ProfileFilter",
+    "ProfileType",
+    "Namespace",
     "ProductShippingCost",
     "StallShippingMethod",
     "Product",
