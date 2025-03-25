@@ -5,30 +5,52 @@ from typing import ClassVar, List, Optional, Set
 
 import httpx
 from nostr_sdk import (
+    Alphabet,
+    Event,
     JsonValue,
     Keys,
+    Kind,
     Metadata,
     ProductData,
     PublicKey,
     ShippingCost,
     ShippingMethod,
+    SingleLetterTag,
     StallData,
+    TagKind,
 )
 from pydantic import BaseModel, ConfigDict, Field
 
 
-class ProfileCategory(Enum):
+class Namespace(str, Enum):
     """
-    Represents a profile category.
+    Represents a namespace.
     """
 
-    RETAIL = "retail"
-    RESTAURANT = "restaurant"
-    SERVICE = "service"
-    BUSINESS = "business"
-    ENTERTAINMENT = "entertainment"
-    OTHER = "other"
-    GAMER = "gamer"
+    MERCHANT = "com.synvya.merchant"
+    GAMER = "com.synvya.gamer"
+    OTHER = "com.synvya.other"
+
+    """Configuration for Pydantic models to use enum values directly."""
+    model_config = ConfigDict(use_enum_values=True)
+
+
+class ProfileType(str, Enum):
+    """
+    Represents a profile type.
+    """
+
+    MERCHANT_RETAIL = "retail"
+    MERCHANT_RESTAURANT = "restaurant"
+    MERCHANT_SERVICE = "service"
+    MERCHANT_BUSINESS = "business"
+    MERCHANT_ENTERTAINMENT = "entertainment"
+    MERCHANT_OTHER = "other"
+    GAMER_GM = "gamer"
+    OTHER_OTHER = "other"
+
+    """Configuration for Pydantic models to use enum values directly."""
+    model_config = ConfigDict(use_enum_values=True)
 
 
 class ProfileFilter(BaseModel):
@@ -37,25 +59,23 @@ class ProfileFilter(BaseModel):
     """
 
     namespace: str
-    category: ProfileCategory
+    profile_type: ProfileType
     hashtags: List[str]
 
     def __init__(
         self,
         namespace: str,
-        category: ProfileCategory,
+        profile_type: ProfileType,
         hashtags: Optional[List[str]] = None,
     ) -> None:
         """
         Initialize a ProfileFilter instance.
         """
         super().__init__(
-            namespace=namespace,
-            category=category,
-            hashtags=hashtags,
+            namespace=namespace, profile_type=profile_type, hashtags=hashtags
         )
         self.namespace = namespace
-        self.category = category
+        self.profile_type = profile_type
         self.hashtags = hashtags
 
     def to_json(self) -> str:
@@ -87,17 +107,23 @@ class Profile(BaseModel):
     banner: str = ""
     bot: bool = False
     display_name: str = ""
+    hashtags: List[str] = []
     locations: Set[str] = Field(default_factory=set)
     name: str = ""
+    namespace: str = ""
     nip05: str = ""
     nip05_validated: bool = False
     picture: str = ""
+    profile_type: ProfileType = ProfileType.OTHER_OTHER
     profile_url: str = ""
     website: str = ""
 
     def __init__(self, public_key: str, **data) -> None:
         super().__init__(public_key=public_key, **data)
         self.profile_url = self.PROFILE_URL_PREFIX + public_key
+
+    def add_hashtag(self, hashtag: str) -> None:
+        self.hashtags.append(hashtag)
 
     def add_location(self, location: str) -> None:
         """Add a location to the Nostr profile.
@@ -116,6 +142,9 @@ class Profile(BaseModel):
     def get_display_name(self) -> str:
         return self.display_name
 
+    def get_hashtags(self) -> List[str]:
+        return self.hashtags
+
     def get_locations(self) -> set[str]:
         """Get the locations of the Nostr profile.
 
@@ -127,11 +156,17 @@ class Profile(BaseModel):
     def get_name(self) -> str:
         return self.name
 
+    def get_namespace(self) -> str:
+        return self.namespace
+
     def get_nip05(self) -> str:
         return self.nip05
 
     def get_picture(self) -> str:
         return self.picture
+
+    def get_profile_type(self) -> ProfileType:
+        return self.profile_type
 
     def get_profile_url(self) -> str:
         return self.profile_url
@@ -165,6 +200,15 @@ class Profile(BaseModel):
     def is_nip05_validated(self) -> bool:
         return self.nip05_validated
 
+    def matches_filter(self, profile_filter: ProfileFilter) -> bool:
+        if self.namespace != profile_filter.namespace:
+            return False
+        if self.profile_type != profile_filter.type:
+            return False
+        if not all(hashtag in self.hashtags for hashtag in profile_filter.hashtags):
+            return False
+        return True
+
     def set_about(self, about: str) -> None:
         self.about = about
 
@@ -180,11 +224,17 @@ class Profile(BaseModel):
     def set_name(self, name: str) -> None:
         self.name = name
 
+    def set_namespace(self, namespace: str) -> None:
+        self.namespace = namespace
+
     def set_nip05(self, nip05: str) -> None:
         self.nip05 = nip05
 
     def set_picture(self, picture: str) -> None:
         self.picture = self._validate_url(picture) if picture else ""
+
+    def set_profile_type(self, profile_type: ProfileType) -> None:
+        self.profile_type = profile_type
 
     def set_website(self, website: str) -> None:
         self.website = self._validate_url(website) if website else ""
@@ -201,12 +251,15 @@ class Profile(BaseModel):
             "banner": self.banner,
             "bot": self.bot,
             "display_name": self.display_name,
+            "hashtags": self.hashtags,
             "locations": list(self.locations),  # Convert set to list
             "name": self.name,
+            "namespace": self.namespace,
             "nip05": self.nip05,
             "picture": self.picture,
             "profile_url": self.profile_url,
             "public_key": self.public_key,
+            "profile_type": self.profile_type,
             "website": self.website,
         }
 
@@ -216,13 +269,15 @@ class Profile(BaseModel):
             "banner": self.banner,
             "bot": str(self.bot),
             "display_name": self.display_name,
-            # Convert set to list
+            "hashtags": self.hashtags,
             "locations": (list(self.locations) if self.locations else []),
             "name": self.name,
+            "namespace": self.namespace,
             "nip05": self.nip05,
             "picture": self.picture,
             "profile_url": self.profile_url,
             "public_key": self.public_key,
+            "profile_type": self.profile_type,
             "website": self.website,
         }
         return json.dumps(data)
@@ -309,6 +364,10 @@ class Profile(BaseModel):
 
     @classmethod
     async def from_metadata(cls, metadata: Metadata, public_key: str) -> "Profile":
+        """
+        Create a Profile instance from a Metadata object.
+        TBD: Add logic to set namespace, type and hashtags from Metadata.
+        """
         profile = cls(public_key)
         profile.set_about(metadata.get_about())
         profile.set_banner(metadata.get_banner())
@@ -322,6 +381,63 @@ class Profile(BaseModel):
             profile.set_bot(json_bot.bool)
         else:
             profile.set_bot(False)
+        try:
+            profile.nip05_validated = await profile._validate_profile_nip05()
+
+        except Exception as e:
+            profile.logger.error(f"Failed to validate NIP-05: {e}")
+            profile.nip05_validated = False
+        return profile
+
+    @classmethod
+    async def from_event(cls, event: Event) -> "Profile":
+        """
+        Create a Profile instance from a kind:0 Nostr event.
+
+        Args:
+            event: kind:0 Nostr event
+
+        Returns:
+            Profile: Profile instance
+
+        Raises:
+            ValueError: if the event is not a kind:0 Nostr event
+        """
+
+        if event.kind() != Kind(0):
+            raise ValueError("Event is not a kind:0 Nostr event")
+
+        profile = cls(PublicKey.parse(event.author()).to_bech32())
+
+        # Process metadata
+        metadata = json.loads(event.content())
+        profile.set_about(metadata.get("about", ""))
+        profile.set_banner(metadata.get("banner", ""))
+        profile.set_bot(metadata.get("bot", False))
+        profile.set_display_name(metadata.get("display_name", ""))
+        profile.set_name(metadata.get("name", ""))
+        profile.set_nip05(metadata.get("nip05", ""))
+        profile.set_picture(metadata.get("picture", ""))
+        profile.set_website(metadata.get("website", ""))
+
+        # process tags
+        tags = event.tags()
+        hashtag_list = tags.hashtags()
+        for hashtag in hashtag_list:
+            profile.add_hashtag(hashtag)
+
+        namespace_tag = tags.find(
+            TagKind.SINGLE_LETTER(SingleLetterTag.uppercase(Alphabet.L))
+        )
+        if namespace_tag is not None:
+            profile.set_namespace(namespace_tag.content())
+
+        profile_type_tag = tags.find(
+            TagKind.SINGLE_LETTER(SingleLetterTag.lowercase(Alphabet.L))
+        )
+        if profile_type_tag is not None:
+            profile.set_profile_type(profile_type_tag.content())
+
         try:
             profile.nip05_validated = await profile._validate_profile_nip05()
         except Exception as e:
@@ -346,9 +462,13 @@ class Profile(BaseModel):
         profile.set_banner(data.get("banner", ""))
         profile.set_bot(data.get("bot", False))
         profile.set_display_name(data.get("display_name", ""))
+        for hashtag in data.get("hashtags", []):
+            profile.add_hashtag(hashtag)
+        profile.set_namespace(data.get("namespace", ""))
         profile.set_name(data.get("name", ""))
         profile.set_nip05(data.get("nip05", ""))
         profile.set_picture(data.get("picture", ""))
+        profile.set_profile_type(data.get("profile_type", ProfileType.OTHER_OTHER))
         profile.set_website(data.get("website", ""))
         profile.locations = set(data.get("locations", []))
         return profile

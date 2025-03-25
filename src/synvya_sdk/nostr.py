@@ -9,7 +9,7 @@ from datetime import timedelta
 from pathlib import Path
 from typing import Dict, List, Optional
 
-from .models import NostrKeys, Product, Profile, ProfileFilter, Stall
+from .models import Namespace, NostrKeys, Product, Profile, ProfileFilter, Stall
 
 try:
     from nostr_sdk import (
@@ -129,6 +129,46 @@ class NostrClient:
         return_event_id_obj = asyncio.run(self._async_publish_event(event_builder))
         return return_event_id_obj.to_bech32()
 
+    def get_agents(self, profile_filter: ProfileFilter) -> set[Profile]:
+        """
+        Retrieve all agents from the relay that match the filter.
+        Agents are defined as profiles with kind:0 bot property set to true
+        that also match the ProfileFilter
+
+        Args:
+            profile_filter: filter to apply to the results
+
+        Returns:
+            set[Profile]: set of agent profiles
+        """
+        agents = set()
+
+        if profile_filter is None:
+            raise ValueError("Profile filter is required")
+
+        events_filter = (
+            Filter()
+            .kind(Kind(0))
+            .custom_tag(SingleLetterTag.uppercase(Alphabet.L), profile_filter.namespace)
+            .custom_tag(
+                SingleLetterTag.lowercase(Alphabet.L), profile_filter.profile_type
+            )
+            .hashtags(profile_filter.hashtags)
+        )
+        try:
+            events = asyncio.run(self._async_get_events(events_filter))
+            if events.len() == 0:
+                return agents  # returning empty set
+            events_list = events.to_vec()
+            for event in events_list:
+                profile = asyncio.run(Profile.from_event(event))
+                if profile.is_bot():
+                    agents.add(profile)
+        except Exception as e:
+            raise RuntimeError(f"Failed to retrieve agents: {e}") from e
+
+        return agents
+
     def get_merchants(
         self, profile_filter: Optional[ProfileFilter] = None
     ) -> set[Profile]:
@@ -149,10 +189,40 @@ class NostrClient:
             RuntimeError: if it can't connect to the relay
         """
 
-        if profile_filter is not None:
-            raise NotImplementedError("Filtering not implemented.")
+        merchants = set()
 
-        # No filtering is applied, so we retrieve all stalls from the relay
+        if profile_filter is not None:
+            if profile_filter.namespace != Namespace.MERCHANT:
+                raise ValueError(
+                    f"Profile filter namespace must be {Namespace.MERCHANT}"
+                )
+
+            events_filter = (
+                Filter()
+                .kind(Kind(0))
+                .custom_tag(
+                    SingleLetterTag.uppercase(Alphabet.L), profile_filter.namespace
+                )
+                .custom_tag(
+                    SingleLetterTag.lowercase(Alphabet.L), profile_filter.profile_type
+                )
+                .hashtags(profile_filter.hashtags)
+            )
+
+            # retrieve all kind 0 events with the filter.
+            try:
+                events = asyncio.run(self._async_get_events(events_filter))
+                if events.len() == 0:
+                    return merchants  # returning empty set
+                events_list = events.to_vec()
+                for event in events_list:
+                    profile = asyncio.run(Profile.from_event(event))
+                    merchants.add(profile)
+            except Exception as e:
+                raise RuntimeError(f"Failed to retrieve merchants: {e}") from e
+
+        # No filtering is applied, so we search for merchants by identifying
+        # profiles that have publised at least one stall
 
         try:
             events = asyncio.run(self._async_get_stalls())
@@ -682,11 +752,67 @@ class NostrClient:
                 public_key=profile_key, timeout=timedelta(seconds=2)
             )
             profile = await Profile.from_metadata(metadata, profile_key.to_bech32())
+            events = await self.client.fetch_events(
+                filter=Filter().authors([profile_key]).kind(Kind(0)).limit(1),
+                timeout=timedelta(seconds=2),
+            )
+            if events.len() > 0:
+                tags = events.first().tags()
+
+                hashtag_list = tags.hashtags()
+                for hashtag in hashtag_list:
+                    profile.add_hashtag(hashtag)
+
+                namespace_tag = tags.find(
+                    TagKind.SINGLE_LETTER(SingleLetterTag.uppercase(Alphabet.L))
+                )
+                if namespace_tag is not None:
+                    profile.set_namespace(namespace_tag.content())
+
+                profile_type_tag = tags.find(
+                    TagKind.SINGLE_LETTER(SingleLetterTag.lowercase(Alphabet.L))
+                )
+                if profile_type_tag is not None:
+                    profile.set_profile_type(profile_type_tag.content())
             return profile
         except RuntimeError as e:
             raise RuntimeError(f"Unable to connect to relay: {e}") from e
         except Exception as e:
             raise ValueError(f"Unable to retrieve metadata: {e}") from e
+
+    async def _async_get_profile_from_relay2(self, profile_key: PublicKey) -> Profile:
+        """
+        Asynchronous function to retrieve from the Nostr relay the profile
+        for a given author
+
+        Args:
+            profile_key: PublicKey of the profile to retrieve
+
+        Returns:
+            Profile: profile associated with the public key
+
+        Raises:
+            RuntimeError: if it can't connect to the relay
+            ValueError: if a profile is not found
+        """
+        try:
+            if not self.connected:
+                await self._async_connect()
+
+            profile_filter = Filter().kind(Kind(0)).authors([profile_key]).limit(1)
+            events = await self.client.fetch_events_from(
+                urls=[self.relay], filter=profile_filter, timeout=timedelta(seconds=2)
+            )
+            if events.len() > 0:
+                # process kind:0 event
+                profile = await Profile.from_event(events.first())
+                return profile
+            raise ValueError("Profile not found")
+
+        except RuntimeError as e:
+            raise RuntimeError(f"Unable to connect to relay: {e}") from e
+        except Exception as e:
+            raise ValueError(f"Unable to retrieve profile: {e}") from e
 
     async def _async_get_stalls(self, merchant: Optional[PublicKey] = None) -> Events:
         """
@@ -1027,7 +1153,29 @@ class NostrClient:
             metadata_content = metadata_content.set_custom_field(
                 key="bot", value=JsonValue.BOOL(bot)
             )
+
         event_builder = EventBuilder.metadata(metadata_content)
+
+        event_builder = event_builder.tags(
+            [
+                Tag.custom(
+                    TagKind.SINGLE_LETTER(SingleLetterTag.uppercase(Alphabet.L)),
+                    [self.profile.get_namespace()],
+                ),
+                Tag.custom(
+                    TagKind.SINGLE_LETTER(SingleLetterTag.lowercase(Alphabet.L)),
+                    [
+                        self.profile.get_profile_type(),
+                        self.profile.get_namespace(),
+                    ],
+                ),
+            ]
+        )
+
+        event_builder = event_builder.tags(
+            [Tag.hashtag(hashtag) for hashtag in self.profile.get_hashtags()]
+        )
+
         return await self._async_publish_event(event_builder)
 
     async def _async_set_stall(self, stall: Stall) -> EventId:

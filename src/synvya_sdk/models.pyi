@@ -2,21 +2,44 @@ from enum import Enum
 from logging import Logger
 from typing import ClassVar, List, Optional, Set
 
-from nostr_sdk import Metadata, ProductData, ShippingCost, ShippingMethod, StallData
-from pydantic import BaseModel
+from nostr_sdk import (
+    Event,
+    Metadata,
+    ProductData,
+    ShippingCost,
+    ShippingMethod,
+    StallData,
+)
+from pydantic import BaseModel, ConfigDict
 
-class ProfileCategory(Enum):
+class Namespace(str, Enum):
     """
-    Represents a profile category.
+    Represents a namespace.
     """
 
-    RETAIL = "retail"
-    RESTAURANT = "restaurant"
-    SERVICE = "service"
-    BUSINESS = "business"
-    ENTERTAINMENT = "entertainment"
-    OTHER = "other"
-    GAMER = "gamer"
+    MERCHANT = "com.synvya.merchant"
+    GAMER = "com.synvya.gamer"
+    OTHER = "com.synvya.other"
+
+    """Configuration for Pydantic models to use enum values directly."""
+    model_config = ConfigDict(use_enum_values=True)
+
+class ProfileType(str, Enum):
+    """
+    Represents a profile type.
+    """
+
+    MERCHANT_RETAIL = "retail"
+    MERCHANT_RESTAURANT = "restaurant"
+    MERCHANT_SERVICE = "service"
+    MERCHANT_BUSINESS = "business"
+    MERCHANT_ENTERTAINMENT = "entertainment"
+    MERCHANT_OTHER = "other"
+    GAMER_GM = "gamer"
+    OTHER_OTHER = "other"
+
+    """Configuration for Pydantic models to use enum values directly."""
+    model_config = ConfigDict(use_enum_values=True)
 
 class ProfileFilter(BaseModel):
     """
@@ -24,14 +47,14 @@ class ProfileFilter(BaseModel):
     """
 
     namespace: str
-    category: ProfileCategory
+    type: ProfileType
     hashtags: List[str]
 
     def __init__(
         self,
         namespace: str,
-        category: ProfileCategory,
-        hashtags: Optional[List[str]] = None,
+        profile_type: ProfileType,
+        labels: Optional[List[str]] = None,
     ) -> None: ...
     def to_json(self) -> str: ...
     @classmethod
@@ -49,36 +72,45 @@ class Profile(BaseModel):
     banner: str
     bot: bool
     display_name: str
+    labels: List[str]
     locations: Set[str]
     name: str
+    namespace: str
     nip_05: str
     picture: str
+    profile_type: ProfileType
     profile_url: str
     public_key: str
     website: str
 
     def __init__(self, public_key: str) -> None: ...
+    def add_hashtag(self, hashtag: str) -> None: ...
     def add_location(self, location: str) -> None: ...
     def get_about(self) -> str: ...
     def get_banner(self) -> str: ...
-    def get_bot(self) -> bool: ...
     def get_display_name(self) -> str: ...
+    def get_hashtags(self) -> List[str]: ...
     def get_locations(self) -> Set[str]: ...
     def get_name(self) -> str: ...
+    def get_namespace(self) -> str: ...
     def get_nip05(self) -> str: ...
     def get_picture(self) -> str: ...
+    def get_profile_type(self) -> ProfileType: ...
     def get_profile_url(self) -> str: ...
     def get_public_key(self, encoding: str = "bech32") -> str: ...
     def get_website(self) -> str: ...
     def is_bot(self) -> bool: ...
     def is_nip05_validated(self) -> bool: ...
+    def matches_filter(self, profile_filter: ProfileFilter) -> bool: ...
     def set_about(self, about: str) -> None: ...
     def set_banner(self, banner: str) -> None: ...
     def set_bot(self, bot: bool) -> None: ...
     def set_display_name(self, display_name: str) -> None: ...
     def set_name(self, name: str) -> None: ...
+    def set_namespace(self, namespace: str) -> None: ...
     def set_nip05(self, nip05: str) -> None: ...
     def set_picture(self, picture: str) -> None: ...
+    def set_profile_type(self, profile_type: ProfileType) -> None: ...
     def set_website(self, website: str) -> None: ...
     def to_dict(self) -> dict: ...
     def to_json(self) -> str: ...
@@ -90,18 +122,9 @@ class Profile(BaseModel):
     @classmethod
     async def from_metadata(cls, metadata: Metadata, public_key: str) -> "Profile": ...
     @classmethod
+    async def from_event(cls, event: Event) -> "Profile": ...
+    @classmethod
     def from_json(cls, json_str: str) -> "Profile": ...
-
-# class PrivateProfile(PublicProfile):
-#     """
-#     PrivateProfile is first party profile with private key.
-#     """
-
-#     private_key: str
-
-#     def __init__(self, private_key: str) -> None: ...
-#     def get_private_key(self) -> str: ...
-#     def to_json(self) -> str: ...
 
 class NostrKeys(BaseModel):
     public_key: str
