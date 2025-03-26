@@ -37,10 +37,11 @@ pip install --upgrade pip
 pip install -r requirements.txt
 ```
 
-### Set your own NIP-05 ID
+### Give a new identity to your agent
 Edit `joker.py` to use a NIP-05 ID that you can validate
 ```python
-NIP05 = "joker@yourdomain.com"
+NAME = "yourjokername"
+NIP05 = "yourjokername@yourdomain.com"
 ```
 ### Run the Joker
 ```shell
@@ -56,7 +57,7 @@ Copy the public key from the terminal and add it to the `.well-known/nostr.json`
 ```
   {
     "names": {
-      "joker": "3da780e0159fd7a97e2ba5cb3bb594d0595995def1a26f9ad6ba628928c07ef7"
+      "yourjokername": "3da780e0159fd7a97e2ba5cb3bb594d0595995def1a26f9ad6ba628928c07ef7"
     }
   }
 ```
