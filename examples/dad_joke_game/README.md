@@ -33,6 +33,7 @@ cp .env.example .env
 
 ### Install dependencies
 ```shell
+pip install --upgrade pip
 pip install -r requirements.txt
 ```
 
