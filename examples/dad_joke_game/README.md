@@ -40,7 +40,7 @@ pip install -r requirements.txt
 ### Set your own NIP-05 ID
 Edit `joker.py` to use a NIP-05 ID that you can validate
 ```python
-profile.set_nip05("joker@yourdomain.com")
+NIP05 = "joker@yourdomain.com"
 ```
 ### Run the Joker
 ```shell
@@ -71,7 +71,7 @@ python joker.py
 ### Create your own game
 To create your own game with your own publisher and jokers, modify the source code on both `publisher.py` and `joker.py` to use a different namespace:
 ```python
-profile.set_namespace("com.yourdomain.gamer")
+NAMESPACE = "com.yourdomain.gamer"
 ```
 And run your own publisher with:
 ```shell
