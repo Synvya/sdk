@@ -46,7 +46,7 @@ class ProfileType(str, Enum):
     MERCHANT_BUSINESS = "business"
     MERCHANT_ENTERTAINMENT = "entertainment"
     MERCHANT_OTHER = "other"
-    GAMER_GM = "gamer"
+    GAMER_DADJOKE = "dad-joke-game"
     OTHER_OTHER = "other"
 
     """Configuration for Pydantic models to use enum values directly."""
@@ -407,7 +407,7 @@ class Profile(BaseModel):
         if event.kind() != Kind(0):
             raise ValueError("Event is not a kind:0 Nostr event")
 
-        profile = cls(PublicKey.parse(event.author()).to_bech32())
+        profile = cls(event.author().to_bech32())
 
         # Process metadata
         metadata = json.loads(event.content())

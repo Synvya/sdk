@@ -153,8 +153,10 @@ class NostrClient:
             .custom_tag(
                 SingleLetterTag.lowercase(Alphabet.L), profile_filter.profile_type
             )
-            .hashtags(profile_filter.hashtags)
         )
+        # hashtags don't work on filters :(
+        # events_filter = events_filter.hashtags(["joker"])
+
         try:
             events = asyncio.run(self._async_get_events(events_filter))
             if events.len() == 0:
@@ -162,7 +164,11 @@ class NostrClient:
             events_list = events.to_vec()
             for event in events_list:
                 profile = asyncio.run(Profile.from_event(event))
-                if profile.is_bot():
+                if profile.is_bot() and all(
+                    hashtag in profile.get_hashtags()
+                    for hashtag in profile_filter.hashtags
+                ):
+                    print(f"agent found: {profile.get_name()}")
                     agents.add(profile)
         except Exception as e:
             raise RuntimeError(f"Failed to retrieve agents: {e}") from e
@@ -206,7 +212,6 @@ class NostrClient:
                 .custom_tag(
                     SingleLetterTag.lowercase(Alphabet.L), profile_filter.profile_type
                 )
-                .hashtags(profile_filter.hashtags)
             )
 
             # retrieve all kind 0 events with the filter.
@@ -217,7 +222,11 @@ class NostrClient:
                 events_list = events.to_vec()
                 for event in events_list:
                     profile = asyncio.run(Profile.from_event(event))
-                    merchants.add(profile)
+                    if all(
+                        hashtag in profile.get_hashtags()
+                        for hashtag in profile_filter.hashtags
+                    ):
+                        merchants.add(profile)
             except Exception as e:
                 raise RuntimeError(f"Failed to retrieve merchants: {e}") from e
 
@@ -625,6 +634,19 @@ class NostrClient:
         # Step 4: Clean up
         self.notification_task = None
         NostrClient.logger.debug("_stop_notifications() completed.")
+
+    def subscribe_to_messages(self) -> str:
+        """
+        Subscribe to messages from the relay.
+        """
+        subscription = self.client.subscribe_to(
+            [self.relay],
+            Filter().kinds([Kind(14)]),
+        )
+
+        if len(subscription.success) > 0:
+            return "success"
+        return "error"
 
     # ----------------------------------------------------------------
     # Class methods
