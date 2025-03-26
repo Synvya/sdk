@@ -111,9 +111,12 @@ def joker_cli() -> None:
     Command-line interface for dad joke joker agent.
     """
     print("\n🔹 Dad Joke Joker Agent CLI (Press Ctrl+C to quit)\n")
-    while True:
-        response = joker.run("""do your job""")
-        print(f"\n🤖 Dad Joke Joker Agent: {response.get_content_as_string()}\n")
+    try:
+        while True:
+            response = joker.run("""do your job""")
+            print(f"\n🤖 Dad Joke Joker Agent: {response.get_content_as_string()}\n")
+    except KeyboardInterrupt:
+        print("\n👋 Goodbye!\n")
 
 
 # Run the CLI
