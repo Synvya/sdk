@@ -35,7 +35,7 @@ class ProfileType(str, Enum):
     MERCHANT_BUSINESS = "business"
     MERCHANT_ENTERTAINMENT = "entertainment"
     MERCHANT_OTHER = "other"
-    GAMER_GM = "gamer"
+    GAMER_DADJOKE = "dad-joke-game"
     OTHER_OTHER = "other"
 
     """Configuration for Pydantic models to use enum values directly."""
@@ -54,7 +54,7 @@ class ProfileFilter(BaseModel):
         self,
         namespace: str,
         profile_type: ProfileType,
-        labels: Optional[List[str]] = None,
+        hashtags: Optional[List[str]] = None,
     ) -> None: ...
     def to_json(self) -> str: ...
     @classmethod
