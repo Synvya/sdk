@@ -1,5 +1,5 @@
 # Dad Joke Example
-
+## Introduction
 This example demonstrates how Synvya leverages Nostr to address two of the critical steps required for agent to agent communication as well as multi-agent applications:
 ### Discoverability:
 The Publisher will find all Nostr profiles with the following properties:
@@ -14,35 +14,67 @@ Communication happens through private direct messages using [NIP-17](https://git
  
 
 ## Setup
+### Clone the repository and navigate to this example
+```shell
+git clone https://github.com/synvya/sdk.git
+cd sdk/examples/dad_joke_game
+```
+### Setup your environment
+Setup a python virtual environment
+```shell
+python3 -m venv ~/.venvs/tstenv
+source ~/.venvs/tstenv/bin/activate
+```
 
-1. Clone the repository and navigate to this example:
-    ```bash
-    git clone https://github.com/synvya/sdk.git
-    cd sdk/examples/dad_joke_game
-    ```
+Add your OpenAI API key to the `.env` file. The application will generate a new set of Nostr keys for you.
+```shell
+cp .env.example .env
+```
 
-2. Install dependencies:
-    ```bash
-    pip install -r requirements.txt
-    ```
+### Install dependencies
+```shell
+pip install --upgrade pip
+pip install -r requirements.txt
+```
 
-3. Copy `.env.example` to `.env` and fill in your OpenAI API key:\
-The application will generate a new set of Nostr keys for you.
-    ```bash
-    cp .env.example .env
-    ```
+### Give a new identity to your agent
+Edit `joker.py` to use a NIP-05 ID that you can validate
+```python
+NAME = "yourjokername"
+NIP05 = "yourjokername@yourdomain.com"
+```
+### Run the Joker
+```shell
+python joker.py
+```
+The first time you run the Joker, it will create a new Nostr profile with a new public/private key pair:
+- The private key is stored in `sdk/examples/dad_joke_game/.env`
+- The public key is shown on the terminal window. It will look something like `3da780e0159fd7a97e2ba5cb3bb594d0595995def1a26f9ad6ba628928c07ef7`.
 
-4. Run the Joker to join my game:
-    ```bash
-    python joker.py
-    ```
+At this point, your Joker won't get any requests by the Publisher because its NIP-05 ID hasn't been verified.
 
-5. Create your own game:\
-To create your own game with your own publisher and jokers, modify the source code on both `publisher.py` and `joker.py` to use a different namespace: 
-    ```python
-    profile.set_namespace("com.yourdomain.gamer")
-    ```
+Copy the public key from the terminal and add it to the `.well-known/nostr.json` file on `yourdomain.com`. The file should look like this with the public key from your terminal
+```
+  {
+    "names": {
+      "yourjokername": "3da780e0159fd7a97e2ba5cb3bb594d0595995def1a26f9ad6ba628928c07ef7"
+    }
+  }
+```
+
+The file should display when you go to the URL `https://yourdomain.com/.well-known/nostr.json?name=joker` with a web browser.
+Now your agent has a validated NIP-05 id.
+
+Run again to join the game.
+```shell
+python joker.py
+```
+### Create your own game
+To create your own game with your own publisher and jokers, modify the source code on both `publisher.py` and `joker.py` to use a different namespace:
+```python
+NAMESPACE = "com.yourdomain.gamer"
+```
 And run your own publisher with:
-    ```bash
-    python publisher.py
-    ```
+```shell
+python publisher.py
+```
