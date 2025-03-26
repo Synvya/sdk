@@ -118,9 +118,14 @@ def publisher_cli() -> None:
     Command-line interface for dad joke publisher agent.
     """
     print("\n🔹 Dad Joke Publisher Agent CLI (Press Ctrl+C to quit)\n")
-    while True:
-        response = publisher.run("""do your job""")
-        print(f"\n🤖 Dad Joke Publisher Agent: {response.get_content_as_string()}\n")
+    try:
+        while True:
+            response = publisher.run("""do your job""")
+            print(
+                f"\n🤖 Dad Joke Publisher Agent: {response.get_content_as_string()}\n"
+            )
+    except KeyboardInterrupt:
+        print("\n👋 Goodbye!\n")
 
 
 # Run the CLI

@@ -327,7 +327,7 @@ class Profile(BaseModel):
         """
         Validate the NIP-05 of the profile.
         """
-        if self.nip05 is None:
+        if not self.nip05:
             self.logger.error("Profile has no NIP-05")
             return False
         if self.nip05.startswith("@"):
@@ -335,17 +335,29 @@ class Profile(BaseModel):
             return False
 
         try:
+            # Extract the local part (username) from the NIP-05 identifier
+            local_part = self.nip05.split("@")[0]
             nostr_json = await self._fetch_nip05_metadata(self.nip05)
+            # print(f"Validating NIP-05 for {self.nip05}")
+            # print(f"NIP-05 metadata: {nostr_json}")
+            # print(f"Profile public key (hex): {self.get_public_key('hex')}")
         except Exception as e:
             self.logger.error(f"Failed to fetch NIP-05 metadata: {e}")
             return False
+
         if "names" in nostr_json:
             for name, public_key in nostr_json["names"].items():
-                if name == self.name and public_key == self.get_public_key("hex"):
-                    self.logger.info("Profile NIP-05 validated successfully.")
+                # print(f"Checking name: {name} (local_part: {local_part})")
+                # print(
+                #     f"Checking public key: {public_key} (profile key: {self.get_public_key('hex')})"
+                # )
+                if name == local_part and public_key == self.get_public_key("hex"):
+                    # print("NIP-05 validation successful")
                     return True
-        self.logger.error("Profile NIP-05 validation failed.")
-        return False
+            # print("NIP-05 validation failed - no matching name/key pair found")
+        else:
+            # print("NIP-05 validation failed - no names found in metadata")
+            return False
 
     def _validate_url(self, url: str) -> str:
         """Validate and normalize URL.
@@ -439,7 +451,9 @@ class Profile(BaseModel):
             profile.set_profile_type(profile_type_tag.content())
 
         try:
+            print(f"Validating NIP-05: {profile.nip05}")
             profile.nip05_validated = await profile._validate_profile_nip05()
+            print(f"NIP-05 validated: {profile.nip05_validated}")
         except Exception as e:
             profile.logger.error(f"Failed to validate NIP-05: {e}")
             profile.nip05_validated = False
