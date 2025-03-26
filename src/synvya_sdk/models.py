@@ -451,9 +451,7 @@ class Profile(BaseModel):
             profile.set_profile_type(profile_type_tag.content())
 
         try:
-            print(f"Validating NIP-05: {profile.nip05}")
             profile.nip05_validated = await profile._validate_profile_nip05()
-            print(f"NIP-05 validated: {profile.nip05_validated}")
         except Exception as e:
             profile.logger.error(f"Failed to validate NIP-05: {e}")
             profile.nip05_validated = False

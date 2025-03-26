@@ -168,7 +168,6 @@ class NostrClient:
                     hashtag in profile.get_hashtags()
                     for hashtag in profile_filter.hashtags
                 ):
-                    print(f"agent found: {profile.get_name()}")
                     agents.add(profile)
         except Exception as e:
             raise RuntimeError(f"Failed to retrieve agents: {e}") from e

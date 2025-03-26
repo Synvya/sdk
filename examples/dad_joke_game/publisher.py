@@ -6,6 +6,7 @@ import signal
 import sys
 from os import getenv
 from pathlib import Path
+from time import sleep
 
 from dotenv import load_dotenv
 
@@ -134,6 +135,7 @@ def publisher_cli() -> None:
             print(
                 f"\n🤖 Dad Joke Publisher Agent: {response.get_content_as_string()}\n"
             )
+            sleep(3600)
     except KeyboardInterrupt:
         print("\n👋 Goodbye!\n")
 

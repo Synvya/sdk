@@ -86,6 +86,7 @@ class DadJokeGamerTools(Toolkit):
         Returns:
             str: JSON string containing the bech32 encoded public key of the joker
         """
+        NostrClient.logger.info("Finding jokers")
         joker_filter = ProfileFilter(
             namespace=Namespace.GAMER,
             profile_type=ProfileType.GAMER_DADJOKE,
@@ -124,7 +125,7 @@ class DadJokeGamerTools(Toolkit):
         - role: "joker"
         - content: "The joke"
         """
-        print("listen_for_joke")
+        NostrClient.logger.info("Listening for a joke")
         try:
             message = self._nostr_client.receive_message(timeout)
             message_dict = json.loads(message)
@@ -162,6 +163,7 @@ class DadJokeGamerTools(Toolkit):
         Returns:
             str: JSON string containing the status of the publication
         """
+        NostrClient.logger.info("Publishing a joke")
         try:
             text = f"Dad Joke from @{joker_public_key}:\n {joke}"
             self._nostr_client.publish_note(text)
@@ -189,7 +191,7 @@ class DadJokeGamerTools(Toolkit):
         Returns:
             str: JSON string containing the status of the request
         """
-        print(f"request_joke: {joker_public_key}")
+        NostrClient.logger.info("Requesting a joke")
         message = json.dumps(
             {
                 "role": "publisher",
@@ -214,7 +216,7 @@ class DadJokeGamerTools(Toolkit):
         """
         Listen for a joke request.
         """
-        print("listen_for_joke_request")
+        NostrClient.logger.info("Listening for a joke request")
         try:
             message = self._nostr_client.receive_message(timeout=7200)
             message_dict = json.loads(message)
@@ -245,7 +247,7 @@ class DadJokeGamerTools(Toolkit):
         """
         Submit a joke.
         """
-        print(f"submit_joke: {joke} {publisher}")
+        NostrClient.logger.info("Submitting a joke")
         try:
             self._nostr_client.send_message(
                 "kind:14",
