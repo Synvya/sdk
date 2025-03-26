@@ -29,7 +29,7 @@ if NSEC is None:
 else:
     keys = NostrKeys.from_private_key(NSEC)
 
-print(f"Public key: {keys.get_public_key("hex")}")
+print(f"Public key: {keys.get_public_key('hex')}")
 
 # Load or use default relay
 RELAY = getenv(ENV_RELAY)
