@@ -16,7 +16,7 @@ from synvya_sdk import Namespace, NostrKeys, Profile, ProfileType, generate_keys
 from synvya_sdk.agno import DadJokeGamerTools
 
 
-def handle_sigint(signum, frame):
+def handle_sigint(signum: int, frame: object) -> None:
     print("\n👋 Goodbye!\n")
     sys.exit(0)
 
