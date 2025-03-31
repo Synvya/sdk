@@ -96,7 +96,7 @@ Each example has its own README with instructions on how to run it.
 
 ## Documentation
 
-For more detailed documentation and examples, see [Docs](https://github.com/Synvya/sdk/tree/main/docs/docs.md) 
+Our documentation can be found at [docs.synvya.com](https://docs.synvya.com). 
 
 ## Development
 
