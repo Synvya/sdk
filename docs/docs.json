@@ -1,55 +1,76 @@
 {
   "$schema": "https://mintlify.com/docs.json",
   "theme": "mint",
-  "name": "Mint Starter Kit",
+  "name": "Synvya SDK",
   "colors": {
-    "primary": "#16A34A",
-    "light": "#07C983",
-    "dark": "#15803D"
+    "primary": "#001840",
+    "light": "#334E9E",
+    "dark": "#000F2B"
   },
   "favicon": "/favicon.svg",
   "navigation": {
     "tabs": [
       {
-        "tab": "Guides",
+        "tab": "User Guides",
         "groups": [
           {
             "group": "Get Started",
             "pages": [
               "introduction",
               "quickstart",
-              "development"
+              "contributing"
             ]
           },
           {
             "group": "Essentials",
             "pages": [
-              "essentials/markdown",
-              "essentials/code",
-              "essentials/images",
-              "essentials/settings",
-              "essentials/navigation",
-              "essentials/reusable-snippets"
+              "essentials/profile",
+              "essentials/findagents",
+              "essentials/messages",
+              "essentials/marketplace"
             ]
           }
         ]
       },
       {
-        "tab": "API Reference",
+        "tab": "Examples",
         "groups": [
           {
-            "group": "API Documentation",
+            "group": "ai-Commerce",
+            "pages": [
+              "examples/agentic-buyer",
+              "examples/agentic-seller"
+            ]
+          },
+          {
+            "group": "Agentic Communication",
+            "pages": [
+              "examples/dad-joke-game"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "SDK Reference",
+        "groups": [
+          {
+            "group": "Overview",
             "pages": [
               "api-reference/introduction"
             ]
           },
           {
-            "group": "Endpoint Examples",
+            "group": "Core Modules",
             "pages": [
-              "api-reference/endpoint/get",
-              "api-reference/endpoint/create",
-              "api-reference/endpoint/delete",
-              "api-reference/endpoint/webhook"
+              "api-reference/nostr",
+              "api-reference/models"
+            ]
+          },
+          {
+            "group": "Agno Toolkits",
+            "pages": [
+              "api-reference/buyer",
+              "api-reference/seller"
             ]
           }
         ]
@@ -58,45 +79,40 @@
     "global": {
       "anchors": [
         {
-          "anchor": "Documentation",
-          "href": "https://mintlify.com/docs",
-          "icon": "book-open-cover"
-        },
-        {
-          "anchor": "Community",
-          "href": "https://mintlify.com/community",
-          "icon": "slack"
+          "anchor": "GitHub",
+          "href": "https://github.com/synvya/sdk",
+          "icon": "github"
         },
         {
           "anchor": "Blog",
-          "href": "https://mintlify.com/blog",
+          "href": "https://primal.net/synvya/#reads",
           "icon": "newspaper"
         }
       ]
     }
   },
   "logo": {
-    "light": "/logo/light.svg",
-    "dark": "/logo/dark.svg"
+    "light": "/logo/synvya_logo_light.svg",
+    "dark": "/logo/synvya_logo_dark.svg",
+    "href": "https://synvya.com"
   },
   "navbar": {
     "links": [
       {
         "label": "Support",
-        "href": "mailto:hi@mintlify.com"
+        "href": "mailto:synvya@synvya.com"
       }
     ],
     "primary": {
       "type": "button",
-      "label": "Dashboard",
-      "href": "https://dashboard.mintlify.com"
+      "label": "Community Discussions",
+      "href": "https://github.com/Synvya/sdk/discussions"
     }
   },
   "footer": {
     "socials": {
-      "x": "https://x.com/mintlify",
-      "github": "https://github.com/mintlify",
-      "linkedin": "https://linkedin.com/company/mintlify"
+      "website": "https://synvya.com",
+      "github": "https://github.com/synvya/sdk"
     }
   }
 }

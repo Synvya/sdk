@@ -1,33 +1,16 @@
 ---
 title: 'Introduction'
-description: 'Example section for showcasing API endpoints'
+description: 'Introduction to the Synvya SDK Documentation'
 ---
 
-<Note>
-  If you're not looking to build API reference documentation, you can delete
-  this section by removing the api-reference folder.
-</Note>
+The Synvya SDK is a collection of tools that make it easy for developers to build agentic applications that
+use Nostr as the underlying communication and identity layer.
 
-## Welcome
+The main class is NostrClient.
 
-There are two ways to build API documentation: [OpenAPI](https://mintlify.com/docs/api-playground/openapi/setup) and [MDX components](https://mintlify.com/docs/api-playground/mdx/configuration). For the starter kit, we are using the following OpenAPI specification.
+Two reference implementations are provided, both using the Agno agent framework:
+- [Agentic Buyer](https://github.com/Synvya/sdk/tree/main/examples/basic_buyer)
+- [Agentic Merchant](https://github.com/Synvya/sdk/tree/main/examples/basic_merchant)
 
-<Card
-  title="Plant Store Endpoints"
-  icon="leaf"
-  href="https://github.com/mintlify/starter/blob/main/api-reference/openapi.json"
->
-  View the OpenAPI specification file
-</Card>
-
-## Authentication
-
-All API endpoints are authenticated using Bearer tokens and picked up from the specification file.
-
-```json
-"security": [
-  {
-    "bearerAuth": []
-  }
-]
-```
+## References
+- [Agno](https://www.agno.com)

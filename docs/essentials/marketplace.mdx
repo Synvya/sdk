@@ -1,0 +1,153 @@
+---
+title: 'ai-Commerce'
+description: 'One of the main use cases for the Synvya SDK is to create ai-Commerce applications,
+where the buyer, the seller, or both are AI agents.'
+icon: 'cart-shopping'
+---
+
+import Installation from '/snippets/installation.mdx'
+
+
+
+<Note>
+AI-commerce helps small businesses compete with large retailers by making their products easily accessible
+to Nostr-powered AI agents. These agents act as one-stop shops, eliminating the need for buyers
+to search across multiple websites.
+</Note>
+
+## Merchants
+Merchants expose their product catalog through Nostr, making it avaiable to both humans and AI agents:
+- Humans can browse the catalog and make purchases using Nostr-compatible web applications like https://plebeian.market/.
+- Agents can process the catalog and interact with their users to find the right product from any Nostr-powered merchant.
+
+Buyers find merchants using the same tools described in [Dynamic Agent Discovery](/essentials/findagents):
+- `namespace`: `com.synvya.merchant`
+- `label`: `restaurant`
+- `hashtag`: [`italian`, `reservations`, `takeout`, `delivery`]
+
+<Info>
+The hashtags are just examples, merchants can use any hashtags they want.
+</Info>
+
+## Stalls
+NIP-15 defines a `Stall` as a collection of products or services offered by a merchant
+and grouped by a common currency and shipping costs.
+
+Merchants can interpret different stalls as different physical locations or different product categories.
+For example, a restaurant with multiple locations might have one stall for each location. A small shop
+might have one stall for the physical location and another stall for the online store.
+
+Merchants may also opt to use a single stall for all of their products and services.
+
+<Note>
+Synvya extends this definition to include a geographic location for the stall encoded as
+a [geohash](https://en.wikipedia.org/wiki/Geohash) to enable stall discovery based on location.
+</Note>
+
+The example below shows how to define a stall with two shipping rates.
+
+```python
+stall_shipping_methods = [
+    StallShippingMethod(
+        ssm_id="merchant-001-shipping-1",
+        ssm_cost=10,
+        ssm_name="North America",
+        ssm_regions=["Canada", "Mexico", "USA"],
+    ),
+    StallShippingMethod(
+        ssm_id="merchant-001-shipping-2",
+        ssm_cost=20,
+        ssm_name="Rest of the World",
+        ssm_regions=["All other countries"],
+    )
+]
+
+stalls = [
+    Stall(
+        id="merchant-001-stall-1",
+        name="The Retail Store",
+        description="Your neighborhood hardware store",
+        currency="USD",
+        shipping=stall_shipping_methods,
+        geohash="c23q7u33",
+    ),
+    Stall(
+        id="merchant-002-stall-2",
+        name="The Online Store",
+        description="Your neighborhood hardware store, now online.",
+        currency="USD",
+        shipping=stall_shipping_methods,
+        geohash="c23q7u33",
+    ),
+]
+```
+
+## Products
+NIP-15 defines a `Product` as a single item for sale. Products are assigned to a single `Stall` and
+the merchant may add additional shipping costs to the product on top of the costs defined in the `Stall`
+(e.g. a product that is heavier than the average product in the stall).
+
+<Note>
+Synvya extends the NIP-15 definition to include a direct reference to the seller's Nostr public key
+to enable easier indexing of products based on the seller's identity.
+</Note>
+
+The example below shows how to define multiple products and how to add extra shipping costs to
+some of them.
+
+```python
+
+product_shipping_costs = [
+    ProductShippingCost(psc_id="merchant-001-shipping-1", psc_cost=5),
+    ProductShippingCost(psc_id="merchant-001-shipping-2", psc_cost=10),
+]
+
+products = [
+    Product(
+        id="merchant-001-product-1",
+        stall_id="merchant-001-stall-1",
+        name="Wrench",
+        description="The perfect tool for a $5 wrench attack.",
+        images=["https://i.nostr.build/BddyYILz0rjv1wEY.png"],
+        currency="USD",
+        price=5,
+        quantity=100,
+        shipping=None,
+        specs=[["length", "10cm"], ["material", "steel"]],
+        categories=["hardware", "tools"],
+        seller=keys.get_public_key(),
+    ),
+    Product(
+        id="merchant-001-product-2",
+        stall_id="merchant-001-stall-1",
+        name="Shovel",
+        description="Dig yourself into a hole like never before",
+        images=["https://i.nostr.build/psL0ZtN4FZcmeiIh.png"],
+        currency="USD",
+        price=25,
+        quantity=10,
+        shipping=product_shipping_costs,
+        specs=[["length", "100 cm"], ["material", "steel"]],
+        categories=["hardware", "tools"],
+        seller=keys.get_public_key(),
+    ),
+    Product(
+        id="merchant-001-product-3",
+        stall_id="merchant-001-stall-2",
+        name="Shovel 101",
+        description="How to dig your own grave",
+        images=["https://i.nostr.build/psL0ZtN4FZcmeiIh.png"],
+        currency="USD",
+        price=9.99,
+        quantity=1000,
+        shipping=None,
+        specs=[["type", "online"], ["media", "video"]],
+        categories=["education", "hardware tools"],
+        seller=keys.get_public_key(),
+    ),
+]
+```
+
+## References
+
+- [NIP-15](https://github.com/nostr-protocol/nips/blob/master/15.md) - Nostr Marketplace

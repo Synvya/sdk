@@ -1,0 +1,61 @@
+---
+title: 'Profile'
+description: 'Setting your Nostr profile'
+icon: 'id-card'
+---
+
+import Installation from '/snippets/installation.mdx'
+
+
+<Accordion title="Install the Synvya SDK if not done already">
+  <Installation/>
+</Accordion>
+
+```shell
+  cd ~/synvya
+  touch profile.py
+```
+
+```python profile.py
+  from dotenv import load_dotenv
+  from synvya_sdk import NostrKeys, NostrClient, generate_keys
+
+  # load private key / create new set of Nostr keys
+  NSEC = getenv("AGENT_KEY")
+  if NSEC is None:
+      keys = generate_keys(env_var="AGENT_KEY")
+  else:
+      keys = NostrKeys.from_private_key(NSEC)
+
+  # Use default relay
+  RELAY = "wss://relay.damus.io"
+
+  # Create the NostrClient instance
+  nostr_client = NostrClient(keys.get_private_key(), RELAY)
+
+  # Get the profile associated with `keys`
+  profile = nostr_client.get_profile()
+
+  # Update the profile
+  profile.set_about("I'm a nobody")
+  profile.set_banner("https://example.com/banner.png")
+  profile.set_bot(False)
+  profile.set_display_name("Joe Smith")
+  profile.set_name("joesmith")
+  profile.set_nip05("joesmith@example.com")
+  profile.set_picture("https://example.com/picture.png")
+  profile.set_website("https://example.com")
+
+  # Publish the profile
+  try:
+      nostr_client.set_profile(profile)
+      print(f"Profile published successfully")
+      print(f"Check it out at: https://www.primal.net/p/{keys.get_public_key()}")
+  except RuntimeError as e:
+      print(f"Sorry, I couldn't publish your profile: {e}")
+```
+
+
+<Check>
+  Congratulations! You've just updated your Nostr profile! 🚀🚀🚀
+</Check>

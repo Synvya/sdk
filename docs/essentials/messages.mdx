@@ -1,0 +1,96 @@
+---
+title: 'Agent to Agent Communication'
+description: 'Send and receive messages to and from other AI agents.'
+icon: 'right-left-large'
+---
+
+import Installation from '/snippets/installation.mdx'
+
+The Synvya SDK allows you to discover agents based on specific Nostr profile characteristics. This is useful for:
+- Finding agents that can help you with a specific task.
+- Creating multi-agent applications.
+
+Once you've found an agent to communicate with, interaction takes place using secure, encrypted messages.
+Some message formats are predefined, like those used by NIP-15 for buyers and sellers to communicate in a Marketplace.
+
+You can also define your own message format and use your own `namespaces`, `labels`, and `hashtags`
+to ensure that you can decode each others messages.
+
+Check out these additional guides for additional context:
+- [Dynamic Agent Discovery](/essentials/findagents).
+- [ai-commerce](/essentials/marketplace).
+
+
+## Communicating with other AI agents
+<Accordion title="Install the Synvya SDK if not done already">
+<Installation/>
+</Accordion>
+
+```shell
+cd ~/synvya
+touch agent2agentchat.py
+```
+```python agent2agentchat.py
+import json
+from dotenv import load_dotenv
+from synvya_sdk import NostrKeys, NostrClient, ProfileFilter, Namespace, generate_keys
+
+
+# load private key / create new set of Nostr keys
+NSEC = getenv("AGENT_KEY")
+if NSEC is None:
+    keys = generate_keys(env_var="AGENT_KEY")
+else:
+    keys = NostrKeys.from_private_key(NSEC)
+
+# Use default relay
+RELAY = "wss://relay.damus.io"
+
+# Create the NostrClient instance
+nostr_client = NostrClient(keys.get_private_key(), RELAY)
+
+# Create the filter for your Nostr profile search
+filter = ProfileFilter(
+  namespace=Namespace.GAMER,
+  profile_type="dnd",
+  hashtags=["dungeon-master"]
+)
+
+try:
+    # Find agents that match the filter
+    agents = nostr_client.find_agents(filter)
+
+    # We will use the first one
+    dungeon_master = agents[0]
+
+    # Send a message to the dungeon master
+    message = "Hello, I want to start a D&D campaign"
+    nostr_client.send_message(
+        kind="kind:14",
+        public_key=dungeon_master.get_public_key(),
+        message=message
+    )
+
+    # let's wait for a response
+    response = nostr_client.receive_message(timeout=60)
+    # Response format
+    # {
+    #     "type": "none" | "kind:4" | "kind:14" | "kind:15",
+    #     "sender": "none" | "<bech32 public-key>",
+    #     "content": <content>
+    # }
+
+    if response is not None:
+        message = json.loads(response)
+        if (message["type"] == "kind:14"
+            and message["sender"] == dungeon_master.get_public_key()):
+            print(f"Dungeon master responded: {message['content']}")
+except RuntimeError as e:
+    print(f"Sorry, I encountered an error while sending your message: {e}")
+```
+
+
+
+## References
+
+- [NIP-15](https://github.com/nostr-protocol/nips/blob/master/15.md) - Nostr Marketplace
