@@ -90,7 +90,7 @@ To set up a local development environment:
    pip install -r requirements.txt
    ```
 
-### Install Pre-commit Hooks:
+### Install Pre-commit Hooks
 This project uses [pre-commit](https://pre-commit.com/)to ensure code consistency and quality. Before committing, ensure you’ve installed and set up pre-commit hooks as follows:
 
    ```shell
