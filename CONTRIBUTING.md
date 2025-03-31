@@ -89,11 +89,21 @@ To set up a local development environment:
    ```shell
    pip install -r requirements.txt
    ```
-4. Install Pre-commit Hooks:
+
+### Install Pre-commit Hooks:
+This project uses [pre-commit](https://pre-commit.com/)to ensure code consistency and quality. Before committing, ensure you’ve installed and set up pre-commit hooks as follows:
+
    ```shell
-   pip install pre-commit
+   pip install pre-commit detect-secrets
    pre-commit install
+   pre-commit autoupdate
    ```
+Generate a secrets baseline to prevent false positives:
+  ```shell
+  detect-secrets scan > .secrets.baseline
+  git add .secrets.baseline
+  git commit -m "Add detect-secrets baseline"
+  ```
 ### Style Guide
 - Code Formatting: Use Black for code formatting.
 - Linting: Follow Pylint recommendations.
