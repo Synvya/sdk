@@ -2,14 +2,7 @@ from enum import Enum
 from logging import Logger
 from typing import ClassVar, List, Optional, Set
 
-from nostr_sdk import (
-    Event,
-    Metadata,
-    ProductData,
-    ShippingCost,
-    ShippingMethod,
-    StallData,
-)
+from nostr_sdk import Event, Metadata, ProductData, StallData
 from pydantic import BaseModel, ConfigDict
 
 class Namespace(str, Enum):
@@ -187,7 +180,7 @@ class Product(BaseModel):
     currency: str
     price: float
     quantity: int
-    shipping: List[ShippingCost]
+    shipping: List[ProductShippingCost]
     categories: List[str]
     specs: List[List[str]]
     seller: str
@@ -208,7 +201,7 @@ class Stall(BaseModel):
     name: str
     description: str
     currency: str
-    shipping: List[ShippingMethod]
+    shipping: List[StallShippingMethod]
     geohash: str
 
     # @classmethod

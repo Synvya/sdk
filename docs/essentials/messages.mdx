@@ -72,16 +72,17 @@ try:
     )
 
     # let's wait for a response
-    response = nostr_client.receive_message(timeout=60)
-    # Response format
+    response_str = nostr_client.receive_message(timeout=60)
+    # Response format as a JSON string:
     # {
     #     "type": "none" | "kind:4" | "kind:14" | "kind:15",
     #     "sender": "none" | "<bech32 public-key>",
     #     "content": <content>
     # }
 
-    if response is not None:
-        message = json.loads(response)
+    if response_str is not None:
+        # Parse the JSON string into a Python dictionary
+        message = json.loads(response_str)
         if (message["type"] == "kind:14"
             and message["sender"] == dungeon_master.get_public_key()):
             print(f"Dungeon master responded: {message['content']}")

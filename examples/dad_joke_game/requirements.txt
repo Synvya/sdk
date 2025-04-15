@@ -1,2 +1,2 @@
 synvya-sdk
-python-dotenv 
+python-dotenv

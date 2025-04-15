@@ -64,14 +64,14 @@ merchant = Agent(  # type: ignore[call-arg]
 
         To publish a single product or a single stall, use the tools `publish_product`
         and `publish_stall` with the exact name of the product or stall. To find the exact name
-        of the product or stall, use the tool `get_products` or `get_stalls` and match the 
+        of the product or stall, use the tool `get_products` or `get_stalls` and match the
         name property to the input provided by the user.
 
         When you receive an order, you must take one of the following actions:
-        - Process the order if the order value (price x quantity) is less than 1000 
+        - Process the order if the order value (price x quantity) is less than 1000
         - Trigger a manual workflow for the order if the order value (price x quantity)
-        is greater than 1000        
-        
+        is greater than 1000
+
 	    To determine the price, use the tool get_products to find the product ordered
 	    in your database and its price.
 

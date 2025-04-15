@@ -13,7 +13,7 @@ This example demonstrates a complete setup of a buyer agent:
 ## Prerequisites
 
 The buyer agent uses an a Postgres database with pgvector extension for Retrieval Augmented Generation (RAG).
-   
+
 Download and launch on your computer an instance of the pgvector Docker image before running the buyer agent.
 
 ```bash

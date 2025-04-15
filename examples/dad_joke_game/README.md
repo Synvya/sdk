@@ -11,7 +11,7 @@ The Joker profile must include a validated [NIP-05](https://github.com/nostr-pro
 Note that a validated NIP-05 only confirms that the Joker profile is associated with the entity controlling `https://yourdomain.com`.
 ### Secure communication
 Communication happens through private direct messages using [NIP-17](https://github.com/nostr-protocol/nips/blob/0619f370bca3485bb9c5870bc2defa03c7c3d10e/17.md)
- 
+
 
 ## Setup
 ### Clone the repository and navigate to this example

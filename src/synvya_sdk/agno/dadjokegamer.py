@@ -15,8 +15,7 @@ Joker receives the joke request and sends a joke to the publisher:
 """
 
 import json
-import random
-from logging import DEBUG
+import secrets
 
 from pydantic import ConfigDict
 
@@ -103,7 +102,11 @@ class DadJokeGamerTools(Toolkit):
         if agents:
             tries = 0
             while tries < 10:
-                selected_joker: Profile = random.choice(list(agents))
+                # Use secrets for secure random selection
+                agents_list = list(agents)
+                selected_joker: Profile = agents_list[
+                    secrets.randbelow(len(agents_list))
+                ]
                 if selected_joker.is_nip05_validated() and selected_joker.is_bot():
                     response = {
                         "status": "success",
@@ -274,7 +277,8 @@ class DadJokeGamerTools(Toolkit):
             raise ValueError("NostrClient not initialized")
 
         try:
-            return self._nostr_client.set_profile(profile)
+            result: str = self._nostr_client.set_profile(profile)
+            return result
         except RuntimeError as e:
             logger.error("Unable to publish the profile: %s", e)
             raise RuntimeError(f"Unable to publish the profile: {e}") from e

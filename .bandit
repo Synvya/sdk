@@ -1,0 +1,5 @@
+[bandit]
+# Skip B101 (assert) for all test files
+skips: B101:tests/
+
+# B311 is not skipped as it's a security concern even in non-production code

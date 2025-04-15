@@ -16,7 +16,7 @@ dependencies = [
     "agno>=1.1.1",
     "openai>=1.50.0",
     "nostr_sdk>=0.39.0",
-    "pydantic>=2.0.0",   
+    "pydantic>=2.0.0",
 ]
 
 [project.optional-dependencies]
@@ -68,10 +68,17 @@ warn_unused_configs = true
 mypy_path = "src"
 check_untyped_defs = true
 disallow_untyped_defs = true
+exclude = [
+    "examples/dad_joke_game/__init__.py",
+]
 
 [[tool.mypy.overrides]]
 module = ["nostr_sdk.*"]
 ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["src.synvya_sdk.*.*.pyi"]
+follow_imports = "skip"
 
 [tool.setuptools.package-data]
 synvya_sdk = ["py.typed"]

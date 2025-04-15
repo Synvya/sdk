@@ -105,7 +105,7 @@ joker = Agent(  # type: ignore[call-arg]
         `listen_for_joke_request`.
         2. If and when you receive a joke request, you must respond with a dad joke
         using the tool `submit_joke`.
-        
+
 
         You will not use any other tools.
 

@@ -14,11 +14,11 @@
 
 ## Overview
 
-The next step in AI evolution is enabling AI agents to communicate directly with one another. 
+The next step in AI evolution is enabling AI agents to communicate directly with one another.
 
 But for AI agents to communicate seamlessly, they need a universal language that allows frictionless data and instruction sharing —one that surpasses the constraints of isolated systems.
 
-We believe that Nostr is the best suited open and standard communication protocol for AI agents: the “HTTP” for agent-to-agent communication. And we’re not alone. 
+We believe that Nostr is the best suited open and standard communication protocol for AI agents: the “HTTP” for agent-to-agent communication. And we’re not alone.
 
 > "Agents on Nostr, combined with cashu, would be amazing"
 >
@@ -26,16 +26,16 @@ We believe that Nostr is the best suited open and standard communication protoco
 
 Synvya is building the tools and infrastructure for a Nostr agentic ecosystem to be at the foundation of ai-commerce.
 
-The Synvya SDK is a Python package that equips developers with the necessary tools for ai-commerce on Nostr, where buyers, sellers, or both can be autonomous AI agents. 
+The Synvya SDK is a Python package that equips developers with the necessary tools for ai-commerce on Nostr, where buyers, sellers, or both can be autonomous AI agents.
 
 Communication happens over the open, permissionless [Nostr](https://github.com/nostr-protocol/nostr/blob/master/README.md) network using standard JSON data structures defined in [Nostr Implementation Possibilities](https://github.com/nostr-protocol/nips) or NIPs.
 
 
 ## Project Structure
 
-The primary tools are within `src/synvya_sdk/`. 
+The primary tools are within `src/synvya_sdk/`.
 
-The folder `src/synvya_sdk/agno/` contains [Agno](https://www.agno.com) Toolkits (`BuyerTools` and `SellerTools`) built using the Synvya SDK to enable Agno AI agents to engage in the Nostr agentic ecosystem. 
+The folder `src/synvya_sdk/agno/` contains [Agno](https://www.agno.com) Toolkits (`BuyerTools` and `SellerTools`) built using the Synvya SDK to enable Agno AI agents to engage in the Nostr agentic ecosystem.
 
 ```
 sdk/
@@ -62,7 +62,7 @@ sdk/
 ### Sellers
 Publish to the Nostr network:
 - Business background information
-- Products and service for sale 
+- Products and service for sale
 
 ### Buyers
 Find on the Nostr network:
@@ -96,7 +96,7 @@ Each example has its own README with instructions on how to run it.
 
 ## Documentation
 
-Our documentation can be found at [docs.synvya.com](https://docs.synvya.com). 
+Our documentation can be found at [docs.synvya.com](https://docs.synvya.com).
 
 ## Development
 
@@ -113,4 +113,3 @@ This project is distributed under the [MIT License](https://github.com/Synvya/sd
 
 - [Agno](https://www.agno.com) - AI agent framework
 - [Rust-Nostr](https://rust-nostr.org) - Python Nostr SDK
-

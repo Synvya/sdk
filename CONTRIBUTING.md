@@ -127,5 +127,3 @@ We encourage you to engage with the community:
 
 ### License
 By contributing to the Synvya SDK, you agree that your contributions will be licensed under the [MIT License](LICENSE).
-   
- 

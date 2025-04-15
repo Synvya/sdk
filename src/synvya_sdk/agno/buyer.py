@@ -3,7 +3,7 @@ Module implementing the BuyerTools Toolkit for Agno agents.
 """
 
 import json
-from random import randint
+import secrets
 from typing import List, Optional
 
 from pydantic import ConfigDict
@@ -516,8 +516,9 @@ class BuyerTools(Toolkit):
         shipping_id: str,
         address: Optional[str] = None,
     ) -> str:
-        random_order_id = randint(
-            0, 999999999
+        # Use secrets module for cryptographically secure random number generation
+        random_order_id = secrets.randbelow(
+            1000000000
         )  # Generate a number between 0 and 999999999
         customer_order_id_str = f"{random_order_id:09d}"
 
