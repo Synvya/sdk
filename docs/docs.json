@@ -25,7 +25,7 @@
             "group": "Essentials",
             "pages": [
               "essentials/profile",
-              "essentials/findagents",
+              "essentials/agentdiscovery",
               "essentials/messages",
               "essentials/marketplace"
             ]
