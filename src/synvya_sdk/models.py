@@ -233,7 +233,10 @@ class Profile(BaseModel):
     def set_picture(self, picture: str) -> None:
         self.picture = self._validate_url(picture) if picture else ""
 
-    def set_profile_type(self, profile_type: ProfileType) -> None:
+    def set_profile_type(self, profile_type: ProfileType | str) -> None:
+        if isinstance(profile_type, str):
+            # Convert string to ProfileType enum safely
+            profile_type = ProfileType(profile_type)
         self.profile_type = profile_type
 
     def set_website(self, website: str) -> None:
@@ -267,7 +270,7 @@ class Profile(BaseModel):
         data = {
             "about": self.about,
             "banner": self.banner,
-            "bot": str(self.bot),
+            "bot": self.bot,
             "display_name": self.display_name,
             "hashtags": self.hashtags,
             "locations": (list(self.locations) if self.locations else []),
@@ -277,7 +280,7 @@ class Profile(BaseModel):
             "picture": self.picture,
             "profile_url": self.profile_url,
             "public_key": self.public_key,
-            "profile_type": self.profile_type,
+            "profile_type": self.profile_type.value,
             "website": self.website,
         }
         return json.dumps(data)

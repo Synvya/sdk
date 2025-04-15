@@ -229,6 +229,7 @@ class NostrClient:
             except Exception as e:
                 raise RuntimeError(f"Failed to retrieve merchants: {e}") from e
 
+            return merchants
         # No filtering is applied, so we search for merchants by identifying
         # profiles that have publised at least one stall
 

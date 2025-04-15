@@ -15,6 +15,7 @@ from typing import AsyncGenerator, Iterator, Optional
 import nest_asyncio
 from dotenv import load_dotenv
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from pgvector.sqlalchemy import Vector  # Correct import for vector storage
 from pydantic import BaseModel
@@ -183,28 +184,9 @@ buyer = Agent(  # type: ignore[call-arg]
         """
         You're an AI assistant for people visiting a place. You will help them find
         things to do, places to go, and things to buy using exclusively the information
-        provided by BuyerTools and stored in your knowledge base.
+        provided by BuyerTools.
 
-        When I ask you to refresh your sellers, use the refresh_sellers tool.
-
-        Search the knowledge base for the most relevant information to the query before
-        using the tools.
-
-        When possible, connect multiple activities to create an itinerary. The itinerary
-        can be for a few hours. It doesn't need to be a full day.
-
-        After using the tool find_sellers_by_location, always immediately call the tool
-        get_seller_products to retrieve the products from the merchants in that location
-        and include the products in the itinerary.
-
-        Only include in the itinerary merchants that are in your knowledge base.
-
-        When including merchants from your knowledge base in your response, make sure to
-        include their products and services in the itinerary with the current times
-        based on product information. Provide also the price of the products and
-        services.
-        Offer to purchase the products or make a reservation and then include
-        this in your overall response.
+        When I ask you to find merchant.
         """.strip(),
     ],
 )
@@ -212,6 +194,21 @@ buyer = Agent(  # type: ignore[call-arg]
 
 # === Define FastAPI app ===
 app = FastAPI()
+
+# Allow localhost origins for development
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://localhost:5500",
+        "http://localhost",
+        "http://localhost:8000",
+        "http://127.0.0.1",
+        "http://127.0.0.1:8000",
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 class QueryRequest(BaseModel):

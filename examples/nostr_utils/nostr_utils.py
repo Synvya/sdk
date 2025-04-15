@@ -9,7 +9,14 @@ from sys import exit
 
 from dotenv import load_dotenv
 
-from synvya_sdk import Namespace, NostrClient, NostrKeys, Profile, ProfileType
+from synvya_sdk import (
+    Namespace,
+    NostrClient,
+    NostrKeys,
+    Profile,
+    ProfileFilter,
+    ProfileType,
+)
 
 ENV_KEY = "NOSTR_UTILS_KEY"
 
@@ -72,11 +79,22 @@ for hashtag in HASHTAGS:
 
 nostr_client.set_profile(profile)
 
-relay_profile = nostr_client.get_profile(keys.get_public_key())
-print(f"Profile type: {relay_profile.get_profile_type()}")
-print(f"Profile namespace: {relay_profile.get_namespace()}")
-print(f"Profile hashtags: {relay_profile.get_hashtags()}")
+# relay_profile = nostr_client.get_profile(keys.get_public_key())
+# print(f"Profile type: {relay_profile.get_profile_type()}")
+# print(f"Profile namespace: {relay_profile.get_namespace()}")
+# print(f"Profile hashtags: {relay_profile.get_hashtags()}")
 
+profile_filter = ProfileFilter(
+    profile_type=ProfileType.MERCHANT_RESTAURANT,
+    namespace=Namespace.MERCHANT,
+    hashtags=[],
+)
+
+merchants = nostr_client.get_merchants(profile_filter)
+
+for merchant in merchants:
+    merchant_json = json.loads(merchant.to_json())
+    print(f"Merchant: {json.dumps(merchant_json, indent=2)}")
 
 # for event in event_list:
 #     event_id = EventId.parse(event)
