@@ -3,12 +3,21 @@ Module implementing the BuyerTools Toolkit for Agno agents.
 """
 
 import json
+import re
 import secrets
 from typing import List, Optional
 
 from pydantic import ConfigDict
 
-from synvya_sdk import NostrClient, Product, Profile, ProfileFilter, Stall
+from synvya_sdk import (
+    Namespace,
+    NostrClient,
+    Product,
+    Profile,
+    ProfileFilter,
+    ProfileType,
+    Stall,
+)
 
 try:
     from agno.agent import AgentKnowledge  # type: ignore
@@ -95,43 +104,180 @@ class BuyerTools(Toolkit):
         self.register(self.submit_order)
         self.register(self.submit_payment)
 
-    def get_merchants(self) -> str:
+    def get_merchants(self, profile_filter_json: Optional[str | dict] = None) -> str:
         """
         Download from the Nostr relay all merchants and store their Nostr
         profile in the knowledge base.
 
+        Args:
+            profile_filter_json: JSON string or dictionary representing a filter to apply to merchants.
+                                Format: {"namespace": "MERCHANT", "profile_type": "restaurant", "hashtags": ["pizza"]}
+
         Returns:
             str: JSON string with status and count of merchants refreshed
         """
-        logger.debug("Downloading all merchants from the Nostr relay")
+        logger.info("GET_MERCHANTS: profile_filter_json: %s", profile_filter_json)
+
         try:
-            self.merchants = self._nostr_client.get_merchants()
+            if profile_filter_json is None:
+                self.merchants = self._nostr_client.get_merchants()
+            else:
+                # Handle both string and dictionary inputs
+                try:
+                    if isinstance(profile_filter_json, str):
+                        # Parse the JSON string into a dict
+                        filter_data = json.loads(profile_filter_json)
+                    elif isinstance(profile_filter_json, dict):
+                        # Use the dictionary directly
+                        filter_data = profile_filter_json
+                    else:
+                        raise ValueError(
+                            f"profile_filter_json must be a string or dictionary, got {type(profile_filter_json)}"
+                        )
+
+                    # Extract the values
+                    namespace_str = filter_data.get("namespace")
+                    profile_type_str = filter_data.get("profile_type")
+                    hashtags = filter_data.get("hashtags", [])
+
+                    # Convert namespace string to Namespace enum
+                    namespace = None
+                    if namespace_str:
+                        try:
+                            namespace = getattr(Namespace, namespace_str)
+                        except AttributeError as e:
+                            if namespace_str in [n.value for n in Namespace]:
+                                # If the string is the value rather than the name
+                                namespace = [
+                                    n for n in Namespace if n.value == namespace_str
+                                ][0]
+                            else:
+                                raise ValueError(
+                                    f"Invalid namespace: {namespace_str}"
+                                ) from e
+
+                    # Convert profile_type string to ProfileType enum
+                    profile_type = None
+                    if profile_type_str:
+                        # Try to match by direct enum name first
+                        try:
+                            profile_type = getattr(
+                                ProfileType, f"MERCHANT_{profile_type_str.upper()}"
+                            )
+                        except AttributeError as e:
+                            # Try to match by enum value
+                            matching_types = [
+                                pt for pt in ProfileType if pt.value == profile_type_str
+                            ]
+                            if matching_types:
+                                profile_type = matching_types[0]
+                            else:
+                                raise ValueError(
+                                    f"Invalid profile_type: {profile_type_str}. "
+                                    f"Valid values are: {[pt.value for pt in ProfileType]}"
+                                ) from e
+
+                    # Create the ProfileFilter
+                    profile_filter = ProfileFilter(
+                        namespace=namespace,
+                        profile_type=profile_type,
+                        hashtags=hashtags,
+                    )
+
+                    logger.info("Created ProfileFilter: %s", profile_filter)
+                    self.merchants = self._nostr_client.get_merchants(profile_filter)
+                except json.JSONDecodeError as e:
+                    raise ValueError(
+                        f"Invalid JSON format for profile_filter: {profile_filter_json}"
+                    ) from e
+                except Exception as e:
+                    raise ValueError(f"Error creating ProfileFilter: {str(e)}") from e
+
+            # Store merchants in knowledge base
             for merchant in self.merchants:
                 self._store_profile_in_kb(merchant)
+
             response = json.dumps({"status": "success", "count": len(self.merchants)})
-        except RuntimeError as e:
-            logger.error("Error downloading all merchants from the Nostr relay: %s", e)
+            logger.info("GET_MERCHANTS: response: %s", response)
+        except Exception as e:
+            logger.error("Error downloading merchants from the Nostr relay: %s", e)
             response = json.dumps({"status": "error", "message": str(e)})
 
         return response
 
-    def get_merchants_from_knowledge_base(self) -> str:
+    def get_merchants_from_knowledge_base(
+        self, profile_filter_json: Optional[str | dict] = None
+    ) -> str:
         """
         Get the list of merchants stored in the knowledge base.
+
+        Args:
+            profile_filter_json: JSON string or dictionary representing a filter to apply to merchants.
+                             Format: {"namespace": "com.synvya.merchant", "profile_type": "restaurant", "hashtags": ["pizza"]}
 
         Returns:
             str: JSON string of merchants
         """
         logger.debug("Getting merchants from knowledge base")
-
-        documents = self.knowledge_base.search(
-            query="", num_documents=100, filters=[{"type": "merchant"}]
+        logger.info(
+            "GET_MERCHANTS_FROM_KNOWLEDGE_BASE: profile_filter_json: %s",
+            profile_filter_json,
         )
-        for doc in documents:
-            logger.debug("Document: %s", doc.to_dict())
 
+        # Initialize filter list
+        search_filters = []
+
+        # Process profile filter if provided
+        if profile_filter_json:
+            try:
+                # Parse filter data
+                filter_data = (
+                    json.loads(profile_filter_json)
+                    if isinstance(profile_filter_json, str)
+                    else profile_filter_json
+                )
+
+                # Add namespace filter (exact match)
+                namespace = filter_data.get("namespace")
+                if namespace:
+                    search_filters.append({"namespace": namespace})
+
+                # Add profile_type filter (exact match)
+                profile_type = filter_data.get("profile_type")
+                if profile_type:
+                    search_filters.append({"profile_type": profile_type})
+
+                # Add hashtag filters (boolean match per hashtag)
+                hashtags = filter_data.get("hashtags", [])
+                for tag in hashtags:
+                    normalized_tag = self._normalize_hashtag(tag)
+                    search_filters.append({f"hashtag_{normalized_tag}": True})
+
+                logger.debug("Applied search filters: %s", search_filters)
+
+            except json.JSONDecodeError as e:
+                logger.error("Invalid JSON format for profile_filter: %s", e)
+                return json.dumps(
+                    {"status": "error", "message": f"Invalid JSON format: {str(e)}"}
+                )
+            except Exception as e:
+                logger.error("Error processing profile filter: %s", e)
+                return json.dumps(
+                    {"status": "error", "message": f"Error processing filter: {str(e)}"}
+                )
+
+        logger.info("Search filters: %s", search_filters)
+
+        # Execute search
+        documents = self.knowledge_base.search(
+            query="", num_documents=100, filters=search_filters
+        )
+
+        logger.info("Found %d merchants in the knowledge base", len(documents))
+
+        # Return JSON content of found merchants
         merchants_json = [doc.content for doc in documents]
-        logger.debug("Found %d merchants in the knowledge base", len(merchants_json))
+        logger.info("Merchants JSON: %s", merchants_json)
         return json.dumps(merchants_json)
 
     def get_merchants_in_marketplace(
@@ -628,18 +774,36 @@ class BuyerTools(Toolkit):
         Store a Nostr profile in the knowledge base.
 
         Args:
-            profile: Nostr profile to store
+        profile: Nostr profile to store
         """
-        logger.debug("Storing profile in knowledge base: %s", profile.name)
+        logger.info("_store_profile_in_kb: profile: %s", profile.get_name())
+
+        profile_type_str = profile.get_profile_type().value
 
         doc = Document(
             content=profile.to_json(),
-            name=profile.name,
-            meta_data={"type": "merchant"},
+            name=profile.get_name(),
+            meta_data={
+                "type": "merchant",
+                "public_key": profile.get_public_key(),
+            },
         )
 
-        # Store response
-        self.knowledge_base.load_document(document=doc, filters=[{"type": "merchant"}])
+        hashtags = profile.get_hashtags()
+        hashtag_filters = [
+            {f"hashtag_{self._normalize_hashtag(tag)}": True} for tag in hashtags
+        ]
+
+        filters = [
+            {"namespace": profile.get_namespace()},
+            {"profile_type": profile_type_str},
+            *hashtag_filters,
+        ]
+        logger.info("_store_profile_in_kb: filters: %s", filters)
+        self.knowledge_base.load_document(
+            document=doc,
+            filters=filters,
+        )
 
     def _store_product_in_kb(self, product: Product) -> None:
         """
@@ -679,3 +843,14 @@ class BuyerTools(Toolkit):
 
         # Store response
         self.knowledge_base.load_document(document=doc, filters=[{"type": "stall"}])
+
+    @staticmethod
+    def _normalize_hashtag(tag: str) -> str:
+        """
+        Normalize hashtags by removing spaces, underscores, and hyphens,
+        and converting to lowercase.
+        Ensures consistent matching across variations.
+        """
+        tag = tag.lower()
+        tag = re.sub(r"[\s\-_]+", "", tag)  # Remove spaces, hyphens, underscores
+        return tag

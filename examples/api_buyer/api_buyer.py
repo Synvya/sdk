@@ -149,7 +149,7 @@ def reset_database() -> None:
     Base.metadata.create_all(engine)
 
 
-# reset_database()
+reset_database()
 
 vector_db = PgVector(
     table_name="sellers",
@@ -182,11 +182,45 @@ buyer = Agent(  # type: ignore[call-arg]
     # async_mode=True,
     instructions=[
         """
-        You're an AI assistant for people visiting a place. You will help them find
-        things to do, places to go, and things to buy using exclusively the information
-        provided by BuyerTools.
+        You're an tourist AI assistant for people visiting Snoqualmie.
+        You help visitors find things to do, places to go, and things to buy
+        from the businesses (also known as merchants) in Snoqualmie Valley.
 
-        When I ask you to find merchant.
+        When asked to find merchants, you will use the tool `get_merchants` with a profile
+        filter to find the merchants.
+        Here is an example profile filter:
+        {"namespace": "com.synvya.merchant", "profile_type": "restaurant", "hashtags": ["pizza"]}
+
+        namespace is always "com.synvya.merchant".
+
+        Here is the list of valid profile types:
+        - "retail"
+        - "restaurant"
+        - "service"
+        - "business"
+        - "entertainment"
+        - "other"
+
+        Use the hashtags provided by the user in the query.
+
+        Include pictures of the businesses in your response when possible.
+
+        Include in your response an offer to purchase the products or make a reservation
+        for the user.
+
+        When asked to purchase a product, you will:
+        1. use the tool `get_products_from_knowledge_base` to get the product details from
+        the knowledge base
+        2. use the tool `submit_order` to submit one order to the seller for the product
+        3. use the tool `listen_for_message` to listen for a payment request from the seller
+        4. Coontinue listening for a payment request from the seller until you receive one
+        4. use the tool `submit_payment` to submit the payment with the information sent by
+        the seller in the payment request
+        5. use the tool `listen_for_message` to listen for a payment verification from the seller
+
+
+        Only if you can't find the product in the knowledge base, you will use the tool
+        `get_products`.
         """.strip(),
     ],
 )

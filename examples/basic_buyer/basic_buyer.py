@@ -118,32 +118,6 @@ class Seller(Base):
         return f"<Seller(id={self.id}, name={self.name})>"
 
 
-# class Json(Base):
-#     """
-#     SQLAlchemy model for table `json` in the ai schema.
-#     """
-
-#     __tablename__ = "json"
-#     __table_args__ = {"schema": "ai"}  # If the table is inside the 'ai' schema
-
-#     id = Column(
-#         String, primary_key=True, default=lambda: str(uuid.uuid4())
-#     )  # UUID primary key
-#     name = Column(Text, nullable=True)
-#     meta_data = Column(JSONB, default={})
-#     filters = Column(JSONB, default={})
-#     content = Column(JSONB, nullable=False)
-#     embedding: Optional[Vector] = Column(Vector(1536), nullable=True)
-#     usage = Column(JSONB, default={})
-#     content_hash = Column(Text, nullable=True)
-
-#     def __repr__(self) -> str:
-#         """
-#         Return a string representation of the Json object.
-#         """
-#         return f"<Json(id={self.id}, name={self.name})>"
-
-
 # Function to drop and recreate the table
 def reset_database() -> None:
     """
@@ -161,7 +135,7 @@ def reset_database() -> None:
 
 # remove comment to delete the contents of the database for the
 # knowlege base and start fresh
-# reset_database()
+reset_database()
 
 vector_db = PgVector(
     table_name="sellers",
@@ -170,14 +144,6 @@ vector_db = PgVector(
     search_type=SearchType.vector,
     embedder=OpenAIEmbedder(),
 )
-
-# json_vector_db = PgVector(
-#     table_name="json",
-#     db_url=DB_URL,
-#     schema="ai",
-#     search_type=SearchType.vector,
-#     embedder=OpenAIEmbedder(),
-# )
 
 
 knowledge_base = AgentKnowledge(vector_db=vector_db)
@@ -198,6 +164,10 @@ profile.set_picture(PICTURE)
 profile.set_nip05(NIP05)
 buyer_tools.set_profile(profile)
 
+# When asked to populate your knowledge base, you will download the sellers
+# from the marketplace "Historic Downtown Snoqualmie" with the public key
+# "npub1nar4a3vv59qkzdlskcgxrctkw9f0ekjgqaxn8vd0y82f9kdve9rqwjcurn".
+
 buyer = Agent(  # type: ignore[call-arg]
     name=f"AI Agent for {profile.get_name()}",
     model=OpenAIChat(id="gpt-4o-mini", api_key=OPENAI_API_KEY),
@@ -215,14 +185,24 @@ buyer = Agent(  # type: ignore[call-arg]
         """
         You're an tourist AI assistant for people visiting Snoqualmie.
         You help visitors find things to do, places to go, and things to buy
-        from the businesses (also known as sellers) in the Historic Downtown
-        Snoqualmie using exclusively the information stored in your knowledge base.
+        from the businesses (also known as merchants) in Snoqualmie Valley.
 
-        When asked to populate your knowledge base, you will download the sellers
-        from the marketplace "Historic Downtown Snoqualmie" with the public key
-        "npub1nar4a3vv59qkzdlskcgxrctkw9f0ekjgqaxn8vd0y82f9kdve9rqwjcurn".
+        When asked to find merchants, you will use the tool `get_merchants` with a profile
+        filter to find the merchants.
+        Here is an example profile filter:
+        {"namespace": "com.synvya.merchant", "profile_type": "restaurant", "hashtags": ["pizza"]}
 
-        Only provide information about the businesses that are in your knowledge base.
+        namespace is always "com.synvya.merchant".
+
+        Here is the list of valid profile types:
+        - "retail"
+        - "restaurant"
+        - "service"
+        - "business"
+        - "entertainment"
+        - "other"
+
+        Use the hashtags provided by the user in the query.
 
         Include pictures of the businesses in your response when possible.
 
