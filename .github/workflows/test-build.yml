@@ -31,7 +31,7 @@ jobs:
       run: isort . --check
 
     - name: Run mypy
-      run: mypy src tests examples
+      run: mypy --explicit-package-bases src tests examples
 
     - name: Enable Rust logs
       run: echo "RUST_LOG=debug" >> $GITHUB_ENV
