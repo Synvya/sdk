@@ -1,5 +1,6 @@
 import json
 import logging
+import re
 from enum import Enum
 from typing import ClassVar, List, Optional, Set
 
@@ -71,12 +72,15 @@ class ProfileFilter(BaseModel):
         """
         Initialize a ProfileFilter instance.
         """
+        normalized_hashtags = (
+            [self._normalize_hashtag(tag) for tag in hashtags] if hashtags else []
+        )
         super().__init__(
-            namespace=namespace, profile_type=profile_type, hashtags=hashtags
+            namespace=namespace, profile_type=profile_type, hashtags=normalized_hashtags
         )
         self.namespace = namespace
         self.profile_type = profile_type
-        self.hashtags = hashtags
+        self.hashtags = normalized_hashtags
 
     def to_json(self) -> str:
         """
@@ -91,6 +95,17 @@ class ProfileFilter(BaseModel):
         """
         data = json.loads(json_str)
         return cls.model_validate(data)
+
+    @staticmethod
+    def _normalize_hashtag(tag: str) -> str:
+        """
+        Normalize hashtags by removing spaces, underscores, and hyphens,
+        and converting to lowercase.
+        Ensures consistent matching across variations.
+        """
+        tag = tag.lower()
+        tag = re.sub(r"[\s\-_]+", "", tag)  # Remove spaces, hyphens, underscores
+        return tag
 
 
 class Profile(BaseModel):
@@ -123,7 +138,9 @@ class Profile(BaseModel):
         self.profile_url = self.PROFILE_URL_PREFIX + public_key
 
     def add_hashtag(self, hashtag: str) -> None:
-        self.hashtags.append(hashtag)
+        normalized_hashtag = self._normalize_hashtag(hashtag)
+        if normalized_hashtag not in self.hashtags:
+            self.hashtags.append(normalized_hashtag)
 
     def add_location(self, location: str) -> None:
         """Add a location to the Nostr profile.
@@ -400,7 +417,7 @@ class Profile(BaseModel):
             profile.nip05_validated = await profile._validate_profile_nip05()
 
         except Exception as e:
-            profile.logger.error(f"Failed to validate NIP-05: {e}")
+            profile.logger.error("Failed to validate NIP-05: %s", e)
             profile.nip05_validated = False
         return profile
 
@@ -456,7 +473,7 @@ class Profile(BaseModel):
         try:
             profile.nip05_validated = await profile._validate_profile_nip05()
         except Exception as e:
-            profile.logger.error(f"Failed to validate NIP-05: {e}")
+            profile.logger.error("Failed to validate NIP-05: %s", e)
             profile.nip05_validated = False
         return profile
 
@@ -487,6 +504,17 @@ class Profile(BaseModel):
         profile.set_website(data.get("website", ""))
         profile.locations = set(data.get("locations", []))
         return profile
+
+    @staticmethod
+    def _normalize_hashtag(tag: str) -> str:
+        """
+        Normalize hashtags by removing spaces, underscores, and hyphens,
+        and converting to lowercase.
+        Ensures consistent matching across variations.
+        """
+        tag = tag.lower()
+        tag = re.sub(r"[\s\-_]+", "", tag)  # Remove spaces, hyphens, underscores
+        return tag
 
 
 class NostrKeys(BaseModel):

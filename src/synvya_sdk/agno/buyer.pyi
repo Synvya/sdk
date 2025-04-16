@@ -27,7 +27,7 @@ class BuyerTools(Toolkit):
 
     # Retrieve NIP-15 Marketplace information from Nostr
     # and store it in the local knowledge base
-    def get_merchants(self) -> str: ...
+    def get_merchants(self, profile_filter: Optional[ProfileFilter] = None) -> str: ...
     def get_merchants_in_marketplace(
         self,
         owner_public_key: str,
@@ -40,7 +40,9 @@ class BuyerTools(Toolkit):
     def get_stalls(self, merchant_public_key: str) -> str: ...
 
     # Query information from local knowledge base
-    def get_merchants_from_knowledge_base(self) -> str: ...
+    def get_merchants_from_knowledge_base(
+        self, profile_filter_json: Optional[str | dict] = None
+    ) -> str: ...
     def get_products_from_knowledge_base(
         self,
         merchant_public_key: Optional[str] = None,
