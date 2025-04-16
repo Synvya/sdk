@@ -11,8 +11,8 @@ This example creates a Docker container with a FastAPI API for the Basic Buyer A
 1. Clone the repository and navigate to this example:
 
 ```bash
-git clone https://github.com/agentstr/agentstr.git
-cd agentstr/examples/api_buyer
+git clone https://github.com/synvya/sdk.git
+cd sdk/examples/api_buyer
 ```
 
 2. Copy `.env.example` to `.env` and fill in your keys:
