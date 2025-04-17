@@ -10,11 +10,11 @@ import warnings
 # from builtins import anext
 from os import getenv
 from pathlib import Path
-from typing import AsyncGenerator, Iterator, Optional
+from typing import Iterator, Optional
 
 import nest_asyncio
 from dotenv import load_dotenv
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from pgvector.sqlalchemy import Vector  # Correct import for vector storage
@@ -24,14 +24,13 @@ from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import DeclarativeBase, sessionmaker
 from sqlalchemy.sql import text
 
-from agno.agent import Agent, AgentKnowledge, RunResponse  # type: ignore
+from agno.agent import Agent, AgentKnowledge  # type: ignore
 from agno.embedder.openai import OpenAIEmbedder
 from agno.models.openai import OpenAIChat  # type: ignore
 from agno.vectordb.pgvector import PgVector, SearchType
 from synvya_sdk import NostrKeys, Profile, generate_keys
 from synvya_sdk.agno import BuyerTools
 
-nest_asyncio.apply()
 # Set logging to WARN level to suppress INFO logs
 logging.basicConfig(level=logging.WARN)
 
@@ -146,7 +145,7 @@ def reset_database() -> None:
         Base.metadata.create_all(bind=conn)
 
 
-reset_database()
+# reset_database()
 
 vector_db = PgVector(
     table_name="sellers",
@@ -241,22 +240,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Allow localhost origins for development
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=[
-        "http://localhost:5500",
-        "http://localhost",
-        "http://localhost:8000",
-        "http://127.0.0.1",
-        "http://127.0.0.1:8000",
-        "https://client-web.synvya.com",
-    ],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
 
 class QueryRequest(BaseModel):
     """
@@ -266,76 +249,83 @@ class QueryRequest(BaseModel):
     query: str
 
 
-async def async_wrapper(
-    sync_iter: Iterator[RunResponse],
-) -> AsyncGenerator[RunResponse, None]:
-    """
-    Wraps a synchronous iterator in an asynchronous generator.
-    """
-    while True:
-        try:
-            # Handle synchronous iterator in async context
-            yield await asyncio.to_thread(next, sync_iter)
-        except StopIteration:
-            break
-        except RuntimeError as e:
-            if "StopIteration" in str(e):
-                break
-            raise
+# async def async_wrapper(
+#     sync_iter: Iterator[RunResponse],
+# ) -> AsyncGenerator[RunResponse, None]:
+#     """
+#     Wraps a synchronous iterator in an asynchronous generator.
+#     """
+#     while True:
+#         try:
+#             # Handle synchronous iterator in async context
+#             yield await asyncio.to_thread(next, sync_iter)
+#         except StopIteration:
+#             break
+#         except RuntimeError as e:
+#             if "StopIteration" in str(e):
+#                 break
+#             raise
 
 
-async def event_stream(
-    response_stream: Iterator[RunResponse],
-) -> AsyncGenerator[str, None]:
-    """
-    Streams the response from the buyer agent.
-    """
-    response_iter = async_wrapper(response_stream)
-    first_chunk_event = asyncio.Event()
+# async def event_stream(
+#     response_stream: Iterator[RunResponse],
+# ) -> AsyncGenerator[str, None]:
+#     """
+#     Streams the response from the buyer agent.
+#     """
+#     response_iter = async_wrapper(response_stream)
+#     first_chunk_event = asyncio.Event()
 
-    async def fetch_first_chunk() -> Optional[RunResponse]:
-        try:
-            return await anext(response_iter)
-        except StopAsyncIteration:
-            first_chunk_event.set()
-            return None
-        finally:
-            first_chunk_event.set()
+#     async def fetch_first_chunk() -> Optional[RunResponse]:
+#         try:
+#             return await anext(response_iter)
+#         except StopAsyncIteration:
+#             first_chunk_event.set()
+#             return None
+#         finally:
+#             first_chunk_event.set()
 
-    first_chunk_task = asyncio.create_task(fetch_first_chunk())
+#     first_chunk_task = asyncio.create_task(fetch_first_chunk())
 
-    # Heartbeat phase
-    while not first_chunk_event.is_set():
-        yield "Processing...\n"
-        await asyncio.sleep(1)
+#     # Heartbeat phase
+#     while not first_chunk_event.is_set():
+#         yield "Processing...\n"
+#         await asyncio.sleep(1)
 
-    # Data streaming phase
-    try:
-        if first_response := await first_chunk_task:
-            yield f"{first_response.get_content_as_string()}\n"
+#     # Data streaming phase
+#     try:
+#         if first_response := await first_chunk_task:
+#             yield f"{first_response.get_content_as_string()}\n"
 
-        async for response in response_iter:
-            yield f"{response.get_content_as_string()}\n"
+#         async for response in response_iter:
+#             yield f"{response.get_content_as_string()}\n"
 
-    except asyncio.CancelledError:
-        print("Client disconnected")
+#     except asyncio.CancelledError:
+#         print("Client disconnected")
 
 
 @app.get("/health")
-def read_root() -> dict:
+def health_check() -> dict:
     """
-    Simple health-check or root endpoint.
+    Simple health-check endpoint.
     """
     return {"message": "Hello from the Virtual Guide for the Snoqualmie Valley"}
 
 
 @app.post("/chat")
-async def query_buyer(request: QueryRequest) -> StreamingResponse:
+async def chat(request: QueryRequest, fastapi_request: Request) -> StreamingResponse:
     """
-    FastAPI endpoint to query the buyer agent and stream the response.
+    Query the buyer agent and stream the response asynchronously.
     """
-    response_stream: Iterator[RunResponse] = buyer.run(request.query, stream=True)
 
-    return StreamingResponse(
-        event_stream(response_stream), media_type="text/event-stream"
-    )
+    def response_generator() -> Iterator[str]:
+        try:
+            for response in buyer.run(request.query, stream=True):
+                yield response.get_content_as_string() + "\n"
+        except GeneratorExit:
+            logging.info("Client disconnected prematurely.")
+        except Exception as e:
+            logging.error(f"Error during streaming: {e}")
+            raise HTTPException(status_code=500, detail=str(e))
+
+    return StreamingResponse(response_generator(), media_type="text/event-stream")
