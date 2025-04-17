@@ -139,13 +139,11 @@ def reset_database() -> None:
     """
     Drop and recreate all tables and schema in the database.
     """
-    with engine.connect() as conn:
+    with engine.begin() as conn:
         conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector;"))
         conn.execute(text("CREATE SCHEMA IF NOT EXISTS ai;"))
-        conn.commit()
-
-    Base.metadata.drop_all(engine)
-    Base.metadata.create_all(engine)
+        Base.metadata.drop_all(bind=conn)
+        Base.metadata.create_all(bind=conn)
 
 
 reset_database()
