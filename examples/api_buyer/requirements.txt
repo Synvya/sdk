@@ -1,4 +1,4 @@
-agentstr[examples]
+synvya-sdk[examples]
 psycopg[binary]
 sqlalchemy
 nest-asyncio

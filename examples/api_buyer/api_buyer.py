@@ -137,14 +137,13 @@ class Seller(Base):
 # Function to drop and recreate the table
 def reset_database() -> None:
     """
-    Drop and recreate all tables in the database.
+    Drop and recreate all tables and schema in the database.
     """
     with engine.connect() as conn:
-        # Enable pgvector extension
         conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector;"))
+        conn.execute(text("CREATE SCHEMA IF NOT EXISTS ai;"))
         conn.commit()
 
-    # Drop and recreate all tables
     Base.metadata.drop_all(engine)
     Base.metadata.create_all(engine)
 
