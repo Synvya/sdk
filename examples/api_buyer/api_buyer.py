@@ -305,7 +305,7 @@ async def event_stream(
         print("Client disconnected")
 
 
-@app.get("/")
+@app.get("/health")
 def read_root() -> dict:
     """
     Simple health-check or root endpoint.
@@ -313,7 +313,7 @@ def read_root() -> dict:
     return {"message": "Hello from the Virtual Guide for the Snoqualmie Valley"}
 
 
-@app.post("/query")
+@app.post("/chat")
 async def query_buyer(request: QueryRequest) -> StreamingResponse:
     """
     FastAPI endpoint to query the buyer agent and stream the response.
