@@ -2,22 +2,21 @@
 Example FastAPI wrapper for the buyer agent.
 """
 
-import asyncio
 import logging
 import uuid
-import warnings
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 
 # from builtins import anext
 from os import getenv
 from pathlib import Path
 from typing import Iterator, Optional
 
-import nest_asyncio
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
-from pgvector.sqlalchemy import Vector  # Correct import for vector storage
+from pgvector.sqlalchemy import Vector
 from pydantic import BaseModel
 from sqlalchemy import Column, String, Text, create_engine
 from sqlalchemy.dialects.postgresql import JSONB
@@ -34,27 +33,12 @@ from synvya_sdk.agno import BuyerTools
 # Set logging to WARN level to suppress INFO logs
 logging.basicConfig(level=logging.WARN)
 
-# Configure logging first
-logging.getLogger("cassandra").setLevel(logging.ERROR)
-warnings.filterwarnings("ignore", category=UserWarning, module="cassandra")
 
-
-# Get directory where the script is located
+# Load environment variables from .env
 script_dir = Path(__file__).parent
-# Load .env from the script's directory
 load_dotenv(script_dir / ".env")
 
-# Load or generate keys
 NSEC = getenv("BUYER_AGENT_KEY")
-if NSEC is None:
-    keys = generate_keys(env_var="BUYER_AGENT_KEY", env_path=script_dir / ".env")
-else:
-    keys = NostrKeys.from_private_key(NSEC)
-
-# Load or use default relay
-RELAY = getenv("RELAY")
-if RELAY is None:
-    RELAY = "wss://relay.damus.io"
 
 OPENAI_API_KEY = getenv("OPENAI_API_KEY")
 if OPENAI_API_KEY is None:
@@ -87,12 +71,7 @@ PICTURE = "https://i.nostr.build/ocjZ5GlAKwrvgRhx.png"
 DISPLAY_NAME = "Snoqualmie Valley Chamber of Commerce"
 WEBSITE = "https://www.snovalley.org"
 # Initialize a buyer profile
-profile = Profile(keys.get_public_key())
-profile.set_name(NAME)
-profile.set_about(ABOUT)
-profile.set_display_name(DISPLAY_NAME)
-profile.set_picture(PICTURE)
-profile.set_website(WEBSITE)
+
 
 # Initialize database connection
 db_url = (
@@ -147,83 +126,104 @@ def reset_database() -> None:
 
 # reset_database()
 
-vector_db = PgVector(
-    table_name="sellers",
-    db_url=db_url,
-    schema="ai",
-    search_type=SearchType.vector,
-    embedder=OpenAIEmbedder(),
-)
+INSTRUCTIONS = """
+    You're an tourist AI assistant for people visiting Snoqualmie.
+    You help visitors find things to do, places to go, and things to buy
+    from the businesses (also known as merchants) in Snoqualmie Valley.
 
-knowledge_base = AgentKnowledge(vector_db=vector_db)
+    When asked to find merchants, you will use the tool `get_merchants` with a profile
+    filter to find the merchants.
+    Here is an example profile filter:
+    {"namespace": "com.synvya.merchant", "profile_type": "restaurant", "hashtags": ["pizza"]}
 
-buyer_tools = BuyerTools(
-    knowledge_base=knowledge_base,
-    relay=RELAY,
-    private_key=keys.get_private_key(),
-)
+    namespace is always "com.synvya.merchant".
 
-buyer_tools.set_profile(profile)
-buyer = Agent(  # type: ignore[call-arg]
-    name="Virtual Guide for the Snoqualmie Valley",
-    model=OpenAIChat(id="gpt-4o", api_key=OPENAI_API_KEY),
-    tools=[buyer_tools],
-    add_history_to_messages=True,
-    num_history_responses=10,
-    read_chat_history=True,
-    read_tool_call_history=True,
-    knowledge=knowledge_base,
-    show_tool_calls=False,
-    debug_mode=False,
-    # async_mode=True,
-    instructions=[
-        """
-        You're an tourist AI assistant for people visiting Snoqualmie.
-        You help visitors find things to do, places to go, and things to buy
-        from the businesses (also known as merchants) in Snoqualmie Valley.
+    Here is the list of valid profile types:
+    - "retail"
+    - "restaurant"
+    - "service"
+    - "business"
+    - "entertainment"
+    - "other"
 
-        When asked to find merchants, you will use the tool `get_merchants` with a profile
-        filter to find the merchants.
-        Here is an example profile filter:
-        {"namespace": "com.synvya.merchant", "profile_type": "restaurant", "hashtags": ["pizza"]}
+    Use the hashtags provided by the user in the query.
 
-        namespace is always "com.synvya.merchant".
+    Include pictures of the businesses in your response when possible.
 
-        Here is the list of valid profile types:
-        - "retail"
-        - "restaurant"
-        - "service"
-        - "business"
-        - "entertainment"
-        - "other"
+    Include in your response an offer to purchase the products or make a reservation
+    for the user.
 
-        Use the hashtags provided by the user in the query.
-
-        Include pictures of the businesses in your response when possible.
-
-        Include in your response an offer to purchase the products or make a reservation
-        for the user.
-
-        When asked to purchase a product, you will:
-        1. use the tool `get_products_from_knowledge_base` to get the product details from
-        the knowledge base
-        2. use the tool `submit_order` to submit one order to the seller for the product
-        3. use the tool `listen_for_message` to listen for a payment request from the seller
-        4. Coontinue listening for a payment request from the seller until you receive one
-        4. use the tool `submit_payment` to submit the payment with the information sent by
-        the seller in the payment request
-        5. use the tool `listen_for_message` to listen for a payment verification from the seller
+    When asked to purchase a product, you will:
+    1. use the tool `get_products_from_knowledge_base` to get the product details from
+    the knowledge base
+    2. use the tool `submit_order` to submit one order to the seller for the product
+    3. use the tool `listen_for_message` to listen for a payment request from the seller
+    4. Continue listening for a payment request from the seller until you receive one
+    5. use the tool `submit_payment` to submit the payment with the information sent by
+    the seller in the payment request
+    6. use the tool `listen_for_message` to listen for a payment verification from the seller
 
 
-        Only if you can't find the product in the knowledge base, you will use the tool
-        `get_products`.
-        """.strip(),
-    ],
-)
+    Only if you can't find the product in the knowledge base, you will use the tool
+    `get_products`.
+    """.strip()
 
 
 # === Define FastAPI app ===
-app = FastAPI()
+@asynccontextmanager
+async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+    # Initialize SDK client and other async-related setup here
+
+    if NSEC is None:
+        keys = generate_keys(env_var="BUYER_AGENT_KEY", env_path=script_dir / ".env")
+    else:
+        keys = NostrKeys.from_private_key(NSEC)
+
+    RELAY = getenv("RELAY") or "wss://relay.damus.io"
+
+    profile = Profile(keys.get_public_key())
+    profile.set_name(NAME)
+    profile.set_about(ABOUT)
+    profile.set_display_name(DISPLAY_NAME)
+    profile.set_picture(PICTURE)
+    profile.set_website(WEBSITE)
+
+    vector_db = PgVector(
+        table_name="sellers",
+        db_url=db_url,
+        schema="ai",
+        search_type=SearchType.vector,
+        embedder=OpenAIEmbedder(),
+    )
+
+    knowledge_base = AgentKnowledge(vector_db=vector_db)
+
+    app.state.buyer_tools = BuyerTools(
+        knowledge_base=knowledge_base,
+        relay=RELAY,
+        private_key=keys.get_private_key(),
+    )
+
+    app.state.buyer_tools.set_profile(profile)
+
+    app.state.buyer = Agent(
+        name="Virtual Guide for the Snoqualmie Valley",
+        model=OpenAIChat(id="gpt-4o", api_key=OPENAI_API_KEY),
+        tools=[app.state.buyer_tools],
+        add_history_to_messages=True,
+        num_history_responses=10,
+        read_chat_history=True,
+        read_tool_call_history=True,
+        knowledge=knowledge_base,
+        show_tool_calls=False,
+        debug_mode=False,
+        instructions=[INSTRUCTIONS],
+    )
+
+    yield  # Lifespan context manager ends here
+
+
+app = FastAPI(lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
@@ -320,12 +320,12 @@ async def chat(request: QueryRequest, fastapi_request: Request) -> StreamingResp
 
     def response_generator() -> Iterator[str]:
         try:
-            for response in buyer.run(request.query, stream=True):
+            for response in app.state.buyer.run(request.query, stream=True):
                 yield response.get_content_as_string() + "\n"
         except GeneratorExit:
             logging.info("Client disconnected prematurely.")
         except Exception as e:
-            logging.error(f"Error during streaming: {e}")
-            raise HTTPException(status_code=500, detail=str(e))
+            logging.error("Error during streaming: %s", e)
+            raise HTTPException(status_code=500, detail=str(e)) from e
 
     return StreamingResponse(response_generator(), media_type="text/event-stream")
