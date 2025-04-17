@@ -226,6 +226,21 @@ buyer = Agent(  # type: ignore[call-arg]
 # === Define FastAPI app ===
 app = FastAPI()
 
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://localhost:5500",
+        "http://localhost",
+        "http://localhost:8000",
+        "http://127.0.0.1",
+        "http://127.0.0.1:8000",
+        "https://client-web.synvya.com",  # <-- added this line
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 # Allow localhost origins for development
 app.add_middleware(
     CORSMiddleware,
