@@ -8,8 +8,8 @@ Use this python script to invoke the low level nostr API:
 1. Clone the repository and navigate to this example:
 
 ```bash
-git clone https://github.com/agentstr/agentstr.git
-cd agentstr/examples/basic_merchant
+git clone https://github.com/synvya/sdk.git
+cd sdk/examples/nostr_utils
 ```
 
 2. Install dependencies:

@@ -362,14 +362,17 @@ def products_in_stall_event_ids_fixture() -> List[str]:
 
 
 @pytest.fixture(scope="function", name="merchant_tools")
-def merchant_tools_fixture(
+async def merchant_tools_fixture(
     relay: str,
     merchant_keys: NostrKeys,
     stalls: List[Stall],
     products: List[Product],
 ) -> MerchantTools:
     """Create a Merchant instance for testing"""
-    return MerchantTools(relay, merchant_keys.get_private_key(), stalls, products)
+    merchant_tools = await MerchantTools.create(
+        relay, merchant_keys.get_private_key(), stalls, products
+    )
+    return merchant_tools
 
 
 @pytest.fixture(scope="session", name="mock_knowledge_base")
@@ -379,13 +382,15 @@ def mock_knowledge_base_fixture() -> Mock:
 
 
 @pytest.fixture(scope="session", name="buyer_tools")
-def buyer_tools_fixture(
+async def buyer_tools_fixture(
     mock_knowledge_base: Mock,
     relay: str,
     buyer_keys: NostrKeys,
     merchant_profile: Profile,
 ) -> BuyerTools:
     """Create a Buyer instance for testing"""
-    buyer_tools = BuyerTools(mock_knowledge_base, relay, buyer_keys.get_private_key())
+    buyer_tools = await BuyerTools.create(
+        mock_knowledge_base, relay, buyer_keys.get_private_key()
+    )
     buyer_tools.sellers = {merchant_profile}
     return buyer_tools

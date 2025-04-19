@@ -40,7 +40,7 @@ class ProfileFilter(BaseModel):
     """
 
     namespace: str
-    type: ProfileType
+    profile_type: ProfileType
     hashtags: List[str]
 
     def __init__(

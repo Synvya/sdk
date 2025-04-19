@@ -2,6 +2,7 @@
 This example shows how to create a basic merchant agent.
 """
 
+import asyncio
 from os import getenv
 
 from mtp import keys, products, profile, stalls
@@ -34,14 +35,16 @@ if OPENAI_API_KEY is None:
     raise ValueError("OPENAI_API_KEY is not set")
 # print(f"OpenAI API key: {openai_api_key}")
 
-merchant_tools = MerchantTools(
-    relay=RELAY,
-    private_key=keys.get_private_key(),
-    stalls=stalls,
-    products=products,
+merchant_tools = asyncio.run(
+    MerchantTools.create(
+        relay=RELAY,
+        private_key=keys.get_private_key(),
+        stalls=stalls,
+        products=products,
+    )
 )
 
-merchant_tools.set_profile(profile)
+asyncio.run(merchant_tools.async_set_profile(profile))
 
 merchant = Agent(  # type: ignore[call-arg]
     name=f"AI Agent for {profile.get_name()}",
@@ -96,24 +99,24 @@ merchant = Agent(  # type: ignore[call-arg]
 
 
 # Command-line interface with response storage
-def merchant_cli() -> None:
+async def merchant_cli() -> None:
     """
     Command-line interface for example merchant agent.
     """
     # publishing stalls
     print("Publishing all stalls")
-    response = merchant.run("publish all stalls")
+    response = await merchant.arun("publish all stalls")
     print(f"\n🤖 Merchant Agent: {response.get_content_as_string()}\n")
 
     print("Publishing all products")
-    response = merchant.run(
+    response = await merchant.arun(
         "publish all products, one at a time, wait 2 seconds in between each product"
     )
     print(f"\n🤖 Merchant Agent: {response.get_content_as_string()}\n")
 
     print("\n🔹 Merchant Agent CLI (Press Ctrl+C to quit)\n")
     while True:
-        response = merchant.run(
+        response = await merchant.arun(
             """listen for orders with a timeout of 10 seconds.
             if no orders are received, respond with '...waiting for orders...
             press ctrl+c to quit'
@@ -123,4 +126,5 @@ def merchant_cli() -> None:
 
 
 # Run the CLI
-merchant_cli()
+if __name__ == "__main__":
+    asyncio.run(merchant_cli())

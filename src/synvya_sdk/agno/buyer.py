@@ -66,11 +66,14 @@ class BuyerTools(Toolkit):
         arbitrary_types_allowed=True, extra="allow", validate_assignment=True
     )
 
+    _instances_from_create: set[int] = set()
+
     def __init__(
         self,
         knowledge_base: AgentKnowledge,
         relay: str,
         private_key: str,
+        _from_create: bool = False,
     ) -> None:
         """Initialize the Buyer toolkit.
 
@@ -79,32 +82,69 @@ class BuyerTools(Toolkit):
             relay: Nostr relay to use for communications
             private_key: private key of the buyer using this agent
         """
+        if not _from_create:
+            raise RuntimeError("BuyerTools must be created using the create() method")
+
+        # Track instance ID
+        self._instance_id = id(self)
+        BuyerTools._instances_from_create.add(self._instance_id)
+
         super().__init__(name="Buyer")
         self.relay = relay
         self.private_key = private_key
         self.knowledge_base = knowledge_base
         # Initialize fields
-        self._nostr_client = NostrClient(relay, private_key)
-        self._nostr_client.set_logging_level(logger.getEffectiveLevel())
-        self.profile = self._nostr_client.get_profile()
+        self._nostr_client: Optional[NostrClient] = None  # Will be set in create()
+        self.profile: Optional[Profile] = None  # Will be set in create()
         self.merchants: set[Profile] = set()
 
         # Register methods
-        self.register(self.get_merchants)
+        self.register(self.async_get_merchants)
         self.register(self.get_merchants_from_knowledge_base)
-        self.register(self.get_merchants_in_marketplace)
-        self.register(self.get_products)
+        self.register(self.async_get_merchants_in_marketplace)
+        self.register(self.async_get_products)
         self.register(self.get_products_from_knowledge_base)
         # self.register(self.get_products_from_knowledge_base_by_category)
         self.register(self.get_profile)
         self.register(self.get_relay)
-        self.register(self.get_stalls)
+        self.register(self.async_get_stalls)
         self.register(self.get_stalls_from_knowledge_base)
-        self.register(self.listen_for_message)
-        self.register(self.submit_order)
-        self.register(self.submit_payment)
+        self.register(self.async_listen_for_message)
+        self.register(self.async_submit_order)
+        self.register(self.async_submit_payment)
 
-    def get_merchants(self, profile_filter_json: Optional[str | dict] = None) -> str:
+    def __del__(self) -> None:
+        """
+        Delete the BuyerTools instance.
+        """
+        if hasattr(self, "_instance_id"):
+            BuyerTools._instances_from_create.discard(self._instance_id)
+
+    @classmethod
+    async def create(
+        cls,
+        knowledge_base: AgentKnowledge,
+        relay: str,
+        private_key: str,
+    ) -> "BuyerTools":
+        """
+        Asynchronous factory method for proper initialization.
+        Use instead of the __init__ method.
+        """
+        instance = cls(knowledge_base, relay, private_key, _from_create=True)
+
+        # Initialize NostrClient asynchronously
+        instance._nostr_client = await NostrClient.create(relay, private_key)
+        instance._nostr_client.set_logging_level(logger.getEffectiveLevel())
+        instance.profile = (
+            await instance._nostr_client.async_get_profile()
+        )  # Profile is set during NostrClient.create()
+
+        return instance
+
+    async def async_get_merchants(
+        self, profile_filter_json: Optional[str | dict] = None
+    ) -> str:
         """
         Download from the Nostr relay all merchants and store their Nostr
         profile in the knowledge base.
@@ -118,80 +158,13 @@ class BuyerTools(Toolkit):
         """
         logger.info("GET_MERCHANTS: profile_filter_json: %s", profile_filter_json)
 
-        try:
-            if profile_filter_json is None:
-                self.merchants = self._nostr_client.get_merchants()
-            else:
-                # Handle both string and dictionary inputs
-                try:
-                    if isinstance(profile_filter_json, str):
-                        # Parse the JSON string into a dict
-                        filter_data = json.loads(profile_filter_json)
-                    elif isinstance(profile_filter_json, dict):
-                        # Use the dictionary directly
-                        filter_data = profile_filter_json
-                    else:
-                        raise ValueError(
-                            f"profile_filter_json must be a string or dictionary, got {type(profile_filter_json)}"
-                        )
-
-                    # Extract the values
-                    namespace_str = filter_data.get("namespace")
-                    profile_type_str = filter_data.get("profile_type")
-                    hashtags = filter_data.get("hashtags", [])
-
-                    # Convert namespace string to Namespace enum
-                    namespace = None
-                    if namespace_str:
-                        try:
-                            namespace = getattr(Namespace, namespace_str)
-                        except AttributeError as e:
-                            if namespace_str in [n.value for n in Namespace]:
-                                # If the string is the value rather than the name
-                                namespace = [
-                                    n for n in Namespace if n.value == namespace_str
-                                ][0]
-                            else:
-                                raise ValueError(
-                                    f"Invalid namespace: {namespace_str}"
-                                ) from e
-
-                    # Convert profile_type string to ProfileType enum
-                    profile_type = None
-                    if profile_type_str:
-                        # Try to match by direct enum name first
-                        try:
-                            profile_type = getattr(
-                                ProfileType, f"MERCHANT_{profile_type_str.upper()}"
-                            )
-                        except AttributeError as e:
-                            # Try to match by enum value
-                            matching_types = [
-                                pt for pt in ProfileType if pt.value == profile_type_str
-                            ]
-                            if matching_types:
-                                profile_type = matching_types[0]
-                            else:
-                                raise ValueError(
-                                    f"Invalid profile_type: {profile_type_str}. "
-                                    f"Valid values are: {[pt.value for pt in ProfileType]}"
-                                ) from e
-
-                    # Create the ProfileFilter
-                    profile_filter = ProfileFilter(
-                        namespace=namespace,
-                        profile_type=profile_type,
-                        hashtags=hashtags,
-                    )
-
-                    logger.info("Created ProfileFilter: %s", profile_filter)
-                    self.merchants = self._nostr_client.get_merchants(profile_filter)
-                except json.JSONDecodeError as e:
-                    raise ValueError(
-                        f"Invalid JSON format for profile_filter: {profile_filter_json}"
-                    ) from e
-                except Exception as e:
-                    raise ValueError(f"Error creating ProfileFilter: {str(e)}") from e
+        # If there is no filter, get all merchants
+        if profile_filter_json is None:
+            try:
+                self.merchants = await self._nostr_client.async_get_merchants()
+            except RuntimeError as e:
+                logger.error("Error downloading merchants from the Nostr relay: %s", e)
+                return json.dumps({"status": "error", "message": str(e)})
 
             # Store merchants in knowledge base
             for merchant in self.merchants:
@@ -199,9 +172,78 @@ class BuyerTools(Toolkit):
 
             response = json.dumps({"status": "success", "count": len(self.merchants)})
             logger.info("GET_MERCHANTS: response: %s", response)
-        except Exception as e:
+            return response
+
+        # If there is a filter, get the merchants that match the filter
+        filter_data = None
+        if isinstance(profile_filter_json, str):
+            # Parse the JSON string into a dict
+            filter_data = json.loads(profile_filter_json)
+        elif isinstance(profile_filter_json, dict):
+            # Use the dictionary directly
+            filter_data = profile_filter_json
+
+        # Extract the values
+        namespace_str = filter_data.get("namespace")
+        profile_type_str = filter_data.get("profile_type")
+        hashtags = filter_data.get("hashtags", [])
+
+        # Convert namespace string to Namespace enum
+        namespace = None
+        if namespace_str:
+            try:
+                namespace = getattr(Namespace, namespace_str)
+            except AttributeError as e:
+                if namespace_str in [n.value for n in Namespace]:
+                    # If the string is the value rather than the name
+                    namespace = [n for n in Namespace if n.value == namespace_str][0]
+                else:
+                    raise ValueError(f"Invalid namespace: {namespace_str}") from e
+
+        # Convert profile_type string to ProfileType enum
+        profile_type = None
+        if profile_type_str:
+            # Try to match by direct enum name first
+            try:
+                profile_type = getattr(
+                    ProfileType, f"MERCHANT_{profile_type_str.upper()}"
+                )
+            except AttributeError as e:
+                # Try to match by enum value
+                matching_types = [
+                    pt for pt in ProfileType if pt.value == profile_type_str
+                ]
+                if matching_types:
+                    profile_type = matching_types[0]
+                else:
+                    raise ValueError(
+                        f"Invalid profile_type: {profile_type_str}. "
+                        f"Valid values are: {[pt.value for pt in ProfileType]}"
+                    ) from e
+
+        # Create the ProfileFilter
+        profile_filter = ProfileFilter(
+            namespace=namespace,
+            profile_type=profile_type,
+            hashtags=hashtags,
+        )
+        logger.info("Created ProfileFilter: %s", profile_filter)
+
+        # Get the merchants that match the filter
+        try:
+            self.merchants = await self._nostr_client.async_get_merchants(
+                profile_filter
+            )
+        except RuntimeError as e:
             logger.error("Error downloading merchants from the Nostr relay: %s", e)
-            response = json.dumps({"status": "error", "message": str(e)})
+            return json.dumps({"status": "error", "message": str(e)})
+
+        # Store merchants in knowledge base
+        for merchant in self.merchants:
+            self._store_profile_in_kb(merchant)
+
+        response = json.dumps({"status": "success", "count": len(self.merchants)})
+        logger.info("GET_MERCHANTS: response: %s", response)
 
         return response
 
@@ -280,7 +322,7 @@ class BuyerTools(Toolkit):
         logger.info("Merchants JSON: %s", merchants_json)
         return json.dumps(merchants_json)
 
-    def get_merchants_in_marketplace(
+    async def async_get_merchants_in_marketplace(
         self,
         owner_public_key: str,
         name: str,
@@ -302,8 +344,10 @@ class BuyerTools(Toolkit):
         logger.debug("Downloading merchants from the Nostr marketplace %s", name)
         try:
             # Retrieve merchants from the Nostr marketplace
-            self.merchants = self._nostr_client.get_merchants_in_marketplace(
-                owner_public_key, name, profile_filter
+            self.merchants = (
+                await self._nostr_client.async_get_merchants_in_marketplace(
+                    owner_public_key, name, profile_filter
+                )
             )
             # Store merchants in the knowledge base
             for merchant in self.merchants:
@@ -321,7 +365,7 @@ class BuyerTools(Toolkit):
 
         return response
 
-    def get_products(
+    async def async_get_products(
         self, merchant_public_key: str, stall: Optional[Stall] = None
     ) -> str:
         """
@@ -338,7 +382,9 @@ class BuyerTools(Toolkit):
         logger.debug("Downloading products from merchant %s", merchant_public_key)
         try:
             # retrieve products from the Nostr relay
-            products = self._nostr_client.get_products(merchant_public_key, stall)
+            products = await self._nostr_client.async_get_products(
+                merchant_public_key, stall
+            )
 
             # store products in the knowledge base
             for product in products:
@@ -417,7 +463,7 @@ class BuyerTools(Toolkit):
         """
         return self.relay
 
-    def get_stalls(self, merchant_public_key: str) -> str:
+    async def async_get_stalls(self, merchant_public_key: str) -> str:
         """
         Download all stalls published by a merchant on Nostr and store them
         in the knowledge base.
@@ -431,7 +477,7 @@ class BuyerTools(Toolkit):
         logger.debug("Downloading stalls from merchant %s", merchant_public_key)
         try:
             # retrieve stalls from the Nostr relay
-            stalls = self._nostr_client.get_stalls(merchant_public_key)
+            stalls = await self._nostr_client.async_get_stalls(merchant_public_key)
 
             # store stalls in the knowledge base
             for stall in stalls:
@@ -506,7 +552,7 @@ class BuyerTools(Toolkit):
     #     products_json = [doc.content for doc in documents]
     #     return json.dumps(products_json)
 
-    def listen_for_message(self, timeout: int = 5) -> str:
+    async def async_listen_for_message(self, timeout: int = 5) -> str:
         """
         Listens for incoming messages from the Nostr relay.
         Returns one message in JSON format.
@@ -528,7 +574,7 @@ class BuyerTools(Toolkit):
             RuntimeError: if unable to listen for private messages
         """
         try:
-            message = self._nostr_client.receive_message(timeout)
+            message = await self._nostr_client.async_receive_message(timeout)
             message_dict = json.loads(message)
             message_kind = message_dict.get("type")
             if message_kind in {"kind:4", "kind:14"}:
@@ -560,7 +606,7 @@ class BuyerTools(Toolkit):
             logger.error("Unable to listen for messages. Error %s", e)
             raise e
 
-    def set_profile(self, profile: Profile) -> str:
+    async def async_set_profile(self, profile: Profile) -> str:
         """
         Set the Nostr profile of the buyer agent.
 
@@ -572,14 +618,14 @@ class BuyerTools(Toolkit):
         """
         self.profile = profile
         try:
-            self._nostr_client.set_profile(profile)
+            await self._nostr_client.async_set_profile(profile)
         except (RuntimeError, ValueError) as e:
             logger.error("Error setting profile: %s", e)
             return json.dumps({"status": "error", "message": str(e)})
 
         return json.dumps({"status": "success"})
 
-    def submit_order(self, product_name: str, quantity: int) -> str:
+    async def async_submit_order(self, product_name: str, quantity: int) -> str:
         """
         Purchase a product.
 
@@ -601,7 +647,7 @@ class BuyerTools(Toolkit):
             return json.dumps({"status": "error", "message": str(e)})
 
         # Confirm seller has valid NIP-05
-        merchant = self._nostr_client.get_profile(product.get_seller())
+        merchant = await self._nostr_client.async_get_profile(product.get_seller())
         if not merchant.is_nip05_validated():
             logger.error(
                 "Merchant %s does not have a verified NIP-05", product.get_seller()
@@ -622,7 +668,7 @@ class BuyerTools(Toolkit):
             "123 Main St, Anytown, USA",
         )
 
-        self._nostr_client.send_message(
+        await self._nostr_client.async_send_message(
             "kind:14",
             product.get_seller(),
             order_msg,
@@ -636,7 +682,7 @@ class BuyerTools(Toolkit):
             }
         )
 
-    def submit_payment(self, payment_request: str) -> str:
+    async def async_submit_payment(self, payment_request: str) -> str:
         """
         Submit a payment to the seller.
         TBD: Complete flow. Today it just returns a fixed response.

@@ -362,7 +362,7 @@ class Profile(BaseModel):
             # print(f"NIP-05 metadata: {nostr_json}")
             # print(f"Profile public key (hex): {self.get_public_key('hex')}")
         except Exception as e:
-            self.logger.error(f"Failed to fetch NIP-05 metadata: {e}")
+            self.logger.error("Failed to fetch NIP-05 metadata: %s", e)
             return False
 
         if "names" in nostr_json:
@@ -371,7 +371,10 @@ class Profile(BaseModel):
                 # print(
                 #     f"Checking public key: {public_key} (profile key: {self.get_public_key('hex')})"
                 # )
-                if name == local_part and public_key == self.get_public_key("hex"):
+                if (
+                    name.lower() == local_part.lower()
+                    and public_key == self.get_public_key("hex")
+                ):
                     # print("NIP-05 validation successful")
                     return True
             # print("NIP-05 validation failed - no matching name/key pair found")
@@ -638,18 +641,25 @@ class StallShippingMethod(BaseModel):
     ssm_id: str
     ssm_cost: float
     ssm_name: str
-    ssm_regions: List[str]
+    ssm_regions: List[str] = Field(default_factory=list)
 
     def __init__(
-        self, ssm_id: str, ssm_cost: float, ssm_name: str, ssm_regions: List[str]
+        self,
+        ssm_id: str,
+        ssm_cost: float,
+        ssm_name: str,
+        ssm_regions: Optional[List[str]] = None,
     ) -> None:
         super().__init__(
-            ssm_id=ssm_id, ssm_cost=ssm_cost, ssm_name=ssm_name, ssm_regions=ssm_regions
+            ssm_id=ssm_id,
+            ssm_cost=ssm_cost,
+            ssm_name=ssm_name,
+            ssm_regions=ssm_regions if ssm_regions is not None else [],
         )
         self.ssm_id = ssm_id
         self.ssm_cost = ssm_cost
         self.ssm_name = ssm_name
-        self.ssm_regions = ssm_regions
+        self.ssm_regions = ssm_regions if ssm_regions is not None else []
 
     def get_id(self) -> str:
         return self.ssm_id
@@ -970,24 +980,81 @@ class Stall(BaseModel):
         Returns:
             Stall: An instance of Stall.
         """
-        # Parse the JSON string into a dictionary
-        data = json.loads(stall_content)
+        # Handle empty strings
+        if not stall_content or stall_content.isspace():
+            return cls(
+                id="unknown",
+                name="Unknown Stall",
+                description="",
+                currency="USD",
+                shipping=[],
+            )
+
+        # Parse the JSON string into a data structure
+        try:
+            data = json.loads(stall_content)
+        except json.JSONDecodeError:
+            # Return default stall if JSON parsing fails
+            return cls(
+                id="unknown",
+                name="Unknown Stall",
+                description="",
+                currency="USD",
+                shipping=[],
+            )
+
+        # If data is an empty list, create a default Stall
+        if isinstance(data, list):
+            if not data:  # Empty list
+                return cls(
+                    id="unknown",
+                    name="Unknown Stall",
+                    description="",
+                    currency="USD",
+                    shipping=[],
+                )
+            # If it's a non-empty list, use the first item
+            data = data[0] if isinstance(data[0], dict) else {}
+
+        # Ensure data is a dictionary at this point
+        if not isinstance(data, dict):
+            # If data is neither a list nor a dict, create a default stall
+            return cls(
+                id="unknown",
+                name="Unknown Stall",
+                description="",
+                currency="USD",
+                shipping=[],
+            )
 
         # Create a list of StallShippingMethod from the shipping data
-        shipping_methods = [
-            StallShippingMethod(
-                ssm_id=shipping["id"],
-                ssm_cost=shipping["cost"],
-                ssm_name=shipping["name"],
-                ssm_regions=shipping["regions"],
-            )
-            for shipping in data["shipping"]
-        ]
+        shipping_methods = []
+        # Handle stalls that might not have shipping data
+        if "shipping" in data:
+            for shipping in data.get("shipping", []):
+                if not isinstance(shipping, dict):
+                    continue
+                # Handle case where regions might be None
+                regions = shipping.get("regions", [])
+                try:
+                    shipping_methods.append(
+                        StallShippingMethod(
+                            ssm_id=shipping.get("id", "unknown"),
+                            ssm_cost=float(shipping.get("cost", 0.0)),
+                            ssm_name=shipping.get("name", ""),
+                            ssm_regions=regions if regions is not None else [],
+                        )
+                    )
+                except (ValueError, TypeError):
+                    # Skip this shipping method if any errors occur
+                    continue
 
+        # Handle missing required fields with defaults
         return cls(
-            id=data["id"],
-            name=data["name"],
-            description=data["description"],
-            currency=data["currency"],
-            shipping=shipping_methods,  # Use the newly created list of StallShippingMethod
+            id=data.get("id", "unknown"),
+            name=data.get("name", data.get("title", "")),  # Try title as fallback
+            description=data.get("description", ""),
+            currency=data.get("currency", "USD"),  # Default to USD
+            shipping=shipping_methods,
+            geohash=data.get("geohash", None),
         )
