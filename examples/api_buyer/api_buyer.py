@@ -198,13 +198,13 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
     knowledge_base = AgentKnowledge(vector_db=vector_db)
 
-    app.state.buyer_tools = BuyerTools(
+    app.state.buyer_tools = await BuyerTools.create(
         knowledge_base=knowledge_base,
         relay=RELAY,
         private_key=keys.get_private_key(),
     )
 
-    app.state.buyer_tools.set_profile(profile)
+    await app.state.buyer_tools.async_set_profile(profile)
 
     app.state.buyer = Agent(
         name="Virtual Guide for the Snoqualmie Valley",
