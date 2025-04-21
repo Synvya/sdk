@@ -263,7 +263,7 @@ class BuyerTools(Toolkit):
         logger.debug("Getting merchants from knowledge base")
         logger.info(
             "GET_MERCHANTS_FROM_KNOWLEDGE_BASE: profile_filter_json: %s",
-            profile_filter_json,
+            str(profile_filter_json),
         )
 
         # Initialize filter list
@@ -308,7 +308,7 @@ class BuyerTools(Toolkit):
                     {"status": "error", "message": f"Error processing filter: {str(e)}"}
                 )
 
-        logger.info("Search filters: %s", search_filters)
+        logger.info("Search filters: %s", str(search_filters))
 
         # Execute search
         documents = self.knowledge_base.search(
@@ -319,7 +319,7 @@ class BuyerTools(Toolkit):
 
         # Return JSON content of found merchants
         merchants_json = [doc.content for doc in documents]
-        logger.info("Merchants JSON: %s", merchants_json)
+        logger.info("Merchants JSON: %s", str(merchants_json))
         return json.dumps(merchants_json)
 
     async def async_get_merchants_in_marketplace(
