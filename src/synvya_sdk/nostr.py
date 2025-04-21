@@ -1379,9 +1379,22 @@ class NostrClient:
         def __init__(self, nostr_client: "NostrClient") -> None:
             self.nostr_client: NostrClient = nostr_client
 
-        async def handle_msg(self, relay_url: str, msg: RelayMessage) -> None:
+        async def _process_gift_wrap_message(self, event: Event) -> None:
+            """
+            Helper method to process gift wrap messages asynchronously.
+            """
+            try:
+                unwrapped_gift = await self.nostr_client.client.unwrap_gift_wrap(event)
+                unsigned_event = unwrapped_gift.rumor()
+                self.nostr_client.private_message = unsigned_event
+            except Exception as e:
+                self.nostr_client.logger.error(f"Error unwrapping gift: {e}")
+                # Don't re-raise the exception in the background task
+
+        def handle_msg(self, relay_url: str, msg: RelayMessage) -> None:
             """
             Handle a message from the relay.
+            This method must be synchronous based on the interface.
             """
             if self.nostr_client.stop_event.is_set():
                 return
@@ -1392,11 +1405,12 @@ class NostrClient:
                 self.nostr_client.received_eose = True
                 self.nostr_client.logger.debug("Received EOSE")
             elif msg_enum.is_event_msg():
-                # await self.handle(relay_url, msg_enum.subscription_id, msg_enum.event)
+                # Handle regular event messages
                 self.nostr_client.logger.debug(
                     "Received event: %s", msg_enum.event.content()
                 )
-                self.nostr_client.last_message_time = asyncio.get_event_loop().time()
+                # Use get_running_loop() instead of get_event_loop()
+                self.nostr_client.last_message_time = asyncio.get_running_loop().time()
 
                 if msg_enum.event.kind() == Kind(4):
                     self.nostr_client.logger.debug(
@@ -1408,34 +1422,21 @@ class NostrClient:
                     self.nostr_client.logger.debug(
                         "Received `kind:1059` message: %s", msg_enum.event.content()
                     )
-                    try:
-                        unwrapped_gift = (
-                            await self.nostr_client.client.unwrap_gift_wrap(
-                                msg_enum.event
-                            )
-                        )
-                    except Exception as e:
-                        self.nostr_client.logger.error(f"Error unwrapping gift: {e}")
-                        raise
-                    unsigned_event = unwrapped_gift.rumor()
-                    # Assign the unsigned event to the NostrClient private message
-                    # to be processed in the _async_process_unsigned_event method
-                    self.nostr_client.private_message = unsigned_event
+                    # Create a background task to process this async operation
+                    asyncio.create_task(self._process_gift_wrap_message(msg_enum.event))
             else:
                 self.nostr_client.logger.debug(
                     f"Received unknown message from {relay_url}: {msg}"
                 )
 
-        async def handle(
-            self, relay_url: str, subscription_id: str, event: Event
-        ) -> None:
+        def handle(self, relay_url: str, subscription_id: str, event: Event) -> None:
             """
             Handle an event from the relay.
             """
             if self.nostr_client.stop_event.is_set():
                 return
 
-            self.nostr_client.last_message_time = asyncio.get_event_loop().time()
+            self.nostr_client.last_message_time = asyncio.get_running_loop().time()
             if event.kind() == Kind(4):
                 self.nostr_client.logger.debug(
                     "Received `kind:4` message: %s", event.content()
@@ -1445,25 +1446,8 @@ class NostrClient:
                 self.nostr_client.logger.debug(
                     "Received `kind:1059` message: %s", event.content()
                 )
-                try:
-                    unwrapped_gift = await self.nostr_client.client.unwrap_gift_wrap(
-                        event
-                    )
-                except Exception as e:
-                    self.nostr_client.logger.error(f"Error unwrapping gift: {e}")
-                    raise
-                unsigned_event = unwrapped_gift.rumor()
-                self.nostr_client.logger.debug(
-                    f"Received event kind: {unsigned_event.kind()}"
-                )
-                self.nostr_client.private_message = unsigned_event
-                if unsigned_event.kind() == Kind(14):
-                    self.nostr_client.logger.debug(
-                        f"Received `kind:14` message: {unsigned_event.content()}"
-                    )
-                    self.nostr_client.logger.debug(
-                        f"From: {unsigned_event.author().to_bech32()}"
-                    )
+                # Create a background task to process this async operation
+                asyncio.create_task(self._process_gift_wrap_message(event))
 
 
 def generate_keys(env_var: str, env_path: Path) -> NostrKeys:
