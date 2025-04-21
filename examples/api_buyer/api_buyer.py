@@ -233,11 +233,12 @@ app.add_middleware(
         "http://localhost:8000",
         "http://127.0.0.1",
         "http://127.0.0.1:8000",
-        "https://client-web.synvya.com",  # <-- added this line
+        "https://client-web.synvya.com",
+        "https://97cddff9-ccce-4cf8-93ff-1a55031a33f1.lovableproject.com",  # <-- added this line
     ],
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allowed_methods=["GET", "POST", "OPTIONS"],
+    allowed_headers=["Content-Type", "Origin", "Accept", "X-Requested-With"],
 )
 
 
