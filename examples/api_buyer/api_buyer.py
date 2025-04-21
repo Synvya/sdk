@@ -215,7 +215,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         read_chat_history=True,
         read_tool_call_history=True,
         knowledge=knowledge_base,
-        show_tool_calls=False,
+        show_tool_calls=True,
         debug_mode=False,
         instructions=[INSTRUCTIONS],
     )
