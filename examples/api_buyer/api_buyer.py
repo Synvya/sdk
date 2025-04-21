@@ -237,8 +237,8 @@ app.add_middleware(
         "https://97cddff9-ccce-4cf8-93ff-1a55031a33f1.lovableproject.com",  # <-- added this line
     ],
     allow_credentials=True,
-    allowed_methods=["GET", "POST", "OPTIONS"],
-    allowed_headers=["Content-Type", "Origin", "Accept", "X-Requested-With"],
+    allow_methods=["GET", "POST", "OPTIONS"],
+    allow_headers=["Content-Type", "Origin", "Accept", "X-Requested-With"],
 )
 
 
