@@ -167,7 +167,9 @@ class BuyerTools(Toolkit):
         Returns:
             str: JSON string with status and count of merchants refreshed
         """
-        buyer_logger.info("GET_MERCHANTS: profile_filter_json: %s", profile_filter_json)
+        buyer_logger.debug(
+            "GET_MERCHANTS: profile_filter_json: %s", profile_filter_json
+        )
 
         # If there is no filter, get all merchants
         if profile_filter_json is None:
@@ -182,7 +184,7 @@ class BuyerTools(Toolkit):
                 self._store_profile_in_kb(merchant)
 
             response = json.dumps({"status": "success", "count": len(self.merchants)})
-            buyer_logger.info("GET_MERCHANTS: response: %s", response)
+            buyer_logger.debug("GET_MERCHANTS: response: %s", response)
             return response
 
         # If there is a filter, get the merchants that match the filter
@@ -238,7 +240,7 @@ class BuyerTools(Toolkit):
             profile_type=profile_type,
             hashtags=hashtags,
         )
-        buyer_logger.info("Created ProfileFilter: %s", profile_filter)
+        buyer_logger.debug("Created ProfileFilter: %s", profile_filter)
 
         # Get the merchants that match the filter
         try:
@@ -246,7 +248,9 @@ class BuyerTools(Toolkit):
                 profile_filter
             )
         except RuntimeError as e:
-            logger.error("Error downloading merchants from the Nostr relay: %s", e)
+            buyer_logger.error(
+                "Error downloading merchants from the Nostr relay: %s", e
+            )
             return json.dumps({"status": "error", "message": str(e)})
 
         # Store merchants in knowledge base
@@ -254,7 +258,7 @@ class BuyerTools(Toolkit):
             self._store_profile_in_kb(merchant)
 
         response = json.dumps({"status": "success", "count": len(self.merchants)})
-        buyer_logger.info("GET_MERCHANTS: response: %s", response)
+        buyer_logger.debug("GET_MERCHANTS: response: %s", response)
 
         return response
 
@@ -271,8 +275,7 @@ class BuyerTools(Toolkit):
         Returns:
             str: JSON string of merchants
         """
-        buyer_logger.debug("Getting merchants from knowledge base")
-        buyer_logger.info(
+        buyer_logger.debug(
             "GET_MERCHANTS_FROM_KNOWLEDGE_BASE: profile_filter_json: %s",
             str(profile_filter_json),
         )
@@ -306,31 +309,31 @@ class BuyerTools(Toolkit):
                     normalized_tag = self._normalize_hashtag(tag)
                     search_filters.append({f"hashtag_{normalized_tag}": True})
 
-                logger.debug("Applied search filters: %s", search_filters)
+                buyer_logger.debug("Applied search filters: %s", search_filters)
 
             except json.JSONDecodeError as e:
-                logger.error("Invalid JSON format for profile_filter: %s", e)
+                buyer_logger.error("Invalid JSON format for profile_filter: %s", e)
                 return json.dumps(
                     {"status": "error", "message": f"Invalid JSON format: {str(e)}"}
                 )
             except Exception as e:
-                logger.error("Error processing profile filter: %s", e)
+                buyer_logger.error("Error processing profile filter: %s", e)
                 return json.dumps(
                     {"status": "error", "message": f"Error processing filter: {str(e)}"}
                 )
 
-        buyer_logger.info("Search filters: %s", str(search_filters))
+        buyer_logger.debug("Search filters: %s", str(search_filters))
 
         # Execute search
         documents = self.knowledge_base.search(
             query="", num_documents=100, filters=search_filters
         )
 
-        buyer_logger.info("Found %d merchants in the knowledge base", len(documents))
+        buyer_logger.debug("Found %d merchants in the knowledge base", len(documents))
 
         # Return JSON content of found merchants
         merchants_json = [doc.content for doc in documents]
-        buyer_logger.info("Merchants JSON: %s", str(merchants_json))
+        buyer_logger.debug("Merchants JSON: %s", str(merchants_json))
         return json.dumps(merchants_json)
 
     async def async_get_merchants_in_marketplace(
@@ -835,7 +838,7 @@ class BuyerTools(Toolkit):
         Args:
         profile: Nostr profile to store
         """
-        buyer_logger.info("_store_profile_in_kb: profile: %s", profile.get_name())
+        buyer_logger.debug("_store_profile_in_kb: profile: %s", profile.get_name())
 
         profile_type_str = profile.get_profile_type().value
 
@@ -858,7 +861,7 @@ class BuyerTools(Toolkit):
             {"profile_type": profile_type_str},
             *hashtag_filters,
         ]
-        buyer_logger.info("_store_profile_in_kb: filters: %s", filters)
+        buyer_logger.debug("_store_profile_in_kb: filters: %s", filters)
         self.knowledge_base.load_document(
             document=doc,
             filters=filters,
