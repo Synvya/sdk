@@ -3,8 +3,10 @@ Module implementing the BuyerTools Toolkit for Agno agents.
 """
 
 import json
+import logging
 import re
 import secrets
+from sys import stdout
 from typing import List, Optional
 
 from pydantic import ConfigDict
@@ -28,6 +30,14 @@ except ImportError as exc:
     raise ImportError(
         "`agno` not installed. Please install using `pip install agno`"
     ) from exc
+
+# Create a direct console logger that doesn't rely on agno's logger
+buyer_logger = logging.getLogger("synvya_buyer")
+buyer_logger.setLevel(logging.INFO)
+if not buyer_logger.handlers:
+    handler = logging.StreamHandler(stdout)
+    handler.setFormatter(logging.Formatter("%(name)s: %(message)s"))
+    buyer_logger.addHandler(handler)
 
 
 def _map_location_to_geohash(location: str) -> str:
@@ -136,6 +146,7 @@ class BuyerTools(Toolkit):
         # Initialize NostrClient asynchronously
         instance._nostr_client = await NostrClient.create(relay, private_key)
         instance._nostr_client.set_logging_level(logger.getEffectiveLevel())
+        buyer_logger.setLevel(logger.getEffectiveLevel())
         instance.profile = (
             await instance._nostr_client.async_get_profile()
         )  # Profile is set during NostrClient.create()
@@ -156,7 +167,7 @@ class BuyerTools(Toolkit):
         Returns:
             str: JSON string with status and count of merchants refreshed
         """
-        logger.info("GET_MERCHANTS: profile_filter_json: %s", profile_filter_json)
+        buyer_logger.info("GET_MERCHANTS: profile_filter_json: %s", profile_filter_json)
 
         # If there is no filter, get all merchants
         if profile_filter_json is None:
@@ -171,7 +182,7 @@ class BuyerTools(Toolkit):
                 self._store_profile_in_kb(merchant)
 
             response = json.dumps({"status": "success", "count": len(self.merchants)})
-            logger.info("GET_MERCHANTS: response: %s", response)
+            buyer_logger.info("GET_MERCHANTS: response: %s", response)
             return response
 
         # If there is a filter, get the merchants that match the filter
@@ -227,7 +238,7 @@ class BuyerTools(Toolkit):
             profile_type=profile_type,
             hashtags=hashtags,
         )
-        logger.info("Created ProfileFilter: %s", profile_filter)
+        buyer_logger.info("Created ProfileFilter: %s", profile_filter)
 
         # Get the merchants that match the filter
         try:
@@ -243,7 +254,7 @@ class BuyerTools(Toolkit):
             self._store_profile_in_kb(merchant)
 
         response = json.dumps({"status": "success", "count": len(self.merchants)})
-        logger.info("GET_MERCHANTS: response: %s", response)
+        buyer_logger.info("GET_MERCHANTS: response: %s", response)
 
         return response
 
@@ -260,8 +271,8 @@ class BuyerTools(Toolkit):
         Returns:
             str: JSON string of merchants
         """
-        logger.debug("Getting merchants from knowledge base")
-        logger.info(
+        buyer_logger.debug("Getting merchants from knowledge base")
+        buyer_logger.info(
             "GET_MERCHANTS_FROM_KNOWLEDGE_BASE: profile_filter_json: %s",
             str(profile_filter_json),
         )
@@ -308,18 +319,18 @@ class BuyerTools(Toolkit):
                     {"status": "error", "message": f"Error processing filter: {str(e)}"}
                 )
 
-        logger.info("Search filters: %s", str(search_filters))
+        buyer_logger.info("Search filters: %s", str(search_filters))
 
         # Execute search
         documents = self.knowledge_base.search(
             query="", num_documents=100, filters=search_filters
         )
 
-        logger.info("Found %d merchants in the knowledge base", len(documents))
+        buyer_logger.info("Found %d merchants in the knowledge base", len(documents))
 
         # Return JSON content of found merchants
         merchants_json = [doc.content for doc in documents]
-        logger.info("Merchants JSON: %s", str(merchants_json))
+        buyer_logger.info("Merchants JSON: %s", str(merchants_json))
         return json.dumps(merchants_json)
 
     async def async_get_merchants_in_marketplace(
@@ -341,7 +352,7 @@ class BuyerTools(Toolkit):
 
         TBD: Implement profile filter.
         """
-        logger.debug("Downloading merchants from the Nostr marketplace %s", name)
+        buyer_logger.debug("Downloading merchants from the Nostr marketplace %s", name)
         try:
             # Retrieve merchants from the Nostr marketplace
             self.merchants = (
@@ -356,7 +367,7 @@ class BuyerTools(Toolkit):
             # Return the number of merchants downloaded
             response = json.dumps({"status": "success", "count": len(self.merchants)})
         except RuntimeError as e:
-            logger.error(
+            buyer_logger.error(
                 "Error downloading merchants from the Nostr marketplace %s: %s",
                 name,
                 e,
@@ -379,7 +390,7 @@ class BuyerTools(Toolkit):
         Returns:
             str: JSON string with all products published by the merchant
         """
-        logger.debug("Downloading products from merchant %s", merchant_public_key)
+        buyer_logger.debug("Downloading products from merchant %s", merchant_public_key)
         try:
             # retrieve products from the Nostr relay
             products = await self._nostr_client.async_get_products(
@@ -393,7 +404,7 @@ class BuyerTools(Toolkit):
             response = json.dumps([product.to_dict() for product in products])
 
         except RuntimeError as e:
-            logger.error(
+            buyer_logger.error(
                 "Error downloading products from merchant %s: %s",
                 merchant_public_key,
                 e,
@@ -418,7 +429,7 @@ class BuyerTools(Toolkit):
         Returns:
             str: JSON string of products
         """
-        logger.debug("Getting products from knowledge base")
+        buyer_logger.debug("Getting products from knowledge base")
 
         if merchant_public_key is not None:
             search_query = merchant_public_key
@@ -439,10 +450,12 @@ class BuyerTools(Toolkit):
             query=search_query, num_documents=100, filters=search_filters
         )
         for doc in documents:
-            logger.debug("Document: %s", doc.to_dict())
+            buyer_logger.debug("Document: %s", doc.to_dict())
 
         products_json = [doc.content for doc in documents]
-        logger.debug("Found %d products in the knowledge base", len(products_json))
+        buyer_logger.debug(
+            "Found %d products in the knowledge base", len(products_json)
+        )
         return json.dumps(products_json)
 
     def get_profile(self) -> str:
@@ -452,7 +465,7 @@ class BuyerTools(Toolkit):
         Returns:
             str: buyer profile json string
         """
-        logger.debug("Getting own profile")
+        buyer_logger.debug("Getting own profile")
         return self.profile.to_json()
 
     def get_relay(self) -> str:
@@ -474,7 +487,7 @@ class BuyerTools(Toolkit):
         Returns:
             str: JSON string with all stalls published by the merchant
         """
-        logger.debug("Downloading stalls from merchant %s", merchant_public_key)
+        buyer_logger.debug("Downloading stalls from merchant %s", merchant_public_key)
         try:
             # retrieve stalls from the Nostr relay
             stalls = await self._nostr_client.async_get_stalls(merchant_public_key)
@@ -486,7 +499,7 @@ class BuyerTools(Toolkit):
             # convert stalls to JSON string
             response = json.dumps([stall.to_dict() for stall in stalls])
         except RuntimeError as e:
-            logger.error(
+            buyer_logger.error(
                 "Error downloading stalls from merchant %s: %s",
                 merchant_public_key,
                 e,
@@ -508,7 +521,7 @@ class BuyerTools(Toolkit):
         Returns:
             str: JSON string of stalls
         """
-        logger.debug("Getting stalls from knowledge base")
+        buyer_logger.debug("Getting stalls from knowledge base")
 
         if merchant_public_key is not None:
             search_query = merchant_public_key
@@ -519,10 +532,10 @@ class BuyerTools(Toolkit):
             query=search_query, num_documents=100, filters=[{"type": "stall"}]
         )
         for doc in documents:
-            logger.debug("Document: %s", doc.to_dict())
+            buyer_logger.debug("Document: %s", doc.to_dict())
 
         stalls_json = [doc.content for doc in documents]
-        logger.debug("Found %d stalls in the knowledge base", len(stalls_json))
+        buyer_logger.debug("Found %d stalls in the knowledge base", len(stalls_json))
         return json.dumps(stalls_json)
 
     # def get_products_from_knowledge_base_by_category(self, category: str) -> str:
@@ -603,7 +616,7 @@ class BuyerTools(Toolkit):
                 }
             )
         except RuntimeError as e:
-            logger.error("Unable to listen for messages. Error %s", e)
+            buyer_logger.error("Unable to listen for messages. Error %s", e)
             raise e
 
     async def async_set_profile(self, profile: Profile) -> str:
@@ -620,7 +633,7 @@ class BuyerTools(Toolkit):
         try:
             await self._nostr_client.async_set_profile(profile)
         except (RuntimeError, ValueError) as e:
-            logger.error("Error setting profile: %s", e)
+            buyer_logger.error("Error setting profile: %s", e)
             return json.dumps({"status": "error", "message": str(e)})
 
         return json.dumps({"status": "success"})
@@ -643,13 +656,13 @@ class BuyerTools(Toolkit):
         try:
             product = self._get_product_from_kb(product_name)
         except RuntimeError as e:
-            logger.error("Error getting product from knowledge base: %s", e)
+            buyer_logger.error("Error getting product from knowledge base: %s", e)
             return json.dumps({"status": "error", "message": str(e)})
 
         # Confirm seller has valid NIP-05
         merchant = await self._nostr_client.async_get_profile(product.get_seller())
         if not merchant.is_nip05_validated():
-            logger.error(
+            buyer_logger.error(
                 "Merchant %s does not have a verified NIP-05", product.get_seller()
             )
             return json.dumps(
@@ -737,7 +750,7 @@ class BuyerTools(Toolkit):
         """
         Get a product from the knowledge base.
         """
-        logger.debug("Getting product from knowledge base: %s", product_name)
+        buyer_logger.debug("Getting product from knowledge base: %s", product_name)
         documents = self.knowledge_base.search(
             query=product_name, num_documents=1, filters=[{"type": "product"}]
         )
@@ -764,7 +777,7 @@ class BuyerTools(Toolkit):
             else:
                 content = json.loads(message)
 
-            logger.debug("_message_is_payment_request: content: %s", content)
+            buyer_logger.debug("_message_is_payment_request: content: %s", content)
 
             if content.get("type") != 1:
                 return False
@@ -800,7 +813,7 @@ class BuyerTools(Toolkit):
             else:
                 content = json.loads(message)
 
-            logger.debug("_message_is_payment_verification: content: %s", content)
+            buyer_logger.debug("_message_is_payment_verification: content: %s", content)
 
             if content.get("type") != 2:
                 return False
@@ -822,7 +835,7 @@ class BuyerTools(Toolkit):
         Args:
         profile: Nostr profile to store
         """
-        logger.info("_store_profile_in_kb: profile: %s", profile.get_name())
+        buyer_logger.info("_store_profile_in_kb: profile: %s", profile.get_name())
 
         profile_type_str = profile.get_profile_type().value
 
@@ -845,7 +858,7 @@ class BuyerTools(Toolkit):
             {"profile_type": profile_type_str},
             *hashtag_filters,
         ]
-        logger.info("_store_profile_in_kb: filters: %s", filters)
+        buyer_logger.info("_store_profile_in_kb: filters: %s", filters)
         self.knowledge_base.load_document(
             document=doc,
             filters=filters,
@@ -858,7 +871,7 @@ class BuyerTools(Toolkit):
         Args:
             product: Nostr product to store
         """
-        logger.debug("Storing product in knowledge base: %s", product.name)
+        buyer_logger.debug("Storing product in knowledge base: %s", product.name)
 
         doc = Document(
             content=product.to_json(),
@@ -879,7 +892,7 @@ class BuyerTools(Toolkit):
         Args:
             stall: Nostr stall to store
         """
-        logger.debug("Storing stall in knowledge base: %s", stall.name)
+        buyer_logger.debug("Storing stall in knowledge base: %s", stall.name)
 
         doc = Document(
             content=stall.to_json(),

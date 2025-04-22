@@ -982,7 +982,6 @@ class NostrClient:
 
         try:
             # event_id_obj = await self._async_publish_event(event_builder)
-            logging.warning("Sending profile to relay: %s", event_builder)
             output = await self.client.send_event_builder(event_builder)
             return str(output.id.to_bech32())
         except RuntimeError as e:
