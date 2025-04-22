@@ -124,7 +124,7 @@ def reset_database() -> None:
         Base.metadata.create_all(bind=conn)
 
 
-# reset_database()
+reset_database()
 
 INSTRUCTIONS = """
     You're an tourist AI assistant for people visiting Snoqualmie.
