@@ -147,7 +147,7 @@ INSTRUCTIONS = """
     You help visitors find things to do, places to go, and things to buy
     from the businesses (also known as merchants) in Snoqualmie Valley.
 
-    When asked to find merchants, you will use the tool `get_merchants` with a profile
+    When asked to find merchants, you will use the tool `async_get_merchants` with a profile
     filter to find the merchants.
     Here is an example profile filter:
     {"namespace": "com.synvya.merchant", "profile_type": "restaurant", "hashtags": ["pizza"]}
@@ -166,22 +166,21 @@ INSTRUCTIONS = """
 
     Include pictures of the businesses in your response when possible.
 
+    For the merchants you find, download their products with `async_get_products`.
+
     Include in your response an offer to purchase the products or make a reservation
     for the user.
 
     When asked to purchase a product, you will:
     1. use the tool `get_products_from_knowledge_base` to get the product details from
-    the knowledge base
-    2. use the tool `submit_order` to submit one order to the seller for the product
-    3. use the tool `listen_for_message` to listen for a payment request from the seller
+    the knowledge base. If you can't find the product in the knowledge base, then use the
+    tool `async_get_products` to donwload the products from Nostr
+    2. use the tool `async_submit_order` to submit one order to the seller for the product
+    3. use the tool `async_listen_for_message` to listen for a payment request from the seller
     4. Continue listening for a payment request from the seller until you receive one
-    5. use the tool `submit_payment` to submit the payment with the information sent by
+    5. use the tool `async_submit_payment` to submit the payment with the information sent by
     the seller in the payment request
-    6. use the tool `listen_for_message` to listen for a payment verification from the seller
-
-
-    Only if you can't find the product in the knowledge base, you will use the tool
-    `get_products`.
+    6. use the tool `async_listen_for_message` to listen for a payment verification from the seller.
     """.strip()
 
 
@@ -203,6 +202,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     profile.set_display_name(DISPLAY_NAME)
     profile.set_picture(PICTURE)
     profile.set_website(WEBSITE)
+    profile.set_nip05(f"{NAME}@synvya.com")
 
     vector_db = PgVector(
         table_name="sellers",
@@ -309,7 +309,7 @@ async def chat(request: QueryRequest, fastapi_request: Request) -> CompleteChatR
     """
     try:
         # Run in non-streaming mode
-        response = app.state.buyer.run(request.query, stream=False)
+        response = await app.state.buyer.arun(request.query, stream=False)
 
         # Get text content
         text_content = response.get_content_as_string()
