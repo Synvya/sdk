@@ -30,6 +30,19 @@ from agno.vectordb.pgvector import PgVector, SearchType
 from synvya_sdk import NostrKeys, Profile, generate_keys
 from synvya_sdk.agno import BuyerTools
 
+
+# Add the filter code here
+class EndpointFilter(logging.Filter):
+    def __init__(self, path: str) -> None:
+        self.path = path
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        return record.getMessage().find(f"GET {self.path}") == -1
+
+
+# Configure the filter
+logging.getLogger("uvicorn.access").addFilter(EndpointFilter("/health"))
+
 # Set logging to WARN level to suppress INFO logs
 logging.basicConfig(level=logging.WARN)
 
@@ -124,7 +137,10 @@ def reset_database() -> None:
         Base.metadata.create_all(bind=conn)
 
 
-reset_database()
+if getenv("RESET_DATABASE", "").lower() in ("true", "1", "yes"):
+    print("Resetting database...")
+    reset_database()
+    print("Database reset complete.")
 
 INSTRUCTIONS = """
     You're an tourist AI assistant for people visiting Snoqualmie.
