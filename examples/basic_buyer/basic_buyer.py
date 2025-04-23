@@ -216,12 +216,12 @@ buyer = Agent(  # type: ignore[call-arg]
         When asked to purchase a product, you will:
         1. use the tool `get_products_from_knowledge_base` to get the product details from
         the knowledge base
-        2. use the tool `submit_order` to submit one order to the seller for the product
-        3. use the tool `listen_for_message` to listen for a payment request from the seller
+        2. use the tool `async_submit_order` to submit one order to the seller for the product
+        3. use the tool `async_listen_for_message` to listen for a payment request from the seller
         4. Coontinue listening for a payment request from the seller until you receive one
-        4. use the tool `submit_payment` to submit the payment with the information sent by
+        5. use the tool `async_submit_payment` to submit the payment with the information sent by
         the seller in the payment request
-        5. use the tool `listen_for_message` to listen for a payment verification from the seller
+        6. use the tool `async_listen_for_message` to listen for a payment verification from the seller
 
 
         Only if you can't find the product in the knowledge base, you will use the tool

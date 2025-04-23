@@ -35,6 +35,10 @@ if OPENAI_API_KEY is None:
     raise ValueError("OPENAI_API_KEY is not set")
 # print(f"OpenAI API key: {openai_api_key}")
 
+print(f"Private Key: {keys.get_private_key()}")
+print(f"Public Key (bech32): {keys.get_public_key()}")
+print(f"Public Key (hex): {keys.get_public_key(encoding='hex')}")
+
 merchant_tools = asyncio.run(
     MerchantTools.create(
         relay=RELAY,
@@ -50,13 +54,12 @@ merchant = Agent(  # type: ignore[call-arg]
     name=f"AI Agent for {profile.get_name()}",
     model=OpenAIChat(id="gpt-4o", api_key=OPENAI_API_KEY),
     tools=[merchant_tools],
-    show_tool_calls=False,
+    show_tool_calls=True,
     debug_mode=False,
     add_history_to_messages=True,
     num_history_responses=5,
     read_chat_history=False,
     read_tool_call_history=False,
-    # async_mode=True,
     instructions=[
         """
         The Merchant Toolkit functions return JSON arrays. Provide output
@@ -65,34 +68,34 @@ merchant = Agent(  # type: ignore[call-arg]
         If you encounter any errors, first try again, then, let me know
         with specific details for each error message.
 
-        To publish a single product or a single stall, use the tools `publish_product`
-        and `publish_stall` with the exact name of the product or stall. To find the exact name
+        To publish a single product or a single stall, use the tools `async_publish_product`
+        and `async_publish_stall` with the exact name of the product or stall. To find the exact name
         of the product or stall, use the tool `get_products` or `get_stalls` and match the
         name property to the input provided by the user.
 
         When you receive an order, you must take one of the following actions:
-        - Process the order if the order value (price x quantity) is less than 1000
+        - Process the order if the order value (price x quantity) is less than 1,000,000 sats.
         - Trigger a manual workflow for the order if the order value (price x quantity)
-        is greater than 1000
+        is greater than 1,000,000 sats.
 
 	    To determine the price, use the tool get_products to find the product ordered
 	    in your database and its price.
 
 	    To process an order follow these steps:
-        1. Use the tool `send_payment_request` with the following arguments:
+        1. Use the tool `async_send_payment_request` with the following arguments:
         - buyer
 	    - order
-        - "kind:14" as kind
+        - The same kind that was used in the order received ("kind:4" or "kind:14")
 	    - "BTC" as payment type
 	    - "bc123456" as payment url
 
         2. Wait a few seconds and then use the tool `verify_payment` with
-        the same arguments as `send_payment_request`
-        3. If the payment is verified, use the tool `send_payment_verification`
+        the same arguments as `async_send_payment_request`
+        3. If the payment is verified, use the tool `async_send_payment_verification`
         with the arguments:
         - buyer
         - order
-        - "kind:14" as kind
+        - The same kind that was used in the order received ("kind:4" or "kind:14")
         """.strip(),
     ],
 )

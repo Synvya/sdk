@@ -4,7 +4,9 @@ Nostr utility functions.
 
 import asyncio
 import json
+import logging
 import sys
+import time
 from os import getenv
 from pathlib import Path
 
@@ -47,8 +49,6 @@ async def main() -> None:
     print(f"Public Key (bech32): {keys.get_public_key()}")
     print(f"Public Key (hex): {keys.get_public_key(encoding='hex')}")
 
-    nostr_client = await NostrClient.create(relay=RELAY, private_key=NSEC)
-
     ABOUT = (
         "Welcome to the Northwest Railway Museum where you can experience "
         "how The Railway Changed Everything"
@@ -77,24 +77,55 @@ async def main() -> None:
     for hashtag in HASHTAGS:
         profile.add_hashtag(hashtag)
 
+    nostr_client = await NostrClient.create(relay=RELAY, private_key=NSEC)
+    nostr_client.set_logging_level(logging.DEBUG)
     await nostr_client.async_set_profile(profile)
+
+    try:
+        # Continuously receive messages until interrupted
+        while True:
+            response = await nostr_client.async_receive_message(30)
+            response_data = json.loads(response)
+
+            # Only print if a message was received
+            if response_data["type"] != "none":
+                print("\n=== New Message Received ===")
+                print(f"Type: {response_data['type']}")
+                print(f"From: {response_data['sender']}")
+                print(f"Content: {response_data['content']}")
+                print("===========================\n")
+            else:
+                # Just print a dot to show it's still running
+                print(".", end="", flush=True)
+
+    except KeyboardInterrupt:
+        print("\nShutting down...")
+    except Exception as e:
+        print(f"\nError: {e}")
+    finally:
+        # Clean up code here if needed
+        print("Goodbye!")
+
+    # for i in range(10):
+    #     message = await nostr_client.async_receive_message(30)
+    #     print(f"Message: {message}")
 
     # relay_profile = nostr_client.get_profile(keys.get_public_key())
     # print(f"Profile type: {relay_profile.get_profile_type()}")
     # print(f"Profile namespace: {relay_profile.get_namespace()}")
     # print(f"Profile hashtags: {relay_profile.get_hashtags()}")
 
-    profile_filter = ProfileFilter(
-        profile_type=ProfileType.MERCHANT_RESTAURANT,
-        namespace=Namespace.MERCHANT,
-        hashtags=[],
-    )
+    # profile_filter = ProfileFilter(
+    #     profile_type=ProfileType.MERCHANT_RESTAURANT,
+    #     namespace=Namespace.MERCHANT,
+    #     hashtags=[],
+    # )
 
-    merchants = await nostr_client.async_get_merchants(profile_filter)
+    # merchants = await nostr_client.async_get_merchants(profile_filter)
 
-    for merchant in merchants:
-        merchant_json = json.loads(merchant.to_json())
-    print(f"Merchant: {json.dumps(merchant_json, indent=2)}")
+    # for merchant in merchants:
+    #     merchant_json = json.loads(merchant.to_json())
+    # print(f"Merchant: {json.dumps(merchant_json, indent=2)}")
 
     # for event in event_list:
     #     event_id = EventId.parse(event)
@@ -116,4 +147,8 @@ async def main() -> None:
     #     print(f"Seller website: {seller.website}")
 
 
-asyncio.run(main())
+if __name__ == "__main__":
+    try:
+        asyncio.run(main())
+    except KeyboardInterrupt:
+        print("\nProgram terminated by user")

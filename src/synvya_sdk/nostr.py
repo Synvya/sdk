@@ -5,6 +5,7 @@ Core Nostr utilities for agentstr.
 import asyncio
 import json
 import logging
+import time
 from datetime import timedelta
 from pathlib import Path
 from typing import Dict, List, Optional
@@ -18,6 +19,7 @@ try:
         Coordinate,
         Event,
         EventBuilder,
+        EventDeletionRequest,
         EventId,
         Events,
         Filter,
@@ -33,6 +35,7 @@ try:
         SingleLetterTag,
         Tag,
         TagKind,
+        Timestamp,
         UnsignedEvent,
     )
 
@@ -84,13 +87,15 @@ class NostrClient:
         self.nostr_signer: NostrSigner = NostrSigner.keys(self.keys)
         self.client: Client = Client(self.nostr_signer)
         self.connected: bool = False
-        self.stop_event: asyncio.Event = asyncio.Event()
-        self.notification_task: Optional[asyncio.Task] = None
-        self.received_eose: bool = False
-        self.private_message: Optional[UnsignedEvent] = None
-        self.direct_message: Optional[Event] = None
-        self.last_message_time: float = 0
+        # self.stop_event: asyncio.Event = asyncio.Event()
+        # self.notification_task: Optional[asyncio.Task] = None
+        # self.received_eose: bool = False
+        # self.private_message: Optional[UnsignedEvent] = None
+        # self.private_gift_wrapped_message: Optional[Event] = None
+        # self.direct_message: Optional[Event] = None
+        # self.last_message_time: float = 0
         self.profile: Optional[Profile] = None  # Initialized asynchronously
+        # self.background_task: Optional[asyncio.Task] = None
 
         # Set log handling
         if not NostrClient.logger.hasHandlers():
@@ -118,7 +123,7 @@ class NostrClient:
         instance = cls(relay, private_key, _from_create=True)
 
         # Set the initial timestamp within a running loop
-        instance.last_message_time = asyncio.get_running_loop().time()
+        # instance.last_message_time = asyncio.get_running_loop().time()
 
         try:
             # Try to download the profile from the relay if it already exists
@@ -154,7 +159,15 @@ class NostrClient:
         except Exception as e:
             raise RuntimeError(f"Invalid event ID: {e}") from e
 
-        event_builder = EventBuilder.delete(ids=[event_id_obj], reason=reason)
+        if not reason:
+            reason = "No reason provided"
+
+        # nostr-sdk has changed the arguments to this method
+        # event_builder = EventBuilder.delete(ids=[event_id_obj], reason=reason)
+        event_deletion_request = EventDeletionRequest(
+            ids=[event_id_obj], coordinates=[], reason=[reason]
+        )
+        event_builder = EventBuilder.delete(event_deletion_request)
 
         # return_event_id_obj = await self._async_publish_event(event_builder)
         output = await self.client.send_event_builder(event_builder)
@@ -660,136 +673,237 @@ class NostrClient:
 
     async def async_receive_message(self, timeout: Optional[int] = 15) -> str:
         """
-        Listen for private messages from the relay
+        Receive one message from the Nostr relay using notifications.
+        Uses a proper subscription approach and waits for real-time events.
 
         Args:
-            timeout: timeout in seconds for the message to be received
+            timeout: Maximum time to wait for a message in seconds
 
         Returns:
-            str: JSON string
-            {
-                "type": "none" | "kind:4" | "kind:14" | "kind:15",
-                "sender": "none" | "<bech32 public-key>",
-                "content": <content>
-            }
-
-        Raises:
-            RuntimeError: if it can't connect to the relay
-            RuntimeError: if it can't subscribe to private messages
-            RuntimeError: if it can't receive a message
+            JSON string containing message details
         """
-        NostrClient.logger.debug("Listening for private messages.")
-
         if not self.connected:
             try:
                 await self._async_connect()
-                NostrClient.logger.debug("Connected to relay %s.", self.relay)
             except Exception as e:
-                NostrClient.logger.error("Connection failed: %s", e)
-                raise RuntimeError(
-                    f"Unable to connect to relay {self.relay}. Exception: {e}."
-                ) from e
+                self.logger.error("Failed to connect: %s", e)
+                return json.dumps(
+                    {
+                        "type": "none",
+                        "sender": "none",
+                        "content": f"Connection error: {str(e)}",
+                    }
+                )
+
+        # Default response for no messages
+        response = {"type": "none", "sender": "none", "content": "No messages received"}
 
         try:
-            messages_filter = (
+            # Initialize event response future
+            message_received = asyncio.Future()
+
+            # Important: we need to use BOTH our public key and empty "p" tags to catch all messages
+            # Some relays might send private messages without proper targeting
+            message_filter = (
                 Filter()
-                .kinds([Kind(1059), Kind(4)])
+                .kinds([Kind(4), Kind(1059)])  # DM and wrapped events
                 .pubkey(self.keys.public_key())
-                .limit(0)
+                .limit(0)  # Only get new messages
             )
 
-            subscription = await self.client.subscribe(messages_filter, None)
-            NostrClient.logger.debug("Subscribed to private messages: %s", subscription)
+            self.logger.debug(
+                f"Creating subscription with filter: kinds=[4,1059], pubkey={self.keys.public_key().to_bech32()}"
+            )
 
-            if not hasattr(subscription, "success") or not subscription.success:
-                raise RuntimeError("Failed to subscribe to private messages")
+            # Create subscription
+            subscription = await self.client.subscribe(message_filter, None)
+            self.logger.debug(f"Subscription created: {subscription.id}")
 
-            self.received_eose = False  # Reset the EOSE flag before listening
-            self.last_message_time = (
-                asyncio.get_event_loop().time()
-            )  # Track the last received message time
+            # Create a notification handler
+            class SingleMessageHandler(HandleNotification):
+                def __init__(self, nostr_client, future):
+                    super().__init__()
+                    self.nostr_client = nostr_client
+                    self.future = future
+                    self.received_eose = False
 
-            # Start handling notifications in the background
-            await self._async_start_notifications()
+                async def handle_msg(self, relay_url: str, msg: RelayMessage) -> None:
+                    # Use class-level logger
+                    NostrClient.logger.debug(f"Handle_msg from {relay_url}: {msg}")
 
-            response = {
-                "type": "none",
-                "sender": "none",
-                "content": "No messages received",
-            }
+                    msg_enum = msg.as_enum()
 
-            # Wait for new messages while checking periodically if we should stop
-
-            while not self.stop_event.is_set():
-                await asyncio.sleep(1)  #  Check every 1 second
-
-                if self.received_eose:
-                    NostrClient.logger.debug("Received EOSE")
-                    time_since_last_msg = (
-                        asyncio.get_event_loop().time() - self.last_message_time
-                    )
-
-                    if timeout is not None and time_since_last_msg > timeout:
-                        response = {
-                            "type": "none",
-                            "sender": "none",
-                            "content": f"No messages received after {timeout} seconds",
-                        }
-                        break  # Stop listening after timeout
-
-                if self.private_message and self.private_message.kind() == Kind(14):
-                    NostrClient.logger.debug(
-                        "Received `kind:14` message: %s",
-                        self.private_message.as_pretty_json(),
-                    )
-                    response = {
-                        "type": "kind:14",
-                        "sender": self.private_message.author().to_bech32(),
-                        "content": self.private_message.content(),
-                    }
-                    self.private_message = None
-                    break
-                if self.private_message and self.private_message.kind() == Kind(15):
-                    NostrClient.logger.debug(
-                        "Received `kind:15` message: %s",
-                        self.private_message.as_pretty_json(),
-                    )
-                    response = {
-                        "type": "kind:15",
-                        "sender": self.private_message.author().to_bech32(),
-                        "content": self.private_message.content(),
-                    }
-                    # TODO: process tags with file type
-                    self.private_message = None
-                    break
-                if self.direct_message:
-                    NostrClient.logger.debug(
-                        "Received `kind:4` message: %s",
-                        self.direct_message.as_pretty_json(),
-                    )
-                    try:
-                        content = await self.nostr_signer.nip04_decrypt(
-                            self.direct_message.author(), self.direct_message.content()
+                    # Handle end of stored events
+                    if msg_enum.is_end_of_stored_events():
+                        NostrClient.logger.debug(
+                            f"Received EOSE from {relay_url}, now waiting for real-time events"
                         )
-                        sender = self.direct_message.author().to_bech32()
-                    except Exception:
-                        content = "Unable to decrypt direct message"
-                        sender = "Unknown"
-                    response = {
-                        "type": "kind:4",
-                        "sender": sender,
-                        "content": content,
-                    }
-                    self.direct_message = None
-                    break
-        except Exception as e:
-            raise RuntimeError(
-                f"Unable to listen for private messages. Exception: {e}."
-            ) from e
-        finally:
-            await self._async_stop_notifications()
+                        self.received_eose = True
+                        return
 
-        return json.dumps(response)
+                    # We only care about event messages
+                    if not msg_enum.is_event_msg():
+                        return
+
+                    event = msg_enum.event
+                    NostrClient.logger.debug(
+                        f"Received event kind {event.kind()} from {event.author().to_bech32()}"
+                    )
+
+                    # Process based on event kind
+                    if event.kind() == Kind(4):
+                        NostrClient.logger.debug("Processing DM")
+                        try:
+                            content = (
+                                await self.nostr_client.nostr_signer.nip04_decrypt(
+                                    event.author(), event.content()
+                                )
+                            )
+                            NostrClient.logger.debug(f"Decrypted content: {content}")
+                            if not self.future.done():
+                                self.future.set_result(
+                                    {
+                                        "type": "kind:4",
+                                        "sender": event.author().to_bech32(),
+                                        "content": content,
+                                    }
+                                )
+                        except Exception as e:
+                            NostrClient.logger.error(f"Failed to decrypt message: {e}")
+
+                    elif event.kind() == Kind(1059):
+                        NostrClient.logger.debug("Processing gift-wrapped message")
+                        try:
+                            unwrapped = await self.nostr_client.client.unwrap_gift_wrap(
+                                event
+                            )
+                            rumor = unwrapped.rumor()
+                            kind_str = f"kind:{rumor.kind().as_u16()}"
+
+                            sender = "unknown"
+                            if hasattr(rumor, "author") and callable(
+                                getattr(rumor, "author")
+                            ):
+                                author = rumor.author()
+                                if author:
+                                    sender = author.to_bech32()
+
+                            NostrClient.logger.debug(
+                                f"Unwrapped content: {rumor.content()}"
+                            )
+                            if not self.future.done():
+                                self.future.set_result(
+                                    {
+                                        "type": kind_str,
+                                        "sender": sender,
+                                        "content": rumor.content(),
+                                    }
+                                )
+                        except Exception as e:
+                            NostrClient.logger.error(f"Failed to unwrap gift: {e}")
+
+                async def handle(
+                    self, relay_url: str, subscription_id: str, event: Event
+                ) -> None:
+                    NostrClient.logger.debug(
+                        f"Handle from {relay_url}, subscription {subscription_id}, event {event.id()}"
+                    )
+
+                    # Process based on event kind
+                    if event.kind() == Kind(4):
+                        NostrClient.logger.debug(f"Processing DM in handle")
+                        try:
+                            content = (
+                                await self.nostr_client.nostr_signer.nip04_decrypt(
+                                    event.author(), event.content()
+                                )
+                            )
+                            NostrClient.logger.debug(f"Decrypted content: {content}")
+                            if not self.future.done():
+                                self.future.set_result(
+                                    {
+                                        "type": "kind:4",
+                                        "sender": event.author().to_bech32(),
+                                        "content": content,
+                                    }
+                                )
+                        except Exception as e:
+                            NostrClient.logger.error(f"Failed to decrypt message: {e}")
+
+                    elif event.kind() == Kind(1059):
+                        NostrClient.logger.debug(
+                            f"Processing gift-wrapped message in handle"
+                        )
+                        try:
+                            unwrapped = await self.nostr_client.client.unwrap_gift_wrap(
+                                event
+                            )
+                            rumor = unwrapped.rumor()
+                            kind_str = f"kind:{rumor.kind().as_u16()}"
+
+                            sender = "unknown"
+                            if hasattr(rumor, "author") and callable(
+                                getattr(rumor, "author")
+                            ):
+                                author = rumor.author()
+                                if author:
+                                    sender = author.to_bech32()
+
+                            NostrClient.logger.debug(
+                                f"Unwrapped content: {rumor.content()}"
+                            )
+                            if not self.future.done():
+                                self.future.set_result(
+                                    {
+                                        "type": kind_str,
+                                        "sender": sender,
+                                        "content": rumor.content(),
+                                    }
+                                )
+                        except Exception as e:
+                            NostrClient.logger.error(f"Failed to unwrap gift: {e}")
+
+            # Create handler and notification task
+            handler = SingleMessageHandler(self, message_received)
+
+            try:
+                # Start notification handling
+                self.logger.debug("Starting notification handling")
+                notification_task = asyncio.create_task(
+                    self.client.handle_notifications(handler)
+                )
+
+                # Wait for either a message or timeout
+                try:
+                    message = await asyncio.wait_for(message_received, timeout=timeout)
+                    self.logger.debug(f"Received message: {message}")
+                    return json.dumps(message)
+                except asyncio.TimeoutError:
+                    # No message received within timeout
+                    self.logger.debug("Timeout waiting for message")
+                    return json.dumps(response)
+
+            finally:
+                # Clean up
+                try:
+                    if (
+                        "notification_task" in locals()
+                        and notification_task
+                        and not notification_task.done()
+                    ):
+                        self.logger.debug("Cancelling notification task")
+                        notification_task.cancel()
+
+                    self.logger.debug(f"Unsubscribing from {subscription.id}")
+                    await self.client.unsubscribe(subscription.id)
+                except Exception as e:
+                    self.logger.error(f"Error cleaning up subscription: {e}")
+
+        except Exception as e:
+            self.logger.error(f"Error in receive_message: {e}")
+            return json.dumps(
+                {"type": "none", "sender": "none", "content": f"Error: {str(e)}"}
+            )
 
     def receive_message(self, timeout: Optional[int] = 15) -> str:
         """
@@ -800,8 +914,8 @@ class NostrClient:
     async def async_send_message(self, kind: str, key: str, message: str) -> str:
         """
         Sends
-        NIP-04 Direct Message kind `4` to a Nostr public key.
-        NIP-17 Direct Message kind `14` to a Nostr public key.
+        NIP-04 Direct Message `kind:4` to a Nostr public key.
+        NIP-17 Direct Message `kind:14` to a Nostr public key.
 
         Args:
             kind: message kind to use (kind:4 or kind:14)
@@ -814,12 +928,20 @@ class NostrClient:
         Raises:
             RuntimeError: if the message can't be sent
         """
-        public_key = PublicKey.parse(key)
+        # Make sure we're connected to the relay
+        if not self.connected:
+            await self._async_connect()
+
         try:
+            # Parse the public key first
+            public_key = PublicKey.parse(key)
+
+            # Send based on kind
             if kind == "kind:14":
+                self.logger.debug("Sending NIP-17 private message")
                 output = await self.client.send_private_msg(public_key, message)
             elif kind == "kind:4":
-                NostrClient.logger.debug("async_send_message: kind:4")
+                self.logger.debug("Sending NIP-04 direct message")
                 encrypted_message = await self.nostr_signer.nip04_encrypt(
                     public_key=public_key, content=message
                 )
@@ -827,24 +949,28 @@ class NostrClient:
                     [Tag.public_key(public_key)]
                 )
                 output = await self.client.send_event_builder(builder)
-                NostrClient.logger.debug(
+                self.logger.debug(
                     "async_send_message: event id: %s", output.id.to_bech32()
                 )
             else:
-                NostrClient.logger.debug("async_send_message: Invalid message kind")
-                raise RuntimeError("Invalid message kind")
+                self.logger.error("Invalid message kind: %s", kind)
+                raise RuntimeError(f"Invalid message kind: {kind}")
+
+            # Check if any relay accepted the message
             if len(output.success) > 0:
-                NostrClient.logger.debug(
+                self.logger.info(
                     "Message sent to %s: %s", public_key.to_bech32(), message
                 )
                 return str(output.id.to_bech32())
-            # no relay received the message
-            NostrClient.logger.error(
-                "Message not sent to %s: %s", public_key.to_bech32(), message
+
+            # No relay received the message
+            self.logger.error(
+                "Message not sent to %s. No relay accepted it.", public_key.to_bech32()
             )
-            raise RuntimeError("Unable to send private message:")
+            raise RuntimeError("Unable to send message: No relay accepted it")
         except Exception as e:
-            raise RuntimeError(f"Unable to send private message: {e}") from e
+            self.logger.error("Failed to send message: %s", str(e))
+            raise RuntimeError(f"Unable to send message: {e}") from e
 
     def send_message(self, kind: str, key: str, message: str) -> str:
         """
@@ -1325,129 +1451,169 @@ class NostrClient:
 
     #     return await self._async_publish_event(event_builder)
 
-    async def _async_start_notifications(self) -> None:
-        """
-        Start handling notifications in the background.
-        """
-        if self.notification_task is None or self.notification_task.done():
-            self.stop_event.clear()  # Reset stop flag
-            self.notification_task = asyncio.create_task(
-                self.client.handle_notifications(self.MyNotificationHandler(self))
-            )
+    # async def _async_start_notifications(self) -> None:
+    #     """
+    #     Start handling notifications in the background.
+    #     """
+    #     if self.notification_task is None or self.notification_task.done():
+    #         self.stop_event.clear()  # Reset stop flag
 
-    async def _async_stop_notifications(self) -> None:
-        """
-        Gracefully stop handling notifications, with debug logs.
-        """
-        NostrClient.logger.debug("Attempting to stop notifications...")
+    #         # Create a separate task for background processing
+    #         async def process_background_tasks():
+    #             while not self.stop_event.is_set():
+    #                 # Process any pending gift-wrapped messages
+    #                 if (
+    #                     hasattr(self, "private_gift_wrapped_message")
+    #                     and self.private_gift_wrapped_message
+    #                 ):
+    #                     event = self.private_gift_wrapped_message
+    #                     self.private_gift_wrapped_message = None
+    #                     try:
+    #                         unwrapped_gift = await self.client.unwrap_gift_wrap(event)
+    #                         unsigned_event = unwrapped_gift.rumor()
+    #                         self.private_message = unsigned_event
+    #                     except Exception as e:
+    #                         self.logger.error("Error unwrapping gift: %s", e)
 
-        # Step 1: Set the stop event
-        self.stop_event.set()
-        NostrClient.logger.debug("Stop event set. Notifier should stop soon.")
+    #                 await asyncio.sleep(0.1)
 
-        # Step 2: Check if a notification task is running
-        if self.notification_task is None:
-            NostrClient.logger.debug("No active notification task. Nothing to stop.")
-            return
+    #         # Start the background task first
+    #         self.background_task = asyncio.create_task(process_background_tasks())
 
-        if self.notification_task.done():
-            NostrClient.logger.debug(
-                "Notification task already completed. Cleaning up reference."
-            )
-            self.notification_task = None
-            return
+    #         # Start the notification handler - this might be blocking!
+    #         await self.client.handle_notifications(self.MyNotificationHandler(self))
 
-        # Step 3: Attempt to cancel the notification task
-        NostrClient.logger.debug("Cancelling notification task...")
-        self.notification_task.cancel()
+    # async def _async_stop_notifications(self) -> None:
+    #     """
+    #     Gracefully stop handling notifications, with debug logs.
+    #     """
+    #     NostrClient.logger.debug("Attempting to stop notifications...")
 
-        try:
-            await self.notification_task  # Ensure proper cancellation
-            NostrClient.logger.debug("Notification task successfully stopped.")
-        except asyncio.CancelledError:
-            NostrClient.logger.debug("Notification task was forcefully cancelled.")
+    #     # Step 1: Set the stop event
+    #     self.stop_event.set()
+    #     NostrClient.logger.debug("Stop event set. Notifier should stop soon.")
 
-        # Step 4: Clean up
-        self.notification_task = None
-        NostrClient.logger.debug("_stop_notifications() completed.")
+    #     # Step 2: Check if a notification task is running
+    #     if self.notification_task is None:
+    #         NostrClient.logger.debug("No active notification task. Nothing to stop.")
+    #         return
 
-    class MyNotificationHandler(HandleNotification):
-        """
-        Inner class to handle notifications.
-        """
+    #     if self.notification_task.done():
+    #         NostrClient.logger.debug(
+    #             "Notification task already completed. Cleaning up reference."
+    #         )
+    #         self.notification_task = None
+    #         return
 
-        def __init__(self, nostr_client: "NostrClient") -> None:
-            self.nostr_client: NostrClient = nostr_client
+    #     # Step 3: Attempt to cancel the notification task
+    #     NostrClient.logger.debug("Cancelling notification task...")
+    #     self.notification_task.cancel()
 
-        async def _process_gift_wrap_message(self, event: Event) -> None:
-            """
-            Helper method to process gift wrap messages asynchronously.
-            """
-            try:
-                unwrapped_gift = await self.nostr_client.client.unwrap_gift_wrap(event)
-                unsigned_event = unwrapped_gift.rumor()
-                self.nostr_client.private_message = unsigned_event
-            except Exception as e:
-                self.nostr_client.logger.error(f"Error unwrapping gift: {e}")
-                # Don't re-raise the exception in the background task
+    #     try:
+    #         await self.notification_task  # Ensure proper cancellation
+    #         NostrClient.logger.debug("Notification task successfully stopped.")
+    #     except asyncio.CancelledError:
+    #         NostrClient.logger.debug("Notification task was forcefully cancelled.")
 
-        def handle_msg(self, relay_url: str, msg: RelayMessage) -> None:
-            """
-            Handle a message from the relay.
-            This method must be synchronous based on the interface.
-            """
-            if self.nostr_client.stop_event.is_set():
-                return
+    #     # Step 4: Clean up
+    #     self.notification_task = None
+    #     NostrClient.logger.debug("_stop_notifications() completed.")
 
-            msg_enum = msg.as_enum()
+    # class MyNotificationHandler(HandleNotification):
+    #     """
+    #     Inner class to handle notifications.
+    #     """
 
-            if msg_enum.is_end_of_stored_events():
-                self.nostr_client.received_eose = True
-                self.nostr_client.logger.debug("Received EOSE")
-            elif msg_enum.is_event_msg():
-                # Handle regular event messages
-                self.nostr_client.logger.debug(
-                    "Received event: %s", msg_enum.event.content()
-                )
-                # Use get_running_loop() instead of get_event_loop()
-                self.nostr_client.last_message_time = asyncio.get_running_loop().time()
+    #     def __init__(self, nostr_client: "NostrClient") -> None:
+    #         """
+    #         Initialize the notification handler.
+    #         """
+    #         super().__init__()
+    #         self.nostr_client: NostrClient = nostr_client
 
-                if msg_enum.event.kind() == Kind(4):
-                    self.nostr_client.logger.debug(
-                        "Received `kind:4` message: %s", msg_enum.event.content()
-                    )
-                    self.nostr_client.direct_message = msg_enum.event
+    #     async def _process_gift_wrap_message(self, event: Event) -> None:
+    #         """
+    #         Helper method to process gift wrap messages asynchronously.
+    #         """
+    #         try:
+    #             unwrapped_gift = await self.nostr_client.client.unwrap_gift_wrap(event)
+    #             unsigned_event = unwrapped_gift.rumor()
+    #             self.nostr_client.private_message = unsigned_event
+    #         except Exception as e:
+    #             self.nostr_client.logger.error(f"Error unwrapping gift: {e}")
+    #             # Don't re-raise the exception in the background task
 
-                if msg_enum.event.kind() == Kind(1059):
-                    self.nostr_client.logger.debug(
-                        "Received `kind:1059` message: %s", msg_enum.event.content()
-                    )
-                    # Create a background task to process this async operation
-                    asyncio.create_task(self._process_gift_wrap_message(msg_enum.event))
-            else:
-                self.nostr_client.logger.debug(
-                    f"Received unknown message from {relay_url}: {msg}"
-                )
+    #     async def handle_msg(self, relay_url: str, msg: RelayMessage) -> None:
+    #         """
+    #         Handle a message from the relay.
+    #         This method must be synchronous and must not return any awaitable objects.
+    #         """
+    #         self.nostr_client.logger.debug("Received message: %s", msg)
+    #         if self.nostr_client.stop_event.is_set():
+    #             return
 
-        def handle(self, relay_url: str, subscription_id: str, event: Event) -> None:
-            """
-            Handle an event from the relay.
-            """
-            if self.nostr_client.stop_event.is_set():
-                return
+    #         msg_enum = msg.as_enum()
 
-            self.nostr_client.last_message_time = asyncio.get_running_loop().time()
-            if event.kind() == Kind(4):
-                self.nostr_client.logger.debug(
-                    "Received `kind:4` message: %s", event.content()
-                )
-                self.nostr_client.direct_message = event
-            if event.kind() == Kind(1059):
-                self.nostr_client.logger.debug(
-                    "Received `kind:1059` message: %s", event.content()
-                )
-                # Create a background task to process this async operation
-                asyncio.create_task(self._process_gift_wrap_message(event))
+    #         if msg_enum.is_end_of_stored_events():
+    #             self.nostr_client.received_eose = True
+    #             self.nostr_client.logger.debug("Received EOSE")
+    #         elif msg_enum.is_event_msg():
+    #             # Handle regular event messages
+    #             self.nostr_client.logger.debug(
+    #                 "Received event: %s", msg_enum.event.content()
+    #             )
+    #             # Use get_running_loop() instead of get_event_loop()
+    #             try:
+    #                 self.nostr_client.last_message_time = (
+    #                     asyncio.get_running_loop().time()
+    #                 )
+    #             except RuntimeError:
+    #                 # If we're not in an event loop context, just ignore this
+    #                 pass
+
+    #             if msg_enum.event.kind() == Kind(4):
+    #                 self.nostr_client.logger.debug(
+    #                     "Received `kind:4` message: %s", msg_enum.event.content()
+    #                 )
+    #                 self.nostr_client.direct_message = msg_enum.event
+
+    #             if msg_enum.event.kind() == Kind(1059):
+    #                 self.nostr_client.logger.debug(
+    #                     "Received `kind:1059` message: %s", msg_enum.event.content()
+    #                 )
+    #                 # Store the event for later processing - DON'T create async tasks here
+    #                 self.nostr_client.private_gift_wrapped_message = msg_enum.event
+    #         else:
+    #             self.nostr_client.logger.debug(
+    #                 f"Received unknown message from {relay_url}: {msg}"
+    #             )
+
+    #     async def handle(
+    #         self, relay_url: str, subscription_id: str, event: Event
+    #     ) -> None:
+    #         """
+    #         Handle an event from the relay.
+    #         """
+    #         self.nostr_client.logger.debug("Received event: %s", event)
+    #         if self.nostr_client.stop_event.is_set():
+    #             return
+
+    #         try:
+    #             self.nostr_client.last_message_time = asyncio.get_running_loop().time()
+    #         except RuntimeError:
+    #             # If we're not in an event loop context, just ignore this
+    #             pass
+    #         if event.kind() == Kind(4):
+    #             self.nostr_client.logger.debug(
+    #                 "Received `kind:4` message: %s", event.content()
+    #             )
+    #             self.nostr_client.direct_message = event
+    #         if event.kind() == Kind(1059):
+    #             self.nostr_client.logger.debug(
+    #                 "Received `kind:1059` message: %s", event.content()
+    #             )
+    #             # Store the event for later processing - DON'T create async tasks
+    #             self.nostr_client.private_gift_wrapped_message = event
 
 
 def generate_keys(env_var: str, env_path: Path) -> NostrKeys:
