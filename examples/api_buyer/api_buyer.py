@@ -218,6 +218,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         knowledge_base=knowledge_base,
         relay=RELAY,
         private_key=keys.get_private_key(),
+        log_level=logging.DEBUG,
     )
 
     await app.state.buyer_tools.async_set_profile(profile)

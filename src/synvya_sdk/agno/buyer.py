@@ -136,6 +136,7 @@ class BuyerTools(Toolkit):
         knowledge_base: AgentKnowledge,
         relay: str,
         private_key: str,
+        log_level: Optional[int] = logging.INFO,
     ) -> "BuyerTools":
         """
         Asynchronous factory method for proper initialization.
@@ -145,8 +146,14 @@ class BuyerTools(Toolkit):
 
         # Initialize NostrClient asynchronously
         instance._nostr_client = await NostrClient.create(relay, private_key)
-        instance._nostr_client.set_logging_level(logger.getEffectiveLevel())
-        buyer_logger.setLevel(logger.getEffectiveLevel())
+
+        if log_level:
+            buyer_logger.setLevel(log_level)
+            instance._nostr_client.set_logging_level(log_level)
+        else:
+            buyer_logger.setLevel(logger.getEffectiveLevel())
+            instance._nostr_client.set_logging_level(logger.getEffectiveLevel())
+
         instance.profile = (
             await instance._nostr_client.async_get_profile()
         )  # Profile is set during NostrClient.create()
@@ -709,6 +716,7 @@ class BuyerTools(Toolkit):
         Returns:
             str: JSON string with status and message
         """
+        buyer_logger.debug("Submitting payment: %s", payment_request)
 
         return json.dumps(
             {
