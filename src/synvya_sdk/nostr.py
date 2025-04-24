@@ -531,6 +531,9 @@ class NostrClient:
                 public_key=profile_key, timeout=timedelta(seconds=2)
             )
 
+            if metadata is None:
+                raise RuntimeError("async_get_profile: Unable to retrieve metadata")
+
             # Create profile from standard metadata
             profile = await Profile.from_metadata(metadata, profile_key.to_bech32())
 

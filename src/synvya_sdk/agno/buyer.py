@@ -144,19 +144,20 @@ class BuyerTools(Toolkit):
         """
         instance = cls(knowledge_base, relay, private_key, _from_create=True)
 
-        # Initialize NostrClient asynchronously
-        instance._nostr_client = await NostrClient.create(relay, private_key)
-
+        # Set log level FIRST - this is critical
         if log_level:
             buyer_logger.setLevel(log_level)
-            instance._nostr_client.set_logging_level(log_level)
+            NostrClient.set_logging_level(
+                log_level
+            )  # Set the class-level logger BEFORE creating any instances
         else:
             buyer_logger.setLevel(logger.getEffectiveLevel())
-            instance._nostr_client.set_logging_level(logger.getEffectiveLevel())
+            NostrClient.set_logging_level(logger.getEffectiveLevel())
 
-        instance.profile = (
-            await instance._nostr_client.async_get_profile()
-        )  # Profile is set during NostrClient.create()
+        # Then initialize NostrClient with proper logging already set up
+        instance._nostr_client = await NostrClient.create(relay, private_key)
+
+        instance.profile = await instance._nostr_client.async_get_profile()
 
         return instance
 
@@ -669,16 +670,29 @@ class BuyerTools(Toolkit):
             buyer_logger.error("Error getting product from knowledge base: %s", e)
             return json.dumps({"status": "error", "message": str(e)})
 
-        # Confirm seller has valid NIP-05
-        merchant = await self._nostr_client.async_get_profile(product.get_seller())
-        if not merchant.is_nip05_validated():
-            buyer_logger.error(
-                "Merchant %s does not have a verified NIP-05", product.get_seller()
-            )
+        if not product.get_seller():
+            buyer_logger.error("Product %s has no seller", product_name)
+            return json.dumps({"status": "error", "message": "Product has no seller"})
+
+        try:
+            # Confirm seller has valid NIP-05
+            merchant = await self._nostr_client.async_get_profile(product.get_seller())
+            if not merchant.is_nip05_validated():
+                buyer_logger.error(
+                    "Merchant %s does not have a verified NIP-05", product.get_seller()
+                )
+                return json.dumps(
+                    {
+                        "status": "error",
+                        "message": "Merchant does not have a verified NIP-05",
+                    }
+                )
+        except (ValueError, RuntimeError) as e:
+            buyer_logger.error("Error retrieving seller profile: %s", e)
             return json.dumps(
                 {
                     "status": "error",
-                    "message": "Merchant does not have a verified NIP-05",
+                    "message": f"Unable to retrieve seller profile for {product.get_seller()}: {str(e)}",
                 }
             )
 
