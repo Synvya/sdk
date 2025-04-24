@@ -241,7 +241,10 @@ class Profile(BaseModel):
     def set_name(self, name: str) -> None:
         self.name = name
 
-    def set_namespace(self, namespace: str) -> None:
+    def set_namespace(self, namespace: Namespace | str) -> None:
+        if isinstance(namespace, str):
+            # Convert string to Namespace enum safely
+            namespace = Namespace(namespace)
         self.namespace = namespace
 
     def set_nip05(self, nip05: str) -> None:

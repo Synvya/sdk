@@ -31,7 +31,7 @@ async def main() -> None:
     load_dotenv(script_dir / ".env")
 
     ENV_RELAY = "RELAY"
-    DEFAULT_RELAY = "wss://relay.damus.io"
+    DEFAULT_RELAY = "wss://nos.lol"
 
     # Load or use default relay
     RELAY = getenv(ENV_RELAY)
@@ -81,70 +81,42 @@ async def main() -> None:
     nostr_client.set_logging_level(logging.DEBUG)
     await nostr_client.async_set_profile(profile)
 
-    try:
-        # Continuously receive messages until interrupted
-        while True:
-            response = await nostr_client.async_receive_message(30)
-            response_data = json.loads(response)
+    # try:
+    #     # Continuously receive messages until interrupted
+    #     while True:
+    #         response = await nostr_client.async_receive_message(30)
+    #         response_data = json.loads(response)
 
-            # Only print if a message was received
-            if response_data["type"] != "none":
-                print("\n=== New Message Received ===")
-                print(f"Type: {response_data['type']}")
-                print(f"From: {response_data['sender']}")
-                print(f"Content: {response_data['content']}")
-                print("===========================\n")
-            else:
-                # Just print a dot to show it's still running
-                print(".", end="", flush=True)
+    #         # Only print if a message was received
+    #         if response_data["type"] != "none":
+    #             print("\n=== New Message Received ===")
+    #             print(f"Type: {response_data['type']}")
+    #             print(f"From: {response_data['sender']}")
+    #             print(f"Content: {response_data['content']}")
+    #             print("===========================\n")
+    #         else:
+    #             # Just print a dot to show it's still running
+    #             print(".", end="", flush=True)
 
-    except KeyboardInterrupt:
-        print("\nShutting down...")
-    except Exception as e:
-        print(f"\nError: {e}")
-    finally:
-        # Clean up code here if needed
-        print("Goodbye!")
+    # except KeyboardInterrupt:
+    #     print("\nShutting down...")
+    # except Exception as e:
+    #     print(f"\nError: {e}")
+    # finally:
+    #     # Clean up code here if needed
+    #     print("Goodbye!")
 
-    # for i in range(10):
-    #     message = await nostr_client.async_receive_message(30)
-    #     print(f"Message: {message}")
+    # Create the ProfileFilter
+    profile_filter = ProfileFilter(
+        namespace=Namespace.MERCHANT,
+        profile_type=ProfileType.MERCHANT_RETAIL,
+        hashtags=["hardware"],
+    )
 
-    # relay_profile = nostr_client.get_profile(keys.get_public_key())
-    # print(f"Profile type: {relay_profile.get_profile_type()}")
-    # print(f"Profile namespace: {relay_profile.get_namespace()}")
-    # print(f"Profile hashtags: {relay_profile.get_hashtags()}")
-
-    # profile_filter = ProfileFilter(
-    #     profile_type=ProfileType.MERCHANT_RESTAURANT,
-    #     namespace=Namespace.MERCHANT,
-    #     hashtags=[],
-    # )
-
-    # merchants = await nostr_client.async_get_merchants(profile_filter)
-
-    # for merchant in merchants:
-    #     merchant_json = json.loads(merchant.to_json())
-    # print(f"Merchant: {json.dumps(merchant_json, indent=2)}")
-
-    # for event in event_list:
-    #     event_id = EventId.parse(event)
-    #     event = nostr_client.delete_event(event_id)
-    #     print(event)
-
-    # marketplace = nostr_client.retrieve_marketplace_merchants(
-    #     owner="npub1nar4a3vv59qkzdlskcgxrctkw9f0ekjgqaxn8vd0y82f9kdve9rqwjcurn",
-    #     marketplace_name="Historic Downtown Snoqualmie",
-    # )
-
-    # print(f"Marketplace: {marketplace}")
-
-    # for seller in marketplace:
-    #     print(f"Seller name: {seller.name}")
-    #     print(f"Seller about: {seller.about}")
-    #     print(f"Seller picture: {seller.picture}")
-    #     print(f"Seller banner: {seller.banner}")
-    #     print(f"Seller website: {seller.website}")
+    merchants: set[Profile] = await nostr_client.async_get_merchants(profile_filter)
+    print(f"Number of merchants: {len(merchants)}")
+    for merchant in merchants:
+        print(f"Merchant: {merchant.get_display_name()}")
 
 
 if __name__ == "__main__":

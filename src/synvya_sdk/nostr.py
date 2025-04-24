@@ -262,6 +262,17 @@ class NostrClient:
                     f"Profile filter namespace must be {Namespace.MERCHANT}"
                 )
 
+            # events_filter = (
+            #     Filter()
+            #     .kind(Kind(0))
+            #     .custom_tag(
+            #         SingleLetterTag.uppercase(Alphabet.L), profile_filter.namespace
+            #     )
+            #     .custom_tag(
+            #         SingleLetterTag.lowercase(Alphabet.L), profile_filter.profile_type
+            #     )
+            # )
+
             events_filter = (
                 Filter()
                 .kind(Kind(0))
@@ -273,16 +284,18 @@ class NostrClient:
                 )
             )
 
+            NostrClient.logger.debug("Events filter: %s", events_filter)
+
             # retrieve all kind 0 events with the filter.
             try:
                 # events = await self._async_get_events(events_filter)
 
-                events = await self.client.fetch_events_from(
-                    urls=[self.relay],
+                events = await self.client.fetch_events(
                     filter=events_filter,
                     timeout=timedelta(seconds=2),
                 )
                 if events.len() == 0:
+                    NostrClient.logger.debug("No events found")
                     return merchants  # returning empty set
                 events_list = events.to_vec()
                 for event in events_list:
@@ -1109,6 +1122,8 @@ class NostrClient:
         event_builder = event_builder.tags(
             [Tag.hashtag(hashtag) for hashtag in self.profile.get_hashtags()]
         )
+
+        NostrClient.logger.debug("Event builder: %s", event_builder)
 
         try:
             # event_id_obj = await self._async_publish_event(event_builder)
