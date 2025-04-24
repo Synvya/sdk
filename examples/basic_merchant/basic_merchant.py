@@ -107,29 +107,26 @@ async def merchant_cli() -> None:
     """
     Command-line interface for example merchant agent.
     """
-    # # publishing stalls
-    # print("Publishing all stalls")
-    # response = await merchant.arun("publish all stalls")
-    # print(f"\n🤖 Merchant Agent: {response.get_content_as_string()}\n")
+    # publishing stalls
+    print("Publishing all stalls")
+    response = await merchant.arun("publish all stalls")
+    print(f"\n🤖 Merchant Agent: {response.get_content_as_string()}\n")
 
-    # print("Publishing all products")
-    # response = await merchant.arun(
-    #     "publish all products, one at a time, wait 2 seconds in between each product"
-    # )
-    # print(f"\n🤖 Merchant Agent: {response.get_content_as_string()}\n")
+    print("Publishing all products")
+    response = await merchant.arun(
+        "publish all products, one at a time, wait 2 seconds in between each product"
+    )
+    print(f"\n🤖 Merchant Agent: {response.get_content_as_string()}\n")
 
-    # print("\n🔹 Merchant Agent CLI (Press Ctrl+C to quit)\n")
-    # while True:
-    #     response = await merchant.arun(
-    #         """listen for orders with a timeout of 10 seconds.
-    #         if no orders are received, respond with '...waiting for orders...
-    #         press ctrl+c to quit'
-    #         """
-    #     )
-    #     print(f"\n🤖 Merchant Agent: {response.get_content_as_string()}\n")
-
-    profile_str = merchant_tools.get_profile()
-    print(f"Profile: {json.dumps(profile_str, indent=4)}")
+    print("\n🔹 Merchant Agent CLI (Press Ctrl+C to quit)\n")
+    while True:
+        response = await merchant.arun(
+            """listen for orders with a timeout of 10 seconds.
+            if no orders are received, respond with '...waiting for orders...
+            press ctrl+c to quit'
+            """
+        )
+        print(f"\n🤖 Merchant Agent: {response.get_content_as_string()}\n")
 
 
 # Run the CLI
