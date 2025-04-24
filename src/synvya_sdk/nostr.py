@@ -276,6 +276,7 @@ class NostrClient:
             # retrieve all kind 0 events with the filter.
             try:
                 # events = await self._async_get_events(events_filter)
+
                 events = await self.client.fetch_events_from(
                     urls=[self.relay],
                     filter=events_filter,
