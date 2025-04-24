@@ -1,2 +1,2 @@
-agentstr
+synvya-sdk
 python-dotenv

@@ -8,10 +8,12 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 from synvya_sdk import (
+    Namespace,
     NostrKeys,
     Product,
     ProductShippingCost,
     Profile,
+    ProfileType,
     Stall,
     StallShippingMethod,
     generate_keys,
@@ -141,4 +143,9 @@ profile.set_banner(BANNER)
 profile.set_picture(PICTURE)
 profile.set_website(WEBSITE)
 profile.set_nip05(NIP05)
-profile.set_bot(True)
+profile.set_bot(False)
+profile.set_profile_type(ProfileType.MERCHANT_RETAIL)
+profile.set_namespace(Namespace.MERCHANT)
+profile.add_hashtag("hardware")
+profile.add_hashtag("tools")
+profile.add_hashtag("education")

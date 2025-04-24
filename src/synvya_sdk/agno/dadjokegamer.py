@@ -16,6 +16,7 @@ Joker receives the joke request and sends a joke to the publisher:
 
 import json
 import secrets
+from typing import Optional
 
 from pydantic import ConfigDict
 
@@ -26,7 +27,7 @@ try:
     from agno.utils.log import logger
 except ImportError as exc:
     raise ImportError(
-        "`agno` not installed. Please install using `pip install agno`"
+        "Package `agno` not installed. Please install using `pip install agno`"
     ) from exc
 
 
@@ -39,11 +40,14 @@ class DadJokeGamerTools(Toolkit):
         arbitrary_types_allowed=True, extra="allow", validate_assignment=True
     )
 
+    _instances_from_create: set[int] = set()
+
     def __init__(
         self,
         name: str,
         relay: str,
         private_key: str,
+        _from_create: bool = False,
     ) -> None:
         """Initialize the DadJokeTools toolkit.
 
@@ -51,28 +55,59 @@ class DadJokeGamerTools(Toolkit):
             relay: Nostr relay to use for communications
             private_key: private key of the buyer using this agent
         """
+        if not _from_create:
+            raise RuntimeError(
+                "DadJokeGamerTools must be created using the create() method"
+            )
+
+        # Track instance ID
+        self._instance_id = id(self)
+        DadJokeGamerTools._instances_from_create.add(self._instance_id)
+
         super().__init__(name=name)
-        self.relay = relay
-        self.private_key = private_key
+        self.relay: str = relay
+        self.private_key: str = private_key
 
         # Initialize fields
-        self._nostr_client = NostrClient(relay, private_key)
-        self._nostr_client.set_logging_level(logger.getEffectiveLevel())
-        self.profile = self._nostr_client.get_profile()
+        self.nostr_client: Optional[NostrClient] = None  # Will be set in create()
+        self.profile: Optional[Profile] = None  # Will be set in create()
         self.joker_public_key: str = ""
 
         # Register methods
         # Publisher
-        self.register(self.find_joker)
-        self.register(self.listen_for_joke)
-        self.register(self.publish_joke)
-        self.register(self.request_joke)
+        self.register(self.async_find_joker)
+        self.register(self.async_listen_for_joke)
+        self.register(self.async_publish_joke)
+        self.register(self.async_request_joke)
 
         # Joker
-        self.register(self.listen_for_joke_request)
-        self.register(self.submit_joke)
+        self.register(self.async_listen_for_joke_request)
+        self.register(self.async_submit_joke)
 
-    def find_joker(self) -> str:
+    def __del__(self) -> None:
+        """
+        Delete the DadJokeGamerTools instance.
+        """
+        if hasattr(self, "_instance_id"):
+            DadJokeGamerTools._instances_from_create.discard(self._instance_id)
+
+    @classmethod
+    async def create(
+        cls, name: str, relay: str, private_key: str
+    ) -> "DadJokeGamerTools":
+        """
+        Asynchronous factory method for proper initialization.
+        Use instead of the __init__ method.
+        """
+        instance = cls(name, relay, private_key, _from_create=True)
+
+        # Initialize NostrClient asynchronously
+        instance.nostr_client = await NostrClient.create(relay, private_key)
+        instance.profile = await instance.nostr_client.async_get_profile()
+        instance.nostr_client.set_logging_level(logger.getEffectiveLevel())
+        return instance
+
+    async def async_find_joker(self) -> str:
         """
         Finds all jokers in the network and selects one at random.
         Jokers are defined as Profiles meeting the following criteria:
@@ -85,6 +120,9 @@ class DadJokeGamerTools(Toolkit):
         Returns:
             str: JSON string containing the bech32 encoded public key of the joker
         """
+        if self.nostr_client is None:
+            raise RuntimeError("NostrClient not initialized. Call create() first.")
+
         NostrClient.logger.info("Finding jokers")
         joker_filter = ProfileFilter(
             namespace=Namespace.GAMER,
@@ -92,7 +130,7 @@ class DadJokeGamerTools(Toolkit):
             hashtags=["joker"],
         )
 
-        agents = self._nostr_client.get_agents(joker_filter)
+        agents = await self.nostr_client.async_get_agents(joker_filter)
 
         response = {
             "status": "error",
@@ -119,7 +157,7 @@ class DadJokeGamerTools(Toolkit):
                 tries += 1
         return json.dumps(response)
 
-    def listen_for_joke(self, timeout: int = 60) -> str:
+    async def async_listen_for_joke(self, timeout: int = 60) -> str:
         """
         Listen for a joke.
 
@@ -128,9 +166,12 @@ class DadJokeGamerTools(Toolkit):
         - role: "joker"
         - content: "The joke"
         """
+        if self.nostr_client is None:
+            raise RuntimeError("NostrClient not initialized. Call create() first.")
+
         NostrClient.logger.info("Listening for a joke")
         try:
-            message = self._nostr_client.receive_message(timeout)
+            message = await self.nostr_client.async_receive_message(timeout)
             message_dict = json.loads(message)
             # let's make sure the joke came from the joker we request the joke from
             if message_dict.get("sender") != self.joker_public_key:
@@ -156,7 +197,7 @@ class DadJokeGamerTools(Toolkit):
             )
         return json.dumps({"status": "error", "message": "No joke received."})
 
-    def publish_joke(self, joke: str, joker_public_key: str) -> str:
+    async def async_publish_joke(self, joke: str, joker_public_key: str) -> str:
         """
         Publish a joke as a kind:1 event
 
@@ -166,10 +207,13 @@ class DadJokeGamerTools(Toolkit):
         Returns:
             str: JSON string containing the status of the publication
         """
+        if self.nostr_client is None:
+            raise RuntimeError("NostrClient not initialized. Call create() first.")
+
         NostrClient.logger.info("Publishing a joke")
         try:
             text = f"Dad Joke from @{joker_public_key}:\n {joke}"
-            self._nostr_client.publish_note(text)
+            await self.nostr_client.async_publish_note(text)
             return json.dumps(
                 {
                     "status": "success",
@@ -184,7 +228,7 @@ class DadJokeGamerTools(Toolkit):
                 }
             )
 
-    def request_joke(self, joker_public_key: str) -> str:
+    async def async_request_joke(self, joker_public_key: str) -> str:
         """
         Request a joke from a joker.
 
@@ -194,6 +238,9 @@ class DadJokeGamerTools(Toolkit):
         Returns:
             str: JSON string containing the status of the request
         """
+        if self.nostr_client is None:
+            raise RuntimeError("NostrClient not initialized. Call create() first.")
+
         NostrClient.logger.info("Requesting a joke")
         message = json.dumps(
             {
@@ -202,7 +249,7 @@ class DadJokeGamerTools(Toolkit):
             }
         )
 
-        self._nostr_client.send_message(
+        await self.nostr_client.async_send_message(
             "kind:14",
             joker_public_key,
             message,
@@ -215,19 +262,22 @@ class DadJokeGamerTools(Toolkit):
             }
         )
 
-    def listen_for_joke_request(self) -> str:
+    async def async_listen_for_joke_request(self, timeout: int = 7200) -> str:
         """
         Listen for a joke request.
         """
+        if self.nostr_client is None:
+            raise RuntimeError("NostrClient not initialized. Call create() first.")
+
         NostrClient.logger.info("Listening for a joke request")
         try:
-            message = self._nostr_client.receive_message(timeout=7200)
+            message = await self.nostr_client.async_receive_message(timeout)
             message_dict = json.loads(message)
 
             # let's make sure the request came from a publisher
             if message_dict.get("type") == "kind:14":
                 sender = message_dict.get("sender")
-                profile = self._nostr_client.get_profile(sender)
+                profile = await self.nostr_client.async_get_profile(sender)
                 if (
                     profile.get_namespace() == Namespace.GAMER
                     and profile.get_profile_type() == ProfileType.GAMER_DADJOKE
@@ -246,13 +296,16 @@ class DadJokeGamerTools(Toolkit):
             return json.dumps({"status": "error", "message": str(e)})
         return json.dumps({"status": "error", "message": "No joke request received."})
 
-    def submit_joke(self, joke: str, publisher: str) -> str:
+    async def async_submit_joke(self, joke: str, publisher: str) -> str:
         """
         Submit a joke.
         """
+        if self.nostr_client is None:
+            raise RuntimeError("NostrClient not initialized. Call create() first.")
+
         NostrClient.logger.info("Submitting a joke")
         try:
-            self._nostr_client.send_message(
+            await self.nostr_client.async_send_message(
                 "kind:14",
                 publisher,
                 json.dumps({"role": "joker", "content": joke}),
@@ -261,7 +314,7 @@ class DadJokeGamerTools(Toolkit):
         except Exception as e:
             return json.dumps({"status": "error", "message": str(e)})
 
-    def set_profile(self, profile: Profile) -> str:
+    async def async_set_profile(self, profile: Profile) -> str:
         """
         Sets the profile used by the Toolkit.
         The profile is also published to the Nostr network.
@@ -272,12 +325,11 @@ class DadJokeGamerTools(Toolkit):
         Raises:
             RuntimeError: if it can't publish the event
         """
-        if self._nostr_client is None:
-            logger.error("NostrClient not initialized")
-            raise ValueError("NostrClient not initialized")
+        if self.nostr_client is None:
+            raise RuntimeError("NostrClient not initialized. Call create() first.")
 
         try:
-            result: str = self._nostr_client.set_profile(profile)
+            result: str = await self.nostr_client.async_set_profile(profile)
             return result
         except RuntimeError as e:
             logger.error("Unable to publish the profile: %s", e)
@@ -290,4 +342,6 @@ class DadJokeGamerTools(Toolkit):
         Returns:
             str: merchant profile in JSON format
         """
+        if self.profile is None:
+            raise RuntimeError("Profile not initialized. Call create() first.")
         return json.dumps(self.profile.to_json())

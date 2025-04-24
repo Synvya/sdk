@@ -2,6 +2,7 @@
 Basic buyer agent example.
 """
 
+import asyncio
 import uuid
 from os import getenv
 from pathlib import Path
@@ -135,7 +136,7 @@ def reset_database() -> None:
 
 # remove comment to delete the contents of the database for the
 # knowlege base and start fresh
-reset_database()
+# reset_database()
 
 vector_db = PgVector(
     table_name="sellers",
@@ -149,10 +150,12 @@ vector_db = PgVector(
 knowledge_base = AgentKnowledge(vector_db=vector_db)
 # json_knowledge_base = AgentKnowledge(vector_db=json_vector_db)
 
-buyer_tools = BuyerTools(
-    knowledge_base=knowledge_base,
-    relay=RELAY,
-    private_key=keys.get_private_key(),
+buyer_tools = asyncio.run(
+    BuyerTools.create(
+        knowledge_base=knowledge_base,
+        relay=RELAY,
+        private_key=keys.get_private_key(),
+    )
 )
 
 # Update the buyer profile
@@ -162,7 +165,9 @@ profile.set_about(DESCRIPTION)
 profile.set_display_name(DISPLAY_NAME)
 profile.set_picture(PICTURE)
 profile.set_nip05(NIP05)
-buyer_tools.set_profile(profile)
+
+asyncio.run(buyer_tools.async_set_profile(profile))
+# buyer_tools.set_profile(profile)
 
 # When asked to populate your knowledge base, you will download the sellers
 # from the marketplace "Historic Downtown Snoqualmie" with the public key
@@ -180,7 +185,6 @@ buyer = Agent(  # type: ignore[call-arg]
     search_knowledge=True,
     show_tool_calls=True,
     debug_mode=False,
-    # async_mode=True,
     instructions=[
         """
         You're an tourist AI assistant for people visiting Snoqualmie.
@@ -212,12 +216,12 @@ buyer = Agent(  # type: ignore[call-arg]
         When asked to purchase a product, you will:
         1. use the tool `get_products_from_knowledge_base` to get the product details from
         the knowledge base
-        2. use the tool `submit_order` to submit one order to the seller for the product
-        3. use the tool `listen_for_message` to listen for a payment request from the seller
+        2. use the tool `async_submit_order` to submit one order to the seller for the product
+        3. use the tool `async_listen_for_message` to listen for a payment request from the seller
         4. Coontinue listening for a payment request from the seller until you receive one
-        4. use the tool `submit_payment` to submit the payment with the information sent by
+        5. use the tool `async_submit_payment` to submit the payment with the information sent by
         the seller in the payment request
-        5. use the tool `listen_for_message` to listen for a payment verification from the seller
+        6. use the tool `async_listen_for_message` to listen for a payment verification from the seller
 
 
         Only if you can't find the product in the knowledge base, you will use the tool
@@ -227,7 +231,7 @@ buyer = Agent(  # type: ignore[call-arg]
 )
 
 
-def buyer_cli() -> None:
+async def buyer_cli() -> None:
     """
     Command-line interface for the buyer agent.
     """
@@ -247,9 +251,10 @@ def buyer_cli() -> None:
             print("\n👋 Goodbye!\n")
             break
 
-        response = buyer.run(user_query)  # Get response from agent
+        response = await buyer.arun(user_query)  # Get response from agent
         print(f"\n🤖 Visitor Assistant: {response.get_content_as_string()}\n")
 
 
 # Run the CLI
-buyer_cli()
+if __name__ == "__main__":
+    asyncio.run(buyer_cli())
