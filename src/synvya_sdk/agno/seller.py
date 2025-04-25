@@ -370,12 +370,8 @@ class MerchantTools(Toolkit):
                 continue
             try:
                 event_id = await self.nostr_client.async_set_product(product)
-                categories = product.categories if product.categories else []
-                categories_str = ", ".join(categories)
                 logger.debug(
-                    "Published product %s with categories %s",
-                    product.name,
-                    categories_str,
+                    f"Published product {product.name} with categories {', '.join(product.categories)}"
                 )
 
                 self.product_db[i] = (product, event_id)
