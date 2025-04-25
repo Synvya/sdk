@@ -44,7 +44,8 @@ def pytest_collection_modifyitems(items: List[Item]) -> None:
     # Create a dictionary mapping filenames to execution order
     order_map = {name: index for index, name in enumerate(ordered_files)}
 
-    # Sort test items based on the order_map; default to a high value for unspecified files
+    # Sort test items based on the order_map; default to a high value
+    # for unspecified files
     items.sort(key=lambda item: order_map.get(item.location[0], 100))
 
 
@@ -369,10 +370,33 @@ async def merchant_tools_fixture(
     products: List[Product],
 ) -> MerchantTools:
     """Create a Merchant instance for testing"""
-    merchant_tools = await MerchantTools.create(
-        relay, merchant_keys.get_private_key(), stalls, products
-    )
-    return merchant_tools
+    from unittest.mock import AsyncMock, Mock, patch
+
+    # Step 1: Create a proper mock client that mixes Mock and AsyncMock
+    # Use a standard Mock as the base
+    mock_client = Mock()
+
+    # Replace specific methods that need to be async with AsyncMock
+    mock_client.async_get_profile = AsyncMock()
+    mock_client.async_get_profile.return_value = Profile(merchant_keys.get_public_key())
+    mock_client.async_set_product = AsyncMock()
+    mock_client.async_set_stall = AsyncMock()
+    mock_client.async_set_profile = AsyncMock()
+    mock_client.async_delete_event = AsyncMock()
+    mock_client.async_send_message = AsyncMock()
+    mock_client.async_receive_message = AsyncMock()
+
+    # Step 2: Use patch as a context manager to replace NostrClient.create
+    with patch("synvya_sdk.NostrClient.create", return_value=mock_client):
+        # Step 3: Create MerchantTools instance with mocked dependencies
+        merchant_tools = await MerchantTools.create(
+            relay, merchant_keys.get_private_key(), stalls, products
+        )
+
+        # Ensure the mocked client is properly assigned to the instance
+        merchant_tools.nostr_client = mock_client
+
+        return merchant_tools
 
 
 @pytest.fixture(scope="session", name="mock_knowledge_base")
@@ -389,11 +413,21 @@ async def buyer_tools_fixture(
     merchant_profile: Profile,
 ) -> BuyerTools:
     """Create a Buyer instance for testing"""
-    from unittest.mock import AsyncMock, patch
+    from unittest.mock import AsyncMock, Mock, patch
 
-    # Step 1: Mock the NostrClient initialization inside BuyerTools.create
-    mock_client = AsyncMock()
+    # Step 1: Create a proper mock client that mixes Mock and AsyncMock
+    # Use a standard Mock as the base
+    mock_client = Mock()
+
+    # Replace specific methods that need to be async with AsyncMock
+    mock_client.async_get_profile = AsyncMock()
     mock_client.async_get_profile.return_value = Profile(buyer_keys.get_public_key())
+    mock_client.async_get_merchants = AsyncMock()
+    mock_client.async_get_merchants_in_marketplace = AsyncMock()
+    mock_client.async_get_products = AsyncMock()
+    mock_client.async_get_stalls = AsyncMock()
+    mock_client.async_send_message = AsyncMock()
+    mock_client.async_receive_message = AsyncMock()
 
     # Step 2: Use patch as a context manager to replace NostrClient.create
     with patch("synvya_sdk.NostrClient.create", return_value=mock_client):

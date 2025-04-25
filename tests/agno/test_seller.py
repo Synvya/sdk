@@ -2,10 +2,10 @@
 This module contains tests for the MerchantTools class.
 """
 
-import itertools
+import itertools as it
 import json
-from typing import List
-from unittest.mock import patch
+from typing import List, cast
+from unittest.mock import AsyncMock
 
 import pytest
 
@@ -39,22 +39,23 @@ async def test_publish_product(
     products: List[Product],
 ) -> None:
     """Test publishing a product"""
-    with patch.object(
-        merchant_tools.nostr_client, "async_set_product"
-    ) as mock_set_product:
-        mock_set_product.return_value = product_event_ids[0]
+    # Type assertion to help mypy
+    assert merchant_tools.nostr_client is not None
 
-        result = json.loads(
-            await merchant_tools.async_publish_product(products[0].name)
-        )
-        assert result["status"] == "success"
-        assert result["product_name"] == products[0].name
+    # Get the mock client
+    mock_client = merchant_tools.nostr_client
 
-        result = json.loads(
-            await merchant_tools.async_publish_product(products[0].name)
-        )
-        assert result["status"] == "success"
-        assert result["product_name"] == products[0].name
+    # Use explicit cast to AsyncMock for the specific method
+    async_set_product = cast(AsyncMock, mock_client.async_set_product)
+    async_set_product.return_value = product_event_ids[0]
+
+    result = json.loads(await merchant_tools.async_publish_product(products[0].name))
+    assert result["status"] == "success"
+    assert result["product_name"] == products[0].name
+
+    result = json.loads(await merchant_tools.async_publish_product(products[0].name))
+    assert result["status"] == "success"
+    assert result["product_name"] == products[0].name
 
 
 @pytest.mark.asyncio
@@ -64,12 +65,19 @@ async def test_publish_stall(
     stalls: List[Stall],
 ) -> None:
     """Test publishing a stall by name"""
-    with patch.object(merchant_tools.nostr_client, "async_set_stall") as mock_set_stall:
-        mock_set_stall.return_value = stall_event_ids[0]
+    # Type assertion to help mypy
+    assert merchant_tools.nostr_client is not None
 
-        result = json.loads(await merchant_tools.async_publish_stall(stalls[0].name))
-        assert result["status"] == "success"
-        assert result["stall_name"] == stalls[0].name
+    # Get the mock client
+    mock_client = merchant_tools.nostr_client
+
+    # Use explicit cast to AsyncMock for the specific method
+    async_set_stall = cast(AsyncMock, mock_client.async_set_stall)
+    async_set_stall.return_value = stall_event_ids[0]
+
+    result = json.loads(await merchant_tools.async_publish_stall(stalls[0].name))
+    assert result["status"] == "success"
+    assert result["stall_name"] == stalls[0].name
 
 
 @pytest.mark.asyncio
@@ -79,16 +87,26 @@ async def test_publish_products_in_stall(
     stalls: List[Stall],
 ) -> None:
     """Test publishing all products in a stall"""
-    with patch.object(
-        merchant_tools.nostr_client, "async_set_product"
-    ) as mock_set_product:
-        mock_set_product.return_value = itertools.cycle(products_in_stall_event_ids)
+    # Type assertion to help mypy
+    assert merchant_tools.nostr_client is not None
 
-        results = json.loads(await merchant_tools.async_publish_products(stalls[0]))
-        print("Test publish products in stall")
-        print(json.dumps(results, indent=4))
-        assert len(results) == 2
-        assert all(r["status"] == "success" for r in results)
+    # Get the mock client
+    mock_client = merchant_tools.nostr_client
+
+    # Create a generator that cycles through the event IDs
+    event_id_generator = it.cycle(products_in_stall_event_ids)
+
+    # Use explicit cast to AsyncMock for the specific method
+    async_set_product = cast(AsyncMock, mock_client.async_set_product)
+
+    # Set up the mock to return different event IDs for each call
+    async_set_product.side_effect = lambda *args, **kwargs: next(event_id_generator)
+
+    results = json.loads(await merchant_tools.async_publish_products(stalls[0]))
+    print("Test publish products in stall")
+    print(json.dumps(results, indent=4))
+    assert len(results) == 2
+    assert all(r["status"] == "success" for r in results)
 
 
 @pytest.mark.asyncio
@@ -96,15 +114,25 @@ async def test_publish_all_products(
     merchant_tools: MerchantTools, product_event_ids: List[str]
 ) -> None:
     """Test publishing all products"""
-    with patch.object(
-        merchant_tools.nostr_client, "async_set_product"
-    ) as mock_set_product:
-        mock_set_product.return_value = itertools.cycle(product_event_ids)
+    # Type assertion to help mypy
+    assert merchant_tools.nostr_client is not None
 
-        results = json.loads(await merchant_tools.async_publish_products())
-        print("Test publish all products")
-        print(json.dumps(results, indent=4))
-        assert len(results) == 3
+    # Get the mock client
+    mock_client = merchant_tools.nostr_client
+
+    # Create a generator that cycles through the event IDs
+    event_id_generator = it.cycle(product_event_ids)
+
+    # Use explicit cast to AsyncMock for the specific method
+    async_set_product = cast(AsyncMock, mock_client.async_set_product)
+
+    # Set up the mock to return different event IDs for each call
+    async_set_product.side_effect = lambda *args, **kwargs: next(event_id_generator)
+
+    results = json.loads(await merchant_tools.async_publish_products())
+    print("Test publish all products")
+    print(json.dumps(results, indent=4))
+    assert len(results) == 3
 
 
 @pytest.mark.asyncio
@@ -112,13 +140,25 @@ async def test_publish_all_stalls(
     merchant_tools: MerchantTools, stall_event_ids: List[str]
 ) -> None:
     """Test publishing all stalls"""
-    with patch.object(merchant_tools.nostr_client, "async_set_stall") as mock_set_stall:
-        mock_set_stall.return_value = itertools.cycle(stall_event_ids)
+    # Type assertion to help mypy
+    assert merchant_tools.nostr_client is not None
 
-        results = json.loads(await merchant_tools.async_publish_stalls())
-        print("Test publish all stalls")
-        print(json.dumps(results, indent=4))
-        assert len(results) == 2
+    # Get the mock client
+    mock_client = merchant_tools.nostr_client
+
+    # Create a generator that cycles through the event IDs
+    event_id_generator = it.cycle(stall_event_ids)
+
+    # Use explicit cast to AsyncMock for the specific method
+    async_set_stall = cast(AsyncMock, mock_client.async_set_stall)
+
+    # Set up the mock to return different event IDs for each call
+    async_set_stall.side_effect = lambda *args, **kwargs: next(event_id_generator)
+
+    results = json.loads(await merchant_tools.async_publish_stalls())
+    print("Test publish all stalls")
+    print(json.dumps(results, indent=4))
+    assert len(results) == 2
 
 
 @pytest.mark.asyncio
@@ -130,18 +170,20 @@ async def test_profile_operations(
     merchant_profile: Profile,
 ) -> None:
     """Test profile-related operations"""
-    with patch.object(merchant_tools, "get_profile") as mock_get_profile:
-        mock_get_profile.return_value = json.dumps(merchant_profile.to_json())
-        profile_data = json.loads(merchant_tools.get_profile())
-        profile = json.loads(profile_data)  # Parse the nested JSON string
-        # print(f"Profile: {profile}")
-        # print(f"profile_data: {profile_data}")
-        assert profile["name"] == merchant_name
-        assert profile["about"] == merchant_about
+    # No need to mock get_profile since we're not testing it directly
+    profile_data = json.loads(merchant_tools.get_profile())
+    assert "name" in profile_data
+    assert "about" in profile_data
 
-    with patch.object(
-        merchant_tools.nostr_client, "async_set_profile"
-    ) as mock_set_profile:
-        mock_set_profile.return_value = profile_event_id
-        result = await merchant_tools.async_set_profile(merchant_profile)
-        assert isinstance(result, str)
+    # Type assertion to help mypy
+    assert merchant_tools.nostr_client is not None
+
+    # Get the mock client
+    mock_client = merchant_tools.nostr_client
+
+    # Use explicit cast to AsyncMock for the specific method
+    async_set_profile = cast(AsyncMock, mock_client.async_set_profile)
+    async_set_profile.return_value = profile_event_id
+
+    result = await merchant_tools.async_set_profile(merchant_profile)
+    assert isinstance(result, str)

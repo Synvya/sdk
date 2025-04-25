@@ -251,7 +251,7 @@ app.add_middleware(
         "http://127.0.0.1",
         "http://127.0.0.1:8000",
         "https://client-web.synvya.com",
-        "https://97cddff9-ccce-4cf8-93ff-1a55031a33f1.lovableproject.com",  # <-- added this line
+        "https://97cddff9-ccce-4cf8-93ff-1a55031a33f1.lovableproject.com",
     ],
     allow_credentials=True,
     allow_methods=["GET", "POST", "OPTIONS"],
@@ -315,9 +315,7 @@ async def chat(request: QueryRequest, fastapi_request: Request) -> CompleteChatR
         # Get text content
         text_content = response.get_content_as_string()
 
-        # Extract image URLs if present (this is where your LLM might identify image references)
-        # This is a simplified example - your actual implementation would depend on how
-        # your model returns image information
+        # Extract image URLs if present
         content_parts: List[Union[TextContent, ImageContent]] = []
 
         # Example of extracting image references from text (very simplified)
@@ -354,4 +352,4 @@ async def chat(request: QueryRequest, fastapi_request: Request) -> CompleteChatR
         return CompleteChatResponse(content=content_parts, query=request.query)
     except Exception as e:
         logging.error("Error generating response: %s", e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e

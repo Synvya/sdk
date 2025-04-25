@@ -143,11 +143,6 @@ class Profile(BaseModel):
             self.hashtags.append(normalized_hashtag)
 
     def add_location(self, location: str) -> None:
-        """Add a location to the Nostr profile.
-
-        Args:
-            location: location to add
-        """
         self.locations.add(location)
 
     def get_about(self) -> str:
@@ -163,11 +158,6 @@ class Profile(BaseModel):
         return self.hashtags
 
     def get_locations(self) -> set[str]:
-        """Get the locations of the Nostr profile.
-
-        Returns:
-            set[str]: set with locations of the Nostr profile
-        """
         return self.locations
 
     def get_name(self) -> str:
@@ -205,8 +195,8 @@ class Profile(BaseModel):
             return self.public_key
         if encoding == "hex":
             return PublicKey.parse(self.public_key).to_hex()
-        else:
-            raise ValueError("Invalid encoding. Must be 'bech32' or 'hex'.")
+
+        raise ValueError("Invalid encoding. Must be 'bech32' or 'hex'.")
 
     def get_website(self) -> str:
         return self.website
@@ -267,12 +257,6 @@ class Profile(BaseModel):
         self.website = self._validate_url(website) if website else ""
 
     def to_dict(self) -> dict:
-        """
-        Returns a dictionary representation of the PublicProfile.
-
-        Returns:
-            dict: dictionary representation of the PublicProfile
-        """
         return {
             "about": self.about,
             "banner": self.banner,
@@ -351,9 +335,6 @@ class Profile(BaseModel):
             ) from e
 
     async def _validate_profile_nip05(self) -> bool:
-        """
-        Validate the NIP-05 of the profile.
-        """
         if not self.nip05:
             self.logger.error("Profile has no NIP-05")
             return False
@@ -365,39 +346,21 @@ class Profile(BaseModel):
             # Extract the local part (username) from the NIP-05 identifier
             local_part = self.nip05.split("@")[0]
             nostr_json = await self._fetch_nip05_metadata(self.nip05)
-            # print(f"Validating NIP-05 for {self.nip05}")
-            # print(f"NIP-05 metadata: {nostr_json}")
-            # print(f"Profile public key (hex): {self.get_public_key('hex')}")
         except Exception as e:
             self.logger.error("Failed to fetch NIP-05 metadata: %s", e)
             return False
 
         if "names" in nostr_json:
             for name, public_key in nostr_json["names"].items():
-                # print(f"Checking name: {name} (local_part: {local_part})")
-                # print(
-                #     f"Checking public key: {public_key} (profile key: {self.get_public_key('hex')})"
-                # )
                 if (
                     name.lower() == local_part.lower()
                     and public_key == self.get_public_key("hex")
                 ):
-                    # print("NIP-05 validation successful")
                     return True
-            # print("NIP-05 validation failed - no matching name/key pair found")
         else:
-            # print("NIP-05 validation failed - no names found in metadata")
             return False
 
     def _validate_url(self, url: str) -> str:
-        """Validate and normalize URL.
-
-        Args:
-            url: URL to validate
-
-        Returns:
-            str: Validated URL or empty string if invalid
-        """
         if not url:
             return ""
         if not url.startswith(("http://", "https://")):
@@ -704,7 +667,12 @@ class StallShippingMethod(BaseModel):
         return json.dumps(self.to_dict())
 
     def __str__(self) -> str:
-        return f"ID: {self.ssm_id} Cost: {self.ssm_cost} Name: {self.ssm_name} Regions: {self.ssm_regions}"
+        return (
+            f"ID: {self.ssm_id} "
+            f"Cost: {self.ssm_cost} "
+            f"Name: {self.ssm_name} "
+            f"Regions: {self.ssm_regions}"
+        )
 
 
 class Product(BaseModel):
@@ -745,16 +713,13 @@ class Product(BaseModel):
 
     @classmethod
     def from_product_data(cls, product_data: "ProductData") -> "Product":
-        # print(f"Raw product data specs: {product_data.specs}")  # Debug print
         shipping_costs = []
         for ship in product_data.shipping:
             if isinstance(ship, dict):
-                # shipping_costs.append(ShippingCost(id=ship["id"], cost=ship["cost"]))
                 shipping_costs.append(
                     ProductShippingCost(psc_id=ship["id"], psc_cost=ship["cost"])
                 )
             else:
-                # shipping_costs.append(ship)
                 shipping_costs.append(
                     ProductShippingCost(psc_id=ship.id, psc_cost=ship.cost)
                 )
@@ -901,28 +866,6 @@ class Stall(BaseModel):
     shipping: List[StallShippingMethod]
     geohash: Optional[str] = None
 
-    # @classmethod
-    # def from_stall_data(cls, stall: "StallData") -> "MerchantStall":
-    #     # Create a list of StallShippingMethod from the shipping methods in StallData
-    #     shipping_methods = [
-    #         StallShippingMethod(
-    #             ssm_id=shipping_method.get_shipping_cost().get_id(),
-    #             ssm_cost=shipping_method.get_shipping_cost().get_cost(),
-    #             ssm_name=shipping_method.get_name(),
-    #             ssm_regions=shipping_method.get_regions(),
-    #         )
-    #         for shipping_method in stall.shipping()  # Assuming stall.shipping() returns a list of ShippingMethod
-    #     ]
-
-    #     return cls(
-    #         id=stall.id(),
-    #         name=stall.name(),
-    #         description=stall.description(),
-    #         currency=stall.currency(),
-    #         # shipping=stall.shipping(),
-    #         shipping=shipping_methods,  # Use the newly created list of StallShippingMethod
-    #     )
-
     def get_geohash(self) -> str:
         return self.geohash
 
@@ -930,13 +873,6 @@ class Stall(BaseModel):
         self.geohash = geohash
 
     def to_dict(self) -> dict:
-        """
-        Returns a dictionary representation of the Stall.
-
-
-        Returns:
-            dict: dictionary representation of the Stall
-        """
         # Use the to_dict method of StallShippingMethod for serialization
         shipping_dicts = [shipping.to_dict() for shipping in self.shipping]
 
@@ -978,15 +914,6 @@ class Stall(BaseModel):
 
     @classmethod
     def from_json(cls, stall_content: str) -> "Stall":
-        """
-        Create a Stall instance from a JSON string.
-
-        Args:
-            stall_content (str): JSON string containing stall information.
-
-        Returns:
-            Stall: An instance of Stall.
-        """
         # Handle empty strings
         if not stall_content or stall_content.isspace():
             return cls(

@@ -3,7 +3,6 @@ This example shows how to create a basic merchant agent.
 """
 
 import asyncio
-import json
 from os import getenv
 
 from mtp import keys, products, profile, stalls
@@ -69,13 +68,15 @@ merchant = Agent(  # type: ignore[call-arg]
         If you encounter any errors, first try again, then, let me know
         with specific details for each error message.
 
-        To publish a single product or a single stall, use the tools `async_publish_product`
-        and `async_publish_stall` with the exact name of the product or stall. To find the exact name
-        of the product or stall, use the tool `get_products` or `get_stalls` and match the
-        name property to the input provided by the user.
+        To publish a single product or a single stall, use the tools
+        `async_publish_product` and `async_publish_stall` with the exact name
+        of the product or stall. To find the exact name of the product or stall,
+        use the tool `get_products` or `get_stalls` and match the name property
+        to the input provided by the user.
 
         When you receive an order, you must take one of the following actions:
-        - Process the order if the order value (price x quantity) is less than 1,000,000 sats.
+        - Process the order if the order value (price x quantity) is less than
+        1,000,000 sats.
         - Trigger a manual workflow for the order if the order value (price x quantity)
         is greater than 1,000,000 sats.
 

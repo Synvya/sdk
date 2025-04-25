@@ -22,30 +22,6 @@ def test_buyer_profile_creation(
     assert buyer_profile.get_website() is not None
 
 
-# This test will download all merchants from the relay. Expect it to run for long.
-# @pytest.mark.asyncio
-# async def test_get_merchants(
-#     buyer_tools: BuyerTools,
-# ) -> None:
-#     """Test the retrieval of merchants"""
-#     result = await buyer_tools.async_get_merchants()
-#     assert result is not None
-
-
-# def test_get_sellers_by_location(
-#     buyer_tools: BuyerTools, merchant_location: str, merchant_name: str
-# ) -> None:
-#     """Test the finding of sellers by location"""
-#     with patch(
-#         "synvya_sdk.agno.buyer._map_location_to_geohash"
-#     ) as mock_map_location_to_geohash:
-#         mock_map_location_to_geohash.return_value = "000000000"
-
-#         result = buyer_tools.get_sellers_by_location(merchant_location)
-#         assert result is not None
-#         assert merchant_name in result
-
-
 @pytest.mark.asyncio
 async def test_get_stalls(
     buyer_tools: BuyerTools,
@@ -53,11 +29,17 @@ async def test_get_stalls(
     stalls: List[Stall],
 ) -> None:
     """Test the retrieval of a seller's stalls"""
-    # Cast the NostrClient to AsyncMock to satisfy type checker
-    mock_client = cast(AsyncMock, buyer_tools._nostr_client)
+    # Type assertion to help mypy
+    assert buyer_tools._nostr_client is not None
+
+    # Get the mock client
+    mock_client = buyer_tools._nostr_client
+
+    # Use explicit cast to AsyncMock for the specific method
+    async_get_stalls = cast(AsyncMock, mock_client.async_get_stalls)
 
     # Mock the NostrClient.async_get_stalls method
-    mock_client.async_get_stalls.return_value = stalls
+    async_get_stalls.return_value = stalls
 
     # Call the method and verify results
     result = await buyer_tools.async_get_stalls(merchant_profile.get_public_key())
@@ -65,9 +47,7 @@ async def test_get_stalls(
     assert isinstance(result, str)
 
     # Verify the mock was called with the correct public key
-    mock_client.async_get_stalls.assert_called_once_with(
-        merchant_profile.get_public_key()
-    )
+    async_get_stalls.assert_called_once_with(merchant_profile.get_public_key())
 
     # Parse result and verify content
     result_data = json.loads(result)
@@ -82,20 +62,24 @@ async def test_get_products(
     products: List[Product],
 ) -> None:
     """Test the retrieval of a seller's products"""
-    # Cast the NostrClient to AsyncMock to satisfy type checker
-    mock_client = cast(AsyncMock, buyer_tools._nostr_client)
+    # Type assertion to help mypy
+    assert buyer_tools._nostr_client is not None
+
+    # Get the mock client
+    mock_client = buyer_tools._nostr_client
+
+    # Use explicit cast to AsyncMock for the specific method
+    async_get_products = cast(AsyncMock, mock_client.async_get_products)
 
     # Mock the NostrClient.async_get_products method
-    mock_client.async_get_products.return_value = products
+    async_get_products.return_value = products
 
     # Call the method and verify results
     result = await buyer_tools.async_get_products(merchant_profile.get_public_key())
     assert isinstance(result, str)
 
     # Verify the mock was called with the correct parameters
-    mock_client.async_get_products.assert_called_once_with(
-        merchant_profile.get_public_key(), None
-    )
+    async_get_products.assert_called_once_with(merchant_profile.get_public_key(), None)
 
     # Parse result and verify content
     result_data = json.loads(result)
