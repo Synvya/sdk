@@ -318,7 +318,7 @@ async def chat(request: QueryRequest, fastapi_request: Request) -> CompleteChatR
         # Extract image URLs if present (this is where your LLM might identify image references)
         # This is a simplified example - your actual implementation would depend on how
         # your model returns image information
-        content_parts = []
+        content_parts: List[Union[TextContent, ImageContent]] = []
 
         # Example of extracting image references from text (very simplified)
         # In a real implementation, your LLM would provide structured data about images

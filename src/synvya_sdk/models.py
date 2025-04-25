@@ -243,6 +243,10 @@ class Profile(BaseModel):
 
     def set_namespace(self, namespace: Namespace | str) -> None:
         if isinstance(namespace, str):
+            # Handle empty string by not setting any namespace
+            if not namespace:
+                self.namespace = ""
+                return
             # Convert string to Namespace enum safely
             namespace = Namespace(namespace)
         self.namespace = namespace

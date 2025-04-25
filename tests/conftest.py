@@ -51,7 +51,7 @@ def pytest_collection_modifyitems(items: List[Item]) -> None:
 @pytest.fixture(scope="session", name="relay")
 def relay_fixture() -> str:
     """Fixture providing the test relay"""
-    return "wss://relay.damus.io"
+    return "wss://nos.lol"
 
 
 ###--- Merchant Fixtures ---###
@@ -389,8 +389,22 @@ async def buyer_tools_fixture(
     merchant_profile: Profile,
 ) -> BuyerTools:
     """Create a Buyer instance for testing"""
-    buyer_tools = await BuyerTools.create(
-        mock_knowledge_base, relay, buyer_keys.get_private_key()
-    )
-    buyer_tools.sellers = {merchant_profile}
-    return buyer_tools
+    from unittest.mock import AsyncMock, patch
+
+    # Step 1: Mock the NostrClient initialization inside BuyerTools.create
+    mock_client = AsyncMock()
+    mock_client.async_get_profile.return_value = Profile(buyer_keys.get_public_key())
+
+    # Step 2: Use patch as a context manager to replace NostrClient.create
+    with patch("synvya_sdk.NostrClient.create", return_value=mock_client):
+        # Step 3: Create BuyerTools instance with mocked dependencies
+        buyer_tools = await BuyerTools.create(
+            mock_knowledge_base, relay, buyer_keys.get_private_key()
+        )
+        # Step 4: Set merchants directly
+        buyer_tools.merchants = {merchant_profile}
+
+        # Ensure the mocked client is properly assigned to the instance
+        buyer_tools._nostr_client = mock_client
+
+        return buyer_tools

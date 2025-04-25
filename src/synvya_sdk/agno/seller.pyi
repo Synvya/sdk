@@ -1,11 +1,26 @@
-from typing import List, Optional
+from typing import ClassVar, List, Optional, Set, Tuple
+
+from nostr_sdk import EventId
+from pydantic import ConfigDict
 
 from agno.tools import Toolkit
 from synvya_sdk import NostrClient, Product, Profile, Stall
 
 class MerchantTools(Toolkit):
-    # Initialization
+    # Class variables
+    _instances_from_create: ClassVar[Set[int]]
+    model_config: ClassVar[ConfigDict]
 
+    # Instance variables
+    relay: str
+    private_key: str
+    profile: Optional[Profile]
+    nostr_client: Optional[NostrClient]
+    product_db: List[Tuple[Product, Optional[EventId]]]
+    stall_db: List[Tuple[Stall, Optional[EventId]]]
+    _instance_id: int
+
+    # Initialization
     def __init__(
         self,
         relay: str,
@@ -24,11 +39,11 @@ class MerchantTools(Toolkit):
     async def async_set_profile(self, profile: Profile) -> str: ...
 
     # Nostr NIP-15 Marketplace - Seller
-    async def async_publish_product(self, product: str) -> str: ...
+    async def async_publish_product(self, product_name: str) -> str: ...
     async def async_publish_products(
         self, stall: Optional[Stall] = None, products: Optional[List[Product]] = None
     ) -> str: ...
-    async def async_publish_stall(self, stall: str) -> str: ...
+    async def async_publish_stall(self, stall_name: str) -> str: ...
     async def async_publish_stalls(
         self, stalls: Optional[List[Stall]] = None
     ) -> str: ...

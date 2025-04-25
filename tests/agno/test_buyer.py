@@ -53,11 +53,23 @@ async def test_get_stalls(
     stalls: List[Stall],
 ) -> None:
     """Test the retrieval of a seller's stalls"""
-    with patch.object(buyer_tools._nostr_client, "async_get_stalls") as mock_get_stalls:
-        mock_get_stalls.return_value = stalls
+    # Mock the NostrClient.async_get_stalls method
+    buyer_tools._nostr_client.async_get_stalls.return_value = stalls
 
-        result = await buyer_tools.async_get_stalls(merchant_profile.get_public_key())
-        assert result is not None
+    # Call the method and verify results
+    result = await buyer_tools.async_get_stalls(merchant_profile.get_public_key())
+    assert result is not None
+    assert isinstance(result, str)
+
+    # Verify the mock was called with the correct public key
+    buyer_tools._nostr_client.async_get_stalls.assert_called_once_with(
+        merchant_profile.get_public_key()
+    )
+
+    # Parse result and verify content
+    result_data = json.loads(result)
+    assert isinstance(result_data, list)
+    assert len(result_data) == len(stalls)
 
 
 @pytest.mark.asyncio
@@ -67,22 +79,21 @@ async def test_get_products(
     products: List[Product],
 ) -> None:
     """Test the retrieval of a seller's products"""
-    with patch.object(
-        buyer_tools._nostr_client,
-        "async_get_products",
-        return_value=products,
-    ) as mock_get_products:
-        result = await buyer_tools.async_get_products(merchant_profile.get_public_key())
-        assert isinstance(result, str)  # Ensure it's a JSON string
+    # Mock the NostrClient.async_get_products method
+    buyer_tools._nostr_client.async_get_products.return_value = products
 
-        # ✅ Verify that the mocked method was called
-        mock_get_products.assert_called_once_with(
-            merchant_profile.get_public_key(), None
-        )
+    # Call the method and verify results
+    result = await buyer_tools.async_get_products(merchant_profile.get_public_key())
+    assert isinstance(result, str)
 
-        products = json.loads(result)  # Convert JSON string back to a Python list
-        products = json.loads(result)  # Convert JSON string back to a Python list
-        assert isinstance(products, list)  # Ensure it's a list
-        assert len(products) > 0  # Ensure the list is not empty
-        assert isinstance(products[0], dict)  # Ensure the first item is a dictionary
-        assert "name" in products[0]  # Ensure "name" key exists in the first product
+    # Verify the mock was called with the correct parameters
+    buyer_tools._nostr_client.async_get_products.assert_called_once_with(
+        merchant_profile.get_public_key(), None
+    )
+
+    # Parse result and verify content
+    result_data = json.loads(result)
+    assert isinstance(result_data, list)
+    assert len(result_data) > 0
+    assert isinstance(result_data[0], dict)
+    assert "name" in result_data[0]

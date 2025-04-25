@@ -1,12 +1,23 @@
 import logging
 from logging import Logger
-from typing import ClassVar, List, Optional
+from typing import Any, ClassVar, Dict, List, Optional, Set
 
 from agno.agent import AgentKnowledge
 from agno.tools import Toolkit
-from synvya_sdk import Product, Profile, ProfileFilter, Stall
+from synvya_sdk import NostrClient, Product, Profile, ProfileFilter, Stall
 
 class BuyerTools(Toolkit):
+    # Class variables
+    _instances_from_create: ClassVar[Set[int]]
+    merchants: Set[Profile]
+
+    # Instance variables
+    relay: str
+    private_key: str
+    knowledge_base: AgentKnowledge
+    _nostr_client: Optional[NostrClient]
+    profile: Optional[Profile]
+    _instance_id: int
 
     # Initialization
     def __init__(
@@ -32,7 +43,7 @@ class BuyerTools(Toolkit):
     # Retrieve NIP-15 Marketplace information from Nostr
     # and store it in the local knowledge base
     async def async_get_merchants(
-        self, profile_filter: Optional[ProfileFilter] = None
+        self, profile_filter_json: Optional[str | dict] = None
     ) -> str: ...
     async def async_get_merchants_in_marketplace(
         self,
@@ -60,12 +71,14 @@ class BuyerTools(Toolkit):
 
     # Order products
     async def async_submit_order(self, product_name: str, quantity: int) -> str: ...
-    async def async_listen_for_message(self, timeout: int) -> str: ...
+    async def async_listen_for_message(self, timeout: int = 5) -> str: ...
     async def async_submit_payment(self, payment_request: str) -> str: ...
     # Internal methods
     def _get_product_from_kb(self, product_name: str) -> Product: ...
     def _store_profile_in_kb(self, profile: Profile) -> None: ...
     def _store_product_in_kb(self, product: Product) -> None: ...
     def _store_stall_in_kb(self, stall: Stall) -> None: ...
-    def _is_payment_request(self, message: str) -> bool: ...
-    def _is_payment_verification(self, message: str) -> bool: ...
+    def _message_is_payment_request(self, message: str) -> bool: ...
+    def _message_is_payment_verification(self, message: str) -> bool: ...
+    @staticmethod
+    def _normalize_hashtag(tag: str) -> str: ...

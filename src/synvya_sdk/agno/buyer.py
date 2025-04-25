@@ -77,6 +77,7 @@ class BuyerTools(Toolkit):
     )
 
     _instances_from_create: set[int] = set()
+    merchants: set[Profile]
 
     def __init__(
         self,

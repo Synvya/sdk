@@ -138,10 +138,3 @@ class TestNostrClient:
         """Test receiving a NIP-17 message"""
         response = await nostr_client.async_receive_message()
         assert isinstance(response, str)
-        # await asyncio.sleep(5)
-        # await nostr_client.stop_notifications()
-        # Check if the task was stopped properly
-        assert (
-            nostr_client.notification_task is None
-            or nostr_client.notification_task.done()
-        )

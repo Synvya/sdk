@@ -2,6 +2,7 @@
 Publisher agent for the Dad Joke Game.
 """
 
+import asyncio
 import signal
 import sys
 from os import getenv
@@ -77,13 +78,15 @@ publisher_profile.set_profile_type(PROFILE_TYPE)
 publisher_profile.add_hashtag(HASHTAG)
 
 
-publisher_tools = DadJokeGamerTools(
-    name=DISPLAY_NAME,
-    relay=RELAY,
-    private_key=keys.get_private_key(),
+publisher_tools: DadJokeGamerTools = asyncio.run(
+    DadJokeGamerTools.create(
+        name=DISPLAY_NAME,
+        relay=RELAY,
+        private_key=keys.get_private_key(),
+    )
 )
 
-publisher_tools.set_profile(publisher_profile)
+asyncio.run(publisher_tools.async_set_profile(publisher_profile))
 
 
 publisher = Agent(  # type: ignore[call-arg]
@@ -96,7 +99,6 @@ publisher = Agent(  # type: ignore[call-arg]
     num_history_responses=5,
     read_chat_history=False,
     read_tool_call_history=False,
-    # async_mode=True,
     instructions=[
         """
         You are a gamer agent playing the Dad Joke Game with the role of a publisher.
@@ -124,14 +126,14 @@ publisher = Agent(  # type: ignore[call-arg]
 
 
 # Command-line interface with response storage
-def publisher_cli() -> None:
+async def publisher_cli() -> None:
     """
     Command-line interface for dad joke publisher agent.
     """
     print("\n🔹 Dad Joke Publisher Agent CLI (Press Ctrl+C to quit)\n")
     try:
         while True:
-            response = publisher.run("""do your job""")
+            response = await publisher.arun("""do your job""")
             print(
                 f"\n🤖 Dad Joke Publisher Agent: {response.get_content_as_string()}\n"
             )
@@ -141,4 +143,5 @@ def publisher_cli() -> None:
 
 
 # Run the CLI
-publisher_cli()
+if __name__ == "__main__":
+    asyncio.run(publisher_cli())
