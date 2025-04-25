@@ -3,8 +3,8 @@ This module contains tests for the BuyerTools class.
 """
 
 import json
-from typing import List
-from unittest.mock import patch
+from typing import List, cast
+from unittest.mock import AsyncMock
 
 import pytest
 
@@ -53,8 +53,11 @@ async def test_get_stalls(
     stalls: List[Stall],
 ) -> None:
     """Test the retrieval of a seller's stalls"""
+    # Cast the NostrClient to AsyncMock to satisfy type checker
+    mock_client = cast(AsyncMock, buyer_tools._nostr_client)
+
     # Mock the NostrClient.async_get_stalls method
-    buyer_tools._nostr_client.async_get_stalls.return_value = stalls
+    mock_client.async_get_stalls.return_value = stalls
 
     # Call the method and verify results
     result = await buyer_tools.async_get_stalls(merchant_profile.get_public_key())
@@ -62,7 +65,7 @@ async def test_get_stalls(
     assert isinstance(result, str)
 
     # Verify the mock was called with the correct public key
-    buyer_tools._nostr_client.async_get_stalls.assert_called_once_with(
+    mock_client.async_get_stalls.assert_called_once_with(
         merchant_profile.get_public_key()
     )
 
@@ -79,15 +82,18 @@ async def test_get_products(
     products: List[Product],
 ) -> None:
     """Test the retrieval of a seller's products"""
+    # Cast the NostrClient to AsyncMock to satisfy type checker
+    mock_client = cast(AsyncMock, buyer_tools._nostr_client)
+
     # Mock the NostrClient.async_get_products method
-    buyer_tools._nostr_client.async_get_products.return_value = products
+    mock_client.async_get_products.return_value = products
 
     # Call the method and verify results
     result = await buyer_tools.async_get_products(merchant_profile.get_public_key())
     assert isinstance(result, str)
 
     # Verify the mock was called with the correct parameters
-    buyer_tools._nostr_client.async_get_products.assert_called_once_with(
+    mock_client.async_get_products.assert_called_once_with(
         merchant_profile.get_public_key(), None
     )
 
