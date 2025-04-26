@@ -1,6 +1,5 @@
-from typing import ClassVar, List, Optional, Set, Tuple
+from typing import ClassVar, List, Optional, Set, Tuple, Union
 
-from nostr_sdk import EventId
 from pydantic import ConfigDict
 
 from agno.tools import Toolkit
@@ -12,18 +11,18 @@ class MerchantTools(Toolkit):
     model_config: ClassVar[ConfigDict]
 
     # Instance variables
-    relay: str
+    relays: List[str]
     private_key: str
     profile: Optional[Profile]
     nostr_client: Optional[NostrClient]
-    product_db: List[Tuple[Product, Optional[EventId]]]
-    stall_db: List[Tuple[Stall, Optional[EventId]]]
+    product_db: List[Tuple[Product, Optional[str]]]
+    stall_db: List[Tuple[Stall, Optional[str]]]
     _instance_id: int
 
     # Initialization
     def __init__(
         self,
-        relay: str,
+        relays: Union[str, List[str]],
         private_key: str,
         stalls: List[Stall],
         products: List[Product],
@@ -32,10 +31,15 @@ class MerchantTools(Toolkit):
     def __del__(self) -> None: ...
     @classmethod
     async def create(
-        cls, relay: str, private_key: str, stalls: List[Stall], products: List[Product]
+        cls,
+        relays: Union[str, List[str]],
+        private_key: str,
+        stalls: List[Stall],
+        products: List[Product],
     ) -> "MerchantTools": ...
     def get_profile(self) -> str: ...
     def get_relay(self) -> str: ...
+    def get_relays(self) -> List[str]: ...
     async def async_set_profile(self, profile: Profile) -> str: ...
 
     # Nostr NIP-15 Marketplace - Seller

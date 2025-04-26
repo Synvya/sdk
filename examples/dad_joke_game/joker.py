@@ -80,7 +80,7 @@ joker_profile.add_hashtag(HASHTAG)
 joker_tools: DadJokeGamerTools = asyncio.run(
     DadJokeGamerTools.create(
         name=DISPLAY_NAME,
-        relay=RELAY,
+        relays=RELAY,
         private_key=keys.get_private_key(),
     )
 )

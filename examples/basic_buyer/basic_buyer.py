@@ -153,7 +153,7 @@ knowledge_base = AgentKnowledge(vector_db=vector_db)
 buyer_tools = asyncio.run(
     BuyerTools.create(
         knowledge_base=knowledge_base,
-        relay=RELAY,
+        relays=RELAY,
         private_key=keys.get_private_key(),
     )
 )

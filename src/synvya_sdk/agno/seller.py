@@ -4,7 +4,7 @@ Module implementing the MerchantTools Toolkit for Agno agents.
 
 import json
 import time
-from typing import List, Optional, Tuple
+from typing import List, Optional, Tuple, Union
 
 from nostr_sdk import EventId
 from pydantic import ConfigDict
@@ -44,19 +44,14 @@ class MerchantTools(Toolkit):
 
     def __init__(
         self,
-        relay: str,
+        relays: Union[str, List[str]],
         private_key: str,
         stalls: List[Stall],
         products: List[Product],
         _from_create: bool = False,
     ):
-        """Initialize the Merchant toolkit.
-
-        Args:
-            relay: Nostr relay to use for communications
-            private_key: private key of the merchant using this agent
-            stalls: list of stalls managed by this merchant
-            products: list of products sold by this merchant
+        """
+        Initialize MerchantTools with a private key and a relay.
         """
         if not _from_create:
             raise RuntimeError(
@@ -67,25 +62,29 @@ class MerchantTools(Toolkit):
         self._instance_id = id(self)
         MerchantTools._instances_from_create.add(self._instance_id)
 
+        # Initialize Toolkit base class with name
         super().__init__(name="merchant")
-        self.relay: str = relay
+
+        # Set include_tools to None to allow all tools to be registered
+        self.include_tools = None
+
+        # Convert single relay to list for consistent handling
+        self.relays: List[str] = [relays] if isinstance(relays, str) else relays
         self.private_key: str = private_key
-        self.profile: Optional[Profile] = None
+
+        self.stall_db: List[Tuple[Stall, Optional[str]]] = [(s, None) for s in stalls]
+        self.product_db: List[Tuple[Product, Optional[str]]] = [
+            (p, None) for p in products
+        ]
+
         self.nostr_client: Optional[NostrClient] = None
-
-        self.product_db: List[Tuple[Product, Optional[EventId]]] = []
-        self.stall_db: List[Tuple[Stall, Optional[EventId]]] = []
-
-        # initialize the Product DB with no event id
-        self.product_db = [(product, None) for product in products]
-
-        # initialize the Stall DB with no event id
-        self.stall_db = [(stall, None) for stall in stalls]
+        self.profile: Optional[Profile] = None
 
         # Register methods
         self.register(self.get_profile)
         self.register(self.get_products)
         self.register(self.get_relay)
+        self.register(self.get_relays)
         self.register(self.get_stalls)
         self.register(self.async_listen_for_orders)
         self.register(self.manual_order_workflow)
@@ -111,14 +110,27 @@ class MerchantTools(Toolkit):
 
     @classmethod
     async def create(
-        cls, relay: str, private_key: str, stalls: List[Stall], products: List[Product]
+        cls,
+        relays: Union[str, List[str]],
+        private_key: str,
+        stalls: List[Stall],
+        products: List[Product],
     ) -> "MerchantTools":
         """
         Create a new MerchantTools instance
-        """
-        instance = cls(relay, private_key, stalls, products, _from_create=True)
 
-        instance.nostr_client = await NostrClient.create(relay, private_key)
+        Args:
+            relays: Nostr relay(s) that the client will connect to. Can be a single URL string or a list of URLs.
+            private_key: Private key for the client in hex or bech32 format
+            stalls: List of stalls to manage
+            products: List of products to manage
+
+        Returns:
+            MerchantTools: An initialized MerchantTools instance
+        """
+        instance = cls(relays, private_key, stalls, products, _from_create=True)
+
+        instance.nostr_client = await NostrClient.create(relays, private_key)
         instance.nostr_client.set_logging_level(logger.getEffectiveLevel())
         instance.profile = await instance.nostr_client.async_get_profile()
         return instance
@@ -149,9 +161,18 @@ class MerchantTools(Toolkit):
         Get the Nostr relay the merchant is using
 
         Returns:
-            str: Nostr relay
+            str: Primary Nostr relay (first in the list)
         """
-        return self.relay
+        return self.relays[0] if self.relays else ""
+
+    def get_relays(self) -> List[str]:
+        """
+        Get all Nostr relays the merchant is using
+
+        Returns:
+            List[str]: List of Nostr relays
+        """
+        return self.relays
 
     def get_stalls(self) -> str:
         """

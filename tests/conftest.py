@@ -4,7 +4,7 @@ This module contains the conftest file for the tests.
 
 from os import getenv
 from pathlib import Path
-from typing import List
+from typing import List, Union
 from unittest.mock import Mock
 
 import pytest
@@ -369,7 +369,7 @@ async def merchant_tools_fixture(
     stalls: List[Stall],
     products: List[Product],
 ) -> MerchantTools:
-    """Create a Merchant instance for testing"""
+    """Create a merchant instance for testing"""
     from unittest.mock import AsyncMock, Mock, patch
 
     # Step 1: Create a proper mock client that mixes Mock and AsyncMock
@@ -379,6 +379,11 @@ async def merchant_tools_fixture(
     # Replace specific methods that need to be async with AsyncMock
     mock_client.async_get_profile = AsyncMock()
     mock_client.async_get_profile.return_value = Profile(merchant_keys.get_public_key())
+    mock_client.async_get_merchants = AsyncMock()
+    mock_client.async_get_merchants_in_marketplace = AsyncMock()
+    mock_client.async_get_products = AsyncMock()
+    mock_client.async_get_stalls = AsyncMock()
+    mock_client.async_publish_note = AsyncMock()
     mock_client.async_set_product = AsyncMock()
     mock_client.async_set_stall = AsyncMock()
     mock_client.async_set_profile = AsyncMock()
@@ -389,8 +394,9 @@ async def merchant_tools_fixture(
     # Step 2: Use patch as a context manager to replace NostrClient.create
     with patch("synvya_sdk.NostrClient.create", return_value=mock_client):
         # Step 3: Create MerchantTools instance with mocked dependencies
+        # Convert relay to a list for compatibility with the updated interface
         merchant_tools = await MerchantTools.create(
-            relay, merchant_keys.get_private_key(), stalls, products
+            [relay], merchant_keys.get_private_key(), stalls, products
         )
 
         # Ensure the mocked client is properly assigned to the instance
@@ -432,8 +438,9 @@ async def buyer_tools_fixture(
     # Step 2: Use patch as a context manager to replace NostrClient.create
     with patch("synvya_sdk.NostrClient.create", return_value=mock_client):
         # Step 3: Create BuyerTools instance with mocked dependencies
+        # Convert relay to a list for compatibility with the updated interface
         buyer_tools = await BuyerTools.create(
-            mock_knowledge_base, relay, buyer_keys.get_private_key()
+            mock_knowledge_base, [relay], buyer_keys.get_private_key()
         )
         # Step 4: Set merchants directly
         buyer_tools.merchants = {merchant_profile}

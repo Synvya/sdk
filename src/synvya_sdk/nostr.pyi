@@ -8,10 +8,9 @@ for classes, functions, and variables used within the Nostr module.
 Note: This is a type stub file and does not contain any executable code.
 """
 
-import asyncio
 from logging import Logger
 from pathlib import Path
-from typing import ClassVar, List, Optional
+from typing import ClassVar, List, Optional, Union
 
 from nostr_sdk import (  # type: ignore
     Client,
@@ -37,25 +36,26 @@ class NostrClient:
     """
 
     logger: ClassVar[Logger]
-    relay: str
+    relays: List[str]
     keys: Keys
     nostr_signer: NostrSigner
     client: Client
     connected: bool
     profile: Profile
-    # notification_task: Optional[asyncio.Task]
-    # received_eose: bool
-    # private_message: UnsignedEvent = None
-    # direct_message: Event = None
 
     # Initialization methods
     def __init__(
-        self, relay: str, private_key: str, _from_create: bool = False
+        self,
+        relays: Union[str, List[str]],
+        private_key: str,
+        _from_create: bool = False,
     ) -> None: ...
     def __del__(self) -> None: ...
     # Asynchronous factory method for proper initialization
     @classmethod
-    async def create(cls, relay: str, private_key: str) -> "NostrClient": ...
+    async def create(
+        cls, relays: Union[str, List[str]], private_key: str
+    ) -> "NostrClient": ...
     @classmethod
     def set_logging_level(cls, logging_level: int) -> None: ...
 
@@ -113,26 +113,5 @@ class NostrClient:
 
     # Internal methods
     async def _async_connect(self) -> None: ...
-    # async def _async_get_events(self, events_filter: Filter) -> Events: ...
-    # async def _async_get_products_events(
-    #     self, merchant: PublicKey, stall: Optional[Stall] = None
-    # ) -> Events: ...
-    # async def _async_get_profile_from_relay(
-    #     self, profile_key: PublicKey
-    # ) -> Profile: ...
-    # async def _async_get_profile_from_relay2(
-    #     self, profile_key: PublicKey
-    # ) -> Profile: ...
-    # async def _async_publish_event(self, event_builder: EventBuilder) -> EventId: ...
-    # async def _async_set_profile(self) -> EventId: ...
-    # async def _async_start_notifications(self) -> None: ...
-    # async def _async_stop_notifications(self) -> None: ...
-
-    # class MyNotificationHandler(HandleNotification):
-    #     def __init__(self, nostr_client: NostrClient): ...
-    #     async def handle_msg(self, relay_url: str, msg: RelayMessage) -> None: ...
-    #     async def handle(
-    #         self, relay_url: str, subscription_id: str, event: Event
-    #     ) -> None: ...
 
 def generate_keys(env_var: str, env_path: Optional[Path] = None) -> NostrKeys: ...

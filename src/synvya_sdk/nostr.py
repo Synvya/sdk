@@ -5,10 +5,9 @@ Core Nostr utilities for agentstr.
 import asyncio
 import json
 import logging
-import time
 from datetime import timedelta
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Union
 
 from .models import Namespace, NostrKeys, Product, Profile, ProfileFilter, Stall
 
@@ -35,8 +34,6 @@ try:
         SingleLetterTag,
         Tag,
         TagKind,
-        Timestamp,
-        UnsignedEvent,
     )
 
 except ImportError as exc:
@@ -66,13 +63,16 @@ class NostrClient:
     # ----------------------------------------------------------------
 
     def __init__(
-        self, relay: str, private_key: str, _from_create: bool = False
+        self,
+        relays: Union[str, List[str]],
+        private_key: str,
+        _from_create: bool = False,
     ) -> None:
         """
         Initialize the Nostr client.
 
         Args:
-            relay: Nostr relay that the client will connect to
+            relays: Nostr relay(s) that the client will connect to. Can be a single URL string or a list of URLs.
             private_key: Private key for the client in hex or bech32 format
         """
         if not _from_create:
@@ -82,20 +82,16 @@ class NostrClient:
         self._instance_id = id(self)
         NostrClient._instances_from_create.add(self._instance_id)
 
-        self.relay: str = relay
+        # Convert single relay to list for consistent handling
+        self.relays: List[str] = [relays] if isinstance(relays, str) else relays
+        if not self.relays:
+            raise ValueError("At least one relay URL must be provided")
+
         self.keys: Keys = Keys.parse(private_key)
         self.nostr_signer: NostrSigner = NostrSigner.keys(self.keys)
         self.client: Client = Client(self.nostr_signer)
         self.connected: bool = False
-        # self.stop_event: asyncio.Event = asyncio.Event()
-        # self.notification_task: Optional[asyncio.Task] = None
-        # self.received_eose: bool = False
-        # self.private_message: Optional[UnsignedEvent] = None
-        # self.private_gift_wrapped_message: Optional[Event] = None
-        # self.direct_message: Optional[Event] = None
-        # self.last_message_time: float = 0
         self.profile: Optional[Profile] = None  # Initialized asynchronously
-        # self.background_task: Optional[asyncio.Task] = None
 
         # Set log handling
         if not NostrClient.logger.hasHandlers():
@@ -115,15 +111,21 @@ class NostrClient:
             NostrClient._instances_from_create.discard(self._instance_id)
 
     @classmethod
-    async def create(cls, relay: str, private_key: str) -> "NostrClient":
+    async def create(
+        cls, relays: Union[str, List[str]], private_key: str
+    ) -> "NostrClient":
         """
         Asynchronous factory method for proper initialization.
         Use instead of the __init__ method.
-        """
-        instance = cls(relay, private_key, _from_create=True)
 
-        # Set the initial timestamp within a running loop
-        # instance.last_message_time = asyncio.get_running_loop().time()
+        Args:
+            relays: Nostr relay(s) that the client will connect to. Can be a single URL string or a list of URLs.
+            private_key: Private key for the client in hex or bech32 format
+
+        Returns:
+            NostrClient: An initialized NostrClient instance
+        """
+        instance = cls(relays, private_key, _from_create=True)
 
         try:
             # Try to download the profile from the relay if it already exists
@@ -212,7 +214,7 @@ class NostrClient:
         try:
             # events = await self._async_get_events(events_filter)
             events = await self.client.fetch_events_from(
-                urls=[self.relay], filter=events_filter, timeout=timedelta(seconds=2)
+                urls=self.relays, filter=events_filter, timeout=timedelta(seconds=2)
             )
             if events.len() == 0:
                 return agents  # returning empty set
@@ -324,7 +326,7 @@ class NostrClient:
                 # Use a filter to get the merchant's profile info
                 stall_filter = Filter().kind(Kind(30017)).identifier(stall.id)
                 stall_events = await self.client.fetch_events_from(
-                    urls=[self.relay], filter=stall_filter, timeout=timedelta(seconds=2)
+                    urls=self.relays, filter=stall_filter, timeout=timedelta(seconds=2)
                 )
 
                 # Skip if no events found
@@ -398,7 +400,7 @@ class NostrClient:
         try:
             # events = await self._async_get_events(events_filter)
             events = await self.client.fetch_events_from(
-                urls=[self.relay], filter=events_filter, timeout=timedelta(seconds=2)
+                urls=self.relays, filter=events_filter, timeout=timedelta(seconds=2)
             )
         except Exception as e:
             raise RuntimeError(f"Failed to retrieve marketplace: {e}") from e
@@ -467,7 +469,7 @@ class NostrClient:
                 )
                 events_filter = events_filter.coordinate(coordinate_tag)
             events = await self.client.fetch_events_from(
-                urls=[self.relay], filter=events_filter, timeout=timedelta(seconds=2)
+                urls=self.relays, filter=events_filter, timeout=timedelta(seconds=2)
             )
         except Exception as e:
             raise RuntimeError(f"Unable to retrieve stalls: {e}") from e
@@ -618,7 +620,7 @@ class NostrClient:
                 events_filter = events_filter.authors([merchant_key])
 
             events = await self.client.fetch_events_from(
-                urls=[self.relay], filter=events_filter, timeout=timedelta(seconds=5)
+                urls=self.relays, filter=events_filter, timeout=timedelta(seconds=5)
             )
         except Exception as e:
             self.logger.warning("Unable to retrieve stalls: %s", e)
@@ -1176,7 +1178,7 @@ class NostrClient:
         Subscribes to messages from the relay.
         """
         subscription = await self.client.subscribe_to(
-            [self.relay],
+            self.relays,
             Filter().kinds([Kind(14)]),
         )
 
@@ -1213,426 +1215,28 @@ class NostrClient:
 
     async def _async_connect(self) -> None:
         """
-        Asynchronous function to add relay to the NostrClient
-        instance and connect to it.
-
+        Asynchronous function to add relays to the NostrClient
+        instance and connect to them.
 
         Raises:
-            RuntimeError: if the relay can't be connected to
+            RuntimeError: if the relay(s) can't be connected to
         """
-
         if not self.connected:
             try:
-                await self.client.add_relay(self.relay)
-                NostrClient.logger.info("Relay %s successfully added.", self.relay)
+                # Add all relays to the client
+                for relay in self.relays:
+                    await self.client.add_relay(relay)
+                    NostrClient.logger.info("Relay %s successfully added.", relay)
+
+                # Connect to all relays
                 await self.client.connect()
                 await asyncio.sleep(2)  # give time for slower connections
-                NostrClient.logger.info("Connected to relay.")
+                NostrClient.logger.info("Connected to relays: %s", self.relays)
                 self.connected = True
             except Exception as e:
                 raise RuntimeError(
-                    f"Unable to connect to relay {self.relay}. Exception: {e}."
+                    f"Unable to connect to relays {self.relays}. Exception: {e}."
                 ) from e
-
-    # async def _async_get_events(self, events_filter: Filter) -> Events:
-    #     """
-    #     Asynchronous function to retrieve events from the relay
-
-    #     Args:
-    #         events_filter: Filter to apply to the events
-
-    #     Returns:
-    #         Events: list of events
-
-    #     Raises:
-    #         RuntimeError: if the events can't be retrieved
-    #     """
-    #     try:
-    #         if not self.connected:
-    #             await self._async_connect()
-
-    #         events = await self.client.fetch_events_from(
-    #             urls=[self.relay], filter=events_filter, timeout=timedelta(seconds=2)
-    #         )
-    #         return events
-    #     except Exception as e:
-    #         raise RuntimeError(f"Unable to retrieve stalls: {e}") from e
-
-    # async def _async_get_products_events(
-    #     self, merchant: PublicKey, stall: Optional[Stall] = None
-    # ) -> Events:
-    #     """
-    #     Asynchronous function to retrieve the products for a given merchant
-
-    #     Args:
-    #         merchant: PublicKey of the merchant
-    #         stall: Optional Stall to filter products by
-    #     Returns:
-    #         Events: list of events containing the products of the merchant
-
-    #     Raises:
-    #         RuntimeError: if the products can't be retrieved
-    #     """
-    #     try:
-    #         if not self.connected:
-    #             await self._async_connect()
-
-    #         # print(f"Retrieving products from seller: {seller}")
-    #         events_filter = Filter().kind(Kind(30018)).author(merchant)
-    #         if stall is not None:
-    #             coordinate_tag = Coordinate(
-    #                 Kind(30017),
-    #                 merchant,
-    #                 stall.id,
-    #             )
-    #             events_filter = events_filter.coordinate(coordinate_tag)
-    #         events = await self.client.fetch_events_from(
-    #             urls=[self.relay], filter=events_filter, timeout=timedelta(seconds=2)
-    #         )
-    #         return events
-    #     except Exception as e:
-    #         raise RuntimeError(f"Unable to retrieve stalls: {e}") from e
-
-    # async def _async_get_profile_from_relay(self, profile_key: PublicKey) -> Profile:
-    #     """
-    #     Asynchronous function to retrieve from the Nostr relay the profile
-    #     for a given author
-
-    #     Args:
-    #         profile_key: PublicKey of the profile to retrieve
-
-    #     Returns:
-    #         Profile: profile associated with the public key
-
-    #     Raises:
-    #         RuntimeError: if it can't connect to the relay
-    #         ValueError: if a profile is not found
-    #     """
-    #     try:
-    #         if not self.connected:
-    #             await self._async_connect()
-
-    #         metadata = await self.client.fetch_metadata(
-    #             public_key=profile_key, timeout=timedelta(seconds=2)
-    #         )
-    #         profile = await Profile.from_metadata(metadata, profile_key.to_bech32())
-    #         events = await self.client.fetch_events(
-    #             filter=Filter().authors([profile_key]).kind(Kind(0)).limit(1),
-    #             timeout=timedelta(seconds=2),
-    #         )
-    #         if events.len() > 0:
-    #             tags = events.first().tags()
-
-    #             hashtag_list = tags.hashtags()
-    #             for hashtag in hashtag_list:
-    #                 profile.add_hashtag(hashtag)
-
-    #             namespace_tag = tags.find(
-    #                 TagKind.SINGLE_LETTER(SingleLetterTag.uppercase(Alphabet.L))
-    #             )
-    #             if namespace_tag is not None:
-    #                 profile.set_namespace(namespace_tag.content())
-
-    #             profile_type_tag = tags.find(
-    #                 TagKind.SINGLE_LETTER(SingleLetterTag.lowercase(Alphabet.L))
-    #             )
-    #             if profile_type_tag is not None:
-    #                 profile.set_profile_type(profile_type_tag.content())
-    #         return profile
-    #     except RuntimeError as e:
-    #         raise RuntimeError(f"Unable to connect to relay: {e}") from e
-    #     except Exception as e:
-    #         raise ValueError(f"Unable to retrieve metadata: {e}") from e
-
-    # async def _async_get_profile_from_relay2(self, profile_key: PublicKey) -> Profile:
-    #     """
-    #     Asynchronous function to retrieve from the Nostr relay the profile
-    #     for a given author
-
-    #     Args:
-    #         profile_key: PublicKey of the profile to retrieve
-
-    #     Returns:
-    #         Profile: profile associated with the public key
-
-    #     Raises:
-    #         RuntimeError: if it can't connect to the relay
-    #         ValueError: if a profile is not found
-    #     """
-    #     try:
-    #         if not self.connected:
-    #             await self._async_connect()
-
-    #         profile_filter = Filter().kind(Kind(0)).authors([profile_key]).limit(1)
-    #         events = await self.client.fetch_events_from(
-    #             urls=[self.relay], filter=profile_filter, timeout=timedelta(seconds=2)
-    #         )
-    #         if events.len() > 0:
-    #             # process kind:0 event
-    #             profile = await Profile.from_event(events.first())
-    #             return profile
-    #         raise ValueError("Profile not found")
-
-    #     except RuntimeError as e:
-    #         raise RuntimeError(f"Unable to connect to relay: {e}") from e
-    #     except Exception as e:
-    #         raise ValueError(f"Unable to retrieve profile: {e}") from e
-
-    # async def _async_publish_event(self, event_builder: EventBuilder) -> EventId:
-    #     """
-    #     Publish generic Nostr event to the relay
-
-    #     Returns:
-    #         EventId: event id of the published event
-
-    #     Raises:
-    #         RuntimeError: if the event can't be published
-    #     """
-    #     try:
-    #         if not self.connected:
-    #             await self._async_connect()
-
-    #         # Wait for connection and try to publish
-    #         output = await self.client.send_event_builder(event_builder)
-
-    #         # More detailed error handling
-    #         if not output:
-    #             raise RuntimeError("No output received from send_event_builder")
-    #         if len(output.success) == 0:
-    #             reason = getattr(output, "message", "unknown")
-    #             raise RuntimeError(f"Event rejected by relay. Reason: {reason}")
-
-    #         NostrClient.logger.debug(
-    #             "Event published with event id: %s", output.id.to_bech32()
-    #         )
-    #         return output.id
-
-    #     except Exception as e:
-    #         NostrClient.logger.error("Failed to publish event: %s", str(e))
-    #         NostrClient.logger.debug("Event details:", exc_info=True)
-    #         raise RuntimeError(f"Unable to publish event: {str(e)}") from e
-
-    # async def _async_set_profile(self) -> EventId:
-    #     """
-    #     Asynchronous function to publish a Nostr profile with event kind 0
-
-    #     Returns:
-    #         EventId: event id if successful
-
-    #     Raises:
-    #         RuntimeError: if the profile can't be published
-    #         ValueError: if the mandatory field `name` is missing
-    #     """
-
-    #     metadata_content = Metadata()
-    #     if (name := self.profile.get_name()) == "":
-    #         raise ValueError("A profile must have a value for the field `name`.")
-
-    #     metadata_content = metadata_content.set_name(name)
-    #     if (about := self.profile.get_about()) != "":
-    #         metadata_content = metadata_content.set_about(about)
-    #     if (banner := self.profile.get_banner()) != "":
-    #         metadata_content = metadata_content.set_banner(banner)
-    #     if (display_name := self.profile.get_display_name()) != "":
-    #         metadata_content = metadata_content.set_display_name(display_name)
-    #     if (nip05 := self.profile.get_nip05()) != "":
-    #         metadata_content = metadata_content.set_nip05(nip05)
-    #     if (picture := self.profile.get_picture()) != "":
-    #         metadata_content = metadata_content.set_picture(picture)
-    #     if (website := self.profile.get_website()) != "":
-    #         metadata_content = metadata_content.set_website(website)
-    #     if (bot := self.profile.is_bot()) != "":
-    #         metadata_content = metadata_content.set_custom_field(
-    #             key="bot", value=JsonValue.BOOL(bot)
-    #         )
-
-    #     event_builder = EventBuilder.metadata(metadata_content)
-
-    #     event_builder = event_builder.tags(
-    #         [
-    #             Tag.custom(
-    #                 TagKind.SINGLE_LETTER(SingleLetterTag.uppercase(Alphabet.L)),
-    #                 [self.profile.get_namespace()],
-    #             ),
-    #             Tag.custom(
-    #                 TagKind.SINGLE_LETTER(SingleLetterTag.lowercase(Alphabet.L)),
-    #                 [
-    #                     self.profile.get_profile_type(),
-    #                     self.profile.get_namespace(),
-    #                 ],
-    #             ),
-    #         ]
-    #     )
-
-    #     event_builder = event_builder.tags(
-    #         [Tag.hashtag(hashtag) for hashtag in self.profile.get_hashtags()]
-    #     )
-
-    #     return await self._async_publish_event(event_builder)
-
-    # async def _async_start_notifications(self) -> None:
-    #     """
-    #     Start handling notifications in the background.
-    #     """
-    #     if self.notification_task is None or self.notification_task.done():
-    #         self.stop_event.clear()  # Reset stop flag
-
-    #         # Create a separate task for background processing
-    #         async def process_background_tasks():
-    #             while not self.stop_event.is_set():
-    #                 # Process any pending gift-wrapped messages
-    #                 if (
-    #                     hasattr(self, "private_gift_wrapped_message")
-    #                     and self.private_gift_wrapped_message
-    #                 ):
-    #                     event = self.private_gift_wrapped_message
-    #                     self.private_gift_wrapped_message = None
-    #                     try:
-    #                         unwrapped_gift = await self.client.unwrap_gift_wrap(event)
-    #                         unsigned_event = unwrapped_gift.rumor()
-    #                         self.private_message = unsigned_event
-    #                     except Exception as e:
-    #                         self.logger.error("Error unwrapping gift: %s", e)
-
-    #                 await asyncio.sleep(0.1)
-
-    #         # Start the background task first
-    #         self.background_task = asyncio.create_task(process_background_tasks())
-
-    #         # Start the notification handler - this might be blocking!
-    #         await self.client.handle_notifications(self.MyNotificationHandler(self))
-
-    # async def _async_stop_notifications(self) -> None:
-    #     """
-    #     Gracefully stop handling notifications, with debug logs.
-    #     """
-    #     NostrClient.logger.debug("Attempting to stop notifications...")
-
-    #     # Step 1: Set the stop event
-    #     self.stop_event.set()
-    #     NostrClient.logger.debug("Stop event set. Notifier should stop soon.")
-
-    #     # Step 2: Check if a notification task is running
-    #     if self.notification_task is None:
-    #         NostrClient.logger.debug("No active notification task. Nothing to stop.")
-    #         return
-
-    #     if self.notification_task.done():
-    #         NostrClient.logger.debug(
-    #             "Notification task already completed. Cleaning up reference."
-    #         )
-    #         self.notification_task = None
-    #         return
-
-    #     # Step 3: Attempt to cancel the notification task
-    #     NostrClient.logger.debug("Cancelling notification task...")
-    #     self.notification_task.cancel()
-
-    #     try:
-    #         await self.notification_task  # Ensure proper cancellation
-    #         NostrClient.logger.debug("Notification task successfully stopped.")
-    #     except asyncio.CancelledError:
-    #         NostrClient.logger.debug("Notification task was forcefully cancelled.")
-
-    #     # Step 4: Clean up
-    #     self.notification_task = None
-    #     NostrClient.logger.debug("_stop_notifications() completed.")
-
-    # class MyNotificationHandler(HandleNotification):
-    #     """
-    #     Inner class to handle notifications.
-    #     """
-
-    #     def __init__(self, nostr_client: "NostrClient") -> None:
-    #         """
-    #         Initialize the notification handler.
-    #         """
-    #         super().__init__()
-    #         self.nostr_client: NostrClient = nostr_client
-
-    #     async def _process_gift_wrap_message(self, event: Event) -> None:
-    #         """
-    #         Helper method to process gift wrap messages asynchronously.
-    #         """
-    #         try:
-    #             unwrapped_gift = await self.nostr_client.client.unwrap_gift_wrap(event)
-    #             unsigned_event = unwrapped_gift.rumor()
-    #             self.nostr_client.private_message = unsigned_event
-    #         except Exception as e:
-    #             self.nostr_client.logger.error(f"Error unwrapping gift: {e}")
-    #             # Don't re-raise the exception in the background task
-
-    #     async def handle_msg(self, relay_url: str, msg: RelayMessage) -> None:
-    #         """
-    #         Handle a message from the relay.
-    #         This method must be synchronous and must not return any awaitable objects.
-    #         """
-    #         self.nostr_client.logger.debug("Received message: %s", msg)
-    #         if self.nostr_client.stop_event.is_set():
-    #             return
-
-    #         msg_enum = msg.as_enum()
-
-    #         if msg_enum.is_end_of_stored_events():
-    #             self.nostr_client.received_eose = True
-    #             self.nostr_client.logger.debug("Received EOSE")
-    #         elif msg_enum.is_event_msg():
-    #             # Handle regular event messages
-    #             self.nostr_client.logger.debug(
-    #                 "Received event: %s", msg_enum.event.content()
-    #             )
-    #             # Use get_running_loop() instead of get_event_loop()
-    #             try:
-    #                 self.nostr_client.last_message_time = (
-    #                     asyncio.get_running_loop().time()
-    #                 )
-    #             except RuntimeError:
-    #                 # If we're not in an event loop context, just ignore this
-    #                 pass
-
-    #             if msg_enum.event.kind() == Kind(4):
-    #                 self.nostr_client.logger.debug(
-    #                     "Received `kind:4` message: %s", msg_enum.event.content()
-    #                 )
-    #                 self.nostr_client.direct_message = msg_enum.event
-
-    #             if msg_enum.event.kind() == Kind(1059):
-    #                 self.nostr_client.logger.debug(
-    #                     "Received `kind:1059` message: %s", msg_enum.event.content()
-    #                 )
-    #                 # Store the event for later processing - DON'T create async tasks here
-    #                 self.nostr_client.private_gift_wrapped_message = msg_enum.event
-    #         else:
-    #             self.nostr_client.logger.debug(
-    #                 f"Received unknown message from {relay_url}: {msg}"
-    #             )
-
-    #     async def handle(
-    #         self, relay_url: str, subscription_id: str, event: Event
-    #     ) -> None:
-    #         """
-    #         Handle an event from the relay.
-    #         """
-    #         self.nostr_client.logger.debug("Received event: %s", event)
-    #         if self.nostr_client.stop_event.is_set():
-    #             return
-
-    #         try:
-    #             self.nostr_client.last_message_time = asyncio.get_running_loop().time()
-    #         except RuntimeError:
-    #             # If we're not in an event loop context, just ignore this
-    #             pass
-    #         if event.kind() == Kind(4):
-    #             self.nostr_client.logger.debug(
-    #                 "Received `kind:4` message: %s", event.content()
-    #             )
-    #             self.nostr_client.direct_message = event
-    #         if event.kind() == Kind(1059):
-    #             self.nostr_client.logger.debug(
-    #                 "Received `kind:1059` message: %s", event.content()
-    #             )
-    #             # Store the event for later processing - DON'T create async tasks
-    #             self.nostr_client.private_gift_wrapped_message = event
 
 
 def generate_keys(env_var: str, env_path: Path) -> NostrKeys:

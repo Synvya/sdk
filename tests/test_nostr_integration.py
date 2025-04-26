@@ -19,7 +19,8 @@ logging.basicConfig(
 @pytest.fixture(scope="session", name="nostr_client")
 async def nostr_client_fixture(relay: str, merchant_keys: NostrKeys) -> NostrClient:
     """Async fixture providing a properly initialized NostrClient instance"""
-    nostr_client = await NostrClient.create(relay, merchant_keys.get_private_key())
+    # Convert relay to a list for the new API, but keep backward compatibility with test suite
+    nostr_client = await NostrClient.create([relay], merchant_keys.get_private_key())
     nostr_client.set_logging_level(logging.DEBUG)
     print(f"Merchant public key: {merchant_keys.get_public_key()}")
     print(f"Merchant public key hex: {merchant_keys.get_public_key(encoding='hex')}")

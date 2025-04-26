@@ -3,10 +3,8 @@ Nostr utility functions.
 """
 
 import asyncio
-import json
 import logging
 import sys
-import time
 from os import getenv
 from pathlib import Path
 
@@ -77,7 +75,9 @@ async def main() -> None:
     for hashtag in HASHTAGS:
         profile.add_hashtag(hashtag)
 
-    nostr_client = await NostrClient.create(relay=RELAY, private_key=NSEC)
+    # Pass relay as a list for the new multi-relay API
+    relays = [RELAY]
+    nostr_client = await NostrClient.create(relays=relays, private_key=NSEC)
     nostr_client.set_logging_level(logging.DEBUG)
     await nostr_client.async_set_profile(profile)
 
