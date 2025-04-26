@@ -7,7 +7,7 @@ import logging
 import re
 import secrets
 from sys import stdout
-from typing import List, Optional
+from typing import List, Optional, Union
 
 from pydantic import ConfigDict
 
@@ -82,16 +82,18 @@ class BuyerTools(Toolkit):
     def __init__(
         self,
         knowledge_base: AgentKnowledge,
-        relay: str,
+        relays: Union[str, List[str]],
         private_key: str,
         _from_create: bool = False,
     ) -> None:
-        """Initialize the Buyer toolkit.
+        """
+        Initialize the BuyerTools object.
 
         Args:
-            knowledge_base: knowledge base of the buyer agent
-            relay: Nostr relay to use for communications
-            private_key: private key of the buyer using this agent
+            knowledge_base: Knowledge base to store and retrieve information
+            relays: Nostr relay(s) that the client will connect to. Can be a single URL string or a list of URLs.
+            private_key: Private key for the client in hex or bech32 format
+            _from_create: Internal flag to ensure proper initialization flow
         """
         if not _from_create:
             raise RuntimeError("BuyerTools must be created using the create() method")
@@ -100,14 +102,18 @@ class BuyerTools(Toolkit):
         self._instance_id = id(self)
         BuyerTools._instances_from_create.add(self._instance_id)
 
-        super().__init__(name="Buyer")
-        self.relay = relay
-        self.private_key = private_key
-        self.knowledge_base = knowledge_base
-        # Initialize fields
-        self._nostr_client: Optional[NostrClient] = None  # Will be set in create()
-        self.profile: Optional[Profile] = None  # Will be set in create()
-        self.merchants: set[Profile] = set()
+        super().__init__(name="buyer")
+
+        # Set include_tools to None to allow all tools to be registered
+        self.include_tools = None
+
+        # Convert single relay to list for consistent handling
+        self.relays: List[str] = [relays] if isinstance(relays, str) else relays
+        self.private_key: str = private_key
+        self.knowledge_base: AgentKnowledge = knowledge_base
+        self.profile: Optional[Profile] = None
+        self._nostr_client: Optional[NostrClient] = None
+        BuyerTools.merchants = set()
 
         # Register methods
         self.register(self.async_get_merchants)
@@ -135,18 +141,26 @@ class BuyerTools(Toolkit):
     async def create(
         cls,
         knowledge_base: AgentKnowledge,
-        relay: str,
+        relays: Union[str, List[str]],
         private_key: str,
         log_level: Optional[int] = logging.INFO,
     ) -> "BuyerTools":
         """
-        Asynchronous factory method for proper initialization.
-        Use instead of the __init__ method.
-        """
-        instance = cls(knowledge_base, relay, private_key, _from_create=True)
+        Create a new BuyerTools instance
 
-        # Set log level FIRST - this is critical
-        if log_level:
+        Args:
+            knowledge_base: Knowledge base to store and retrieve information
+            relays: Nostr relay(s) that the client will connect to. Can be a single URL string or a list of URLs.
+            private_key: Private key for the client in hex or bech32 format
+            log_level: Optional logging level
+
+        Returns:
+            BuyerTools: An initialized BuyerTools instance
+        """
+        instance = cls(knowledge_base, relays, private_key, _from_create=True)
+
+        # Set logging level
+        if log_level is not None:
             buyer_logger.setLevel(log_level)
             NostrClient.set_logging_level(
                 log_level
@@ -156,7 +170,7 @@ class BuyerTools(Toolkit):
             NostrClient.set_logging_level(logger.getEffectiveLevel())
 
         # Then initialize NostrClient with proper logging already set up
-        instance._nostr_client = await NostrClient.create(relay, private_key)
+        instance._nostr_client = await NostrClient.create(relays, private_key)
 
         instance.profile = await instance._nostr_client.async_get_profile()
 
@@ -484,9 +498,17 @@ class BuyerTools(Toolkit):
         """Get the Nostr relay that the buyer agent is using.
 
         Returns:
-            str: Nostr relay
+            str: Primary Nostr relay (first in the list)
         """
-        return self.relay
+        return self.relays[0] if self.relays else ""
+
+    def get_relays(self) -> List[str]:
+        """Get all Nostr relays that the buyer agent is using.
+
+        Returns:
+            List[str]: List of Nostr relays
+        """
+        return self.relays
 
     async def async_get_stalls(self, merchant_public_key: str) -> str:
         """

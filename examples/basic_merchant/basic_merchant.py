@@ -41,7 +41,7 @@ print(f"Public Key (hex): {keys.get_public_key(encoding='hex')}")
 
 merchant_tools = asyncio.run(
     MerchantTools.create(
-        relay=RELAY,
+        relays=RELAY,
         private_key=keys.get_private_key(),
         stalls=stalls,
         products=products,

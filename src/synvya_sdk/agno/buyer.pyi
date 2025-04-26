@@ -1,6 +1,6 @@
 import logging
 from logging import Logger
-from typing import Any, ClassVar, Dict, List, Optional, Set
+from typing import Any, ClassVar, Dict, List, Optional, Set, Union
 
 from agno.agent import AgentKnowledge
 from agno.tools import Toolkit
@@ -12,7 +12,7 @@ class BuyerTools(Toolkit):
     merchants: Set[Profile]
 
     # Instance variables
-    relay: str
+    relays: List[str]
     private_key: str
     knowledge_base: AgentKnowledge
     _nostr_client: Optional[NostrClient]
@@ -23,7 +23,7 @@ class BuyerTools(Toolkit):
     def __init__(
         self,
         knowledge_base: AgentKnowledge,
-        relay: str,
+        relays: Union[str, List[str]],
         private_key: str,
         _from_create: bool = False,
     ) -> None: ...
@@ -32,12 +32,13 @@ class BuyerTools(Toolkit):
     async def create(
         cls,
         knowledge_base: AgentKnowledge,
-        relay: str,
+        relays: Union[str, List[str]],
         private_key: str,
         log_level: Optional[int] = logging.INFO,
     ) -> "BuyerTools": ...
     def get_profile(self) -> str: ...
     def get_relay(self) -> str: ...
+    def get_relays(self) -> List[str]: ...
     async def async_set_profile(self, profile: Profile) -> str: ...
 
     # Retrieve NIP-15 Marketplace information from Nostr

@@ -16,7 +16,7 @@ Joker receives the joke request and sends a joke to the publisher:
 
 import json
 import secrets
-from typing import Optional
+from typing import List, Optional, Union
 
 from pydantic import ConfigDict
 
@@ -45,15 +45,18 @@ class DadJokeGamerTools(Toolkit):
     def __init__(
         self,
         name: str,
-        relay: str,
+        relays: Union[str, List[str]],
         private_key: str,
         _from_create: bool = False,
     ) -> None:
-        """Initialize the DadJokeTools toolkit.
+        """
+        Initialize the DadJokeGamerTools object.
 
         Args:
-            relay: Nostr relay to use for communications
-            private_key: private key of the buyer using this agent
+            name: Name of the gamer
+            relays: Nostr relay(s) that the client will connect to. Can be a single URL string or a list of URLs.
+            private_key: Private key for the client in hex or bech32 format
+            _from_create: Internal flag to ensure proper initialization flow
         """
         if not _from_create:
             raise RuntimeError(
@@ -65,13 +68,16 @@ class DadJokeGamerTools(Toolkit):
         DadJokeGamerTools._instances_from_create.add(self._instance_id)
 
         super().__init__(name=name)
-        self.relay: str = relay
-        self.private_key: str = private_key
 
-        # Initialize fields
-        self.nostr_client: Optional[NostrClient] = None  # Will be set in create()
-        self.profile: Optional[Profile] = None  # Will be set in create()
-        self.joker_public_key: str = ""
+        # Set include_tools to None to allow all tools to be registered
+        self.include_tools = None
+
+        # Convert single relay to list for consistent handling
+        self.relays: List[str] = [relays] if isinstance(relays, str) else relays
+        self.private_key: str = private_key
+        self.nostr_client: Optional[NostrClient] = None
+        self.profile: Optional[Profile] = None
+        self.joker_public_key: Optional[str] = None
 
         # Register methods
         # Publisher
@@ -93,16 +99,24 @@ class DadJokeGamerTools(Toolkit):
 
     @classmethod
     async def create(
-        cls, name: str, relay: str, private_key: str
+        cls, name: str, relays: Union[str, List[str]], private_key: str
     ) -> "DadJokeGamerTools":
         """
         Asynchronous factory method for proper initialization.
         Use instead of the __init__ method.
+
+        Args:
+            name: Name of the gamer
+            relays: Nostr relay(s) that the client will connect to. Can be a single URL string or a list of URLs.
+            private_key: Private key for the client in hex or bech32 format
+
+        Returns:
+            DadJokeGamerTools: An initialized DadJokeGamerTools instance
         """
-        instance = cls(name, relay, private_key, _from_create=True)
+        instance = cls(name, relays, private_key, _from_create=True)
 
         # Initialize NostrClient asynchronously
-        instance.nostr_client = await NostrClient.create(relay, private_key)
+        instance.nostr_client = await NostrClient.create(relays, private_key)
         instance.profile = await instance.nostr_client.async_get_profile()
         instance.nostr_client.set_logging_level(logger.getEffectiveLevel())
         return instance

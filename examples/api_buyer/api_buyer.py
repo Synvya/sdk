@@ -216,7 +216,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
     app.state.buyer_tools = await BuyerTools.create(
         knowledge_base=knowledge_base,
-        relay=RELAY,
+        relays=RELAY,
         private_key=keys.get_private_key(),
         log_level=logging.DEBUG,
     )
