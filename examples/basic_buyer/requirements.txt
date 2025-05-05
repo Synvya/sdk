@@ -1,2 +1,3 @@
 synvya-sdk
 python-dotenv
+mcp

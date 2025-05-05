@@ -5,3 +5,4 @@ nest-asyncio
 pgvector
 fastapi
 uvicorn
+mcp
