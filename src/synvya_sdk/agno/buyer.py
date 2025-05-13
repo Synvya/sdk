@@ -928,8 +928,8 @@ class BuyerTools(Toolkit):
         )
 
         # Store response
-        self.knowledge_base.load_document(
-            document=doc,
+        self.knowledge_base.load_documents(
+            documents=[doc],
             filters=[{"type": "product"}, {"categories": product.categories}],
         )
 
@@ -949,7 +949,7 @@ class BuyerTools(Toolkit):
         )
 
         # Store response
-        self.knowledge_base.load_document(document=doc, filters=[{"type": "stall"}])
+        self.knowledge_base.load_documents(documents=[doc], filters=[{"type": "stall"}])
 
     @staticmethod
     def _normalize_hashtag(tag: str) -> str:
