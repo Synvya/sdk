@@ -20,6 +20,52 @@ from synvya_sdk import (
 )
 
 
+async def test_nip96_upload(nostr_client: NostrClient) -> None:
+    """
+    Test NIP-96 file upload functionality.
+
+    Args:
+        nostr_client: An initialized NostrClient instance
+    """
+    print("\n=== Testing NIP-96 File Upload ===")
+
+    # Path to a sample image
+    script_dir = Path(__file__).parent
+    sample_image_path = script_dir / "sample_image.jpg"
+
+    if not sample_image_path.exists():
+        print(f"Sample image not found at: {sample_image_path}")
+        return
+
+    # Read the image file
+    try:
+        with open(sample_image_path, "rb") as f:
+            file_data = f.read()
+
+        print(f"File size: {len(file_data)} bytes")
+
+        # NIP-96 server URL (nostr.build is a popular NIP-96 compatible server)
+        server_url = "https://nostr.build"
+
+        print(f"Uploading file to {server_url}...")
+
+        # Upload the file
+        upload_url = await nostr_client.async_nip96_upload(
+            server_url=server_url, file_data=file_data, mime_type="image/jpeg"
+        )
+
+        print(f"File uploaded successfully!")
+        print(f"Download URL: {upload_url}")
+        print(
+            "You can use this URL in your Nostr events, for example, as a profile picture."
+        )
+
+    except Exception as e:
+        print(f"Error during NIP-96 upload: {e}")
+
+    print("=== NIP-96 Test Complete ===\n")
+
+
 async def main() -> None:
     ENV_KEY = "NOSTR_UTILS_KEY"
 
@@ -81,42 +127,20 @@ async def main() -> None:
     nostr_client.set_logging_level(logging.DEBUG)
     await nostr_client.async_set_profile(profile)
 
-    # try:
-    #     # Continuously receive messages until interrupted
-    #     while True:
-    #         response = await nostr_client.async_receive_message(30)
-    #         response_data = json.loads(response)
+    # Test NIP-96 file upload functionality
+    await test_nip96_upload(nostr_client)
 
-    #         # Only print if a message was received
-    #         if response_data["type"] != "none":
-    #             print("\n=== New Message Received ===")
-    #             print(f"Type: {response_data['type']}")
-    #             print(f"From: {response_data['sender']}")
-    #             print(f"Content: {response_data['content']}")
-    #             print("===========================\n")
-    #         else:
-    #             # Just print a dot to show it's still running
-    #             print(".", end="", flush=True)
+    # # Create the ProfileFilter
+    # profile_filter = ProfileFilter(
+    #     namespace=Namespace.MERCHANT,
+    #     profile_type=ProfileType.MERCHANT_RETAIL,
+    #     hashtags=["hardware"],
+    # )
 
-    # except KeyboardInterrupt:
-    #     print("\nShutting down...")
-    # except Exception as e:
-    #     print(f"\nError: {e}")
-    # finally:
-    #     # Clean up code here if needed
-    #     print("Goodbye!")
-
-    # Create the ProfileFilter
-    profile_filter = ProfileFilter(
-        namespace=Namespace.MERCHANT,
-        profile_type=ProfileType.MERCHANT_RETAIL,
-        hashtags=["hardware"],
-    )
-
-    merchants: set[Profile] = await nostr_client.async_get_merchants(profile_filter)
-    print(f"Number of merchants: {len(merchants)}")
-    for merchant in merchants:
-        print(f"Merchant: {merchant.get_display_name()}")
+    # merchants: set[Profile] = await nostr_client.async_get_merchants(profile_filter)
+    # print(f"Number of merchants: {len(merchants)}")
+    # for merchant in merchants:
+    #     print(f"Merchant: {merchant.get_display_name()}")
 
 
 if __name__ == "__main__":

@@ -34,6 +34,8 @@ try:
         SingleLetterTag,
         Tag,
         TagKind,
+        get_nip96_server_config,
+        nip96_upload,
     )
 
 except ImportError as exc:
@@ -49,10 +51,6 @@ class NostrClient:
 
     Initialization involving async calls is handled by an asynchronous
     factory method `create`.
-
-    Nostr is an asynchronous communication protocol. To hide this,
-    NostrClient exposes synchronous functions. Users of the NostrClient
-    should ignore `_async_` functions which are for internal purposes only.
     """
 
     logger = logging.getLogger("NostrClient")
@@ -1191,6 +1189,71 @@ class NostrClient:
         Synchronous wrapper for async_subscribe_to_messages
         """
         return asyncio.run(self.async_subscribe_to_messages())
+
+    async def async_nip96_upload(
+        self,
+        server_url: str,
+        file_data: bytes,
+        mime_type: Optional[str] = None,
+        proxy: Optional[str] = None,
+    ) -> str:
+        """
+        Upload a file to a NIP-96 compatible server.
+
+        Args:
+            server_url: URL of the NIP-96 compatible server
+            file_data: Binary data of the file to upload
+            mime_type: Optional MIME type of the file
+            proxy: Optional proxy URL to use for the request
+
+        Returns:
+            str: URL of the uploaded file
+
+        Raises:
+            RuntimeError: if the file upload fails
+        """
+        try:
+            # Get the server configuration
+            server_config = await get_nip96_server_config(server_url, proxy)
+
+            # Upload the file using the nostr_sdk.nip96_upload function
+            return await nip96_upload(
+                signer=self.nostr_signer,
+                config=server_config,
+                file_data=file_data,
+                mime_type=mime_type,
+                proxy=proxy,
+            )
+        except Exception as e:
+            raise RuntimeError(f"Failed to upload file: {e}") from e
+
+    def nip96_upload(
+        self,
+        server_url: str,
+        file_data: bytes,
+        mime_type: Optional[str] = None,
+        proxy: Optional[str] = None,
+    ) -> str:
+        """
+        Synchronous wrapper for async_nip96_upload
+
+        Args:
+            server_url: URL of the NIP-96 compatible server
+            file_data: Binary data of the file to upload
+            mime_type: Optional MIME type of the file
+            proxy: Optional proxy URL to use for the request
+
+        Returns:
+            str: URL of the uploaded file
+        """
+        return asyncio.run(
+            self.async_nip96_upload(
+                server_url=server_url,
+                file_data=file_data,
+                mime_type=mime_type,
+                proxy=proxy,
+            )
+        )
 
     # ----------------------------------------------------------------
     # Class methods
