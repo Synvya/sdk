@@ -35,6 +35,7 @@ def pytest_collection_modifyitems(items: List[Item]) -> None:
     """Define the desired execution order of test files"""
     # Define the desired execution order of test files
     ordered_files = [
+        "tests/test_delegation.py",
         "tests/test_nostr_integration.py",
         "tests/test_nostr_mocked.py",
         "tests/agno/test_seller.py",

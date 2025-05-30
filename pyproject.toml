@@ -18,6 +18,7 @@ dependencies = [
     "nostr_sdk",
     "pydantic>=2.0.0",
     "mcp",
+    "coincurve",
 ]
 
 [project.optional-dependencies]
@@ -93,3 +94,6 @@ markers = [
 [tool.setuptools_scm]
 version_scheme = "guess-next-dev"
 local_scheme = "node-and-date"
+
+[tool.detect-secrets]
+exclude_files = "docs/.*"

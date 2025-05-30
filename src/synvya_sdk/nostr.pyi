@@ -27,7 +27,7 @@ from nostr_sdk import (  # type: ignore
     UnsignedEvent,
 )
 
-from .models import NostrKeys, Product, Profile, ProfileFilter, Stall
+from .models import Delegation, NostrKeys, Product, Profile, ProfileFilter, Stall
 
 class NostrClient:
     """
@@ -48,13 +48,17 @@ class NostrClient:
         self,
         relays: Union[str, List[str]],
         private_key: str,
+        delegation: Optional[Delegation] = None,
         _from_create: bool = False,
     ) -> None: ...
     def __del__(self) -> None: ...
     # Asynchronous factory method for proper initialization
     @classmethod
     async def create(
-        cls, relays: Union[str, List[str]], private_key: str
+        cls,
+        relays: Union[str, List[str]],
+        private_key: str,
+        delegation_event: Optional[dict | str] = None,
     ) -> "NostrClient": ...
     @classmethod
     def set_logging_level(cls, logging_level: int) -> None: ...
@@ -129,3 +133,4 @@ class NostrClient:
     async def _async_connect(self) -> None: ...
 
 def generate_keys(env_var: str, env_path: Optional[Path] = None) -> NostrKeys: ...
+def verify_signature(message: str, signature: str, public_key: str) -> bool: ...
