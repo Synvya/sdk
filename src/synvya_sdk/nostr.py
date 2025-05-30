@@ -563,48 +563,61 @@ class NostrClient:
         try:
             if not self.connected:
                 await self._async_connect()
+        except RuntimeError as e:
+            raise RuntimeError(f"Unable to connect to relay: {e}") from e
 
-            profile_key = PublicKey.parse(public_key)
+        profile_key = PublicKey.parse(public_key)
 
-            # retrieve standard metadata
-            metadata = await self.client.fetch_metadata(
-                public_key=profile_key, timeout=timedelta(seconds=2)
-            )
+        # # retrieve standard metadata
+        # metadata = await self.client.fetch_metadata(
+        #     public_key=profile_key, timeout=timedelta(seconds=2)
+        # )
 
-            if metadata is None:
-                raise RuntimeError("async_get_profile: Unable to retrieve metadata")
+        # if metadata is None:
+        #     raise RuntimeError("async_get_profile: Unable to retrieve metadata")
 
-            # Create profile from standard metadata
-            profile = await Profile.from_metadata(metadata, profile_key.to_bech32())
+        # # Create profile from standard metadata
+        # profile = await Profile.from_metadata(metadata, profile_key.to_bech32())
 
-            # retreive raw event for non-standard metadata
+        # # retreive raw event for non-standard metadata
+        # events = await self.client.fetch_events(
+        #     filter=Filter().authors([profile_key]).kind(Kind(0)).limit(1),
+        #     timeout=timedelta(seconds=2),
+        # )
+        # if events.len() > 0:
+        #     tags = events.first().tags()
+
+        #     hashtag_list = tags.hashtags()
+        #     for hashtag in hashtag_list:
+        #         profile.add_hashtag(hashtag)
+
+        #     namespace_tag = tags.find(
+        #         TagKind.SINGLE_LETTER(SingleLetterTag.uppercase(Alphabet.L))
+        #     )
+        #     if namespace_tag is not None:
+        #         profile.set_namespace(namespace_tag.content())
+
+        #     profile_type_tag = tags.find(
+        #         TagKind.SINGLE_LETTER(SingleLetterTag.lowercase(Alphabet.L))
+        #     )
+        #     if profile_type_tag is not None:
+        #         profile.set_profile_type(profile_type_tag.content())
+        # return profile
+
+        try:
             events = await self.client.fetch_events(
                 filter=Filter().authors([profile_key]).kind(Kind(0)).limit(1),
                 timeout=timedelta(seconds=2),
             )
+
             if events.len() > 0:
-                tags = events.first().tags()
+                profile = await Profile.from_event(events.first())
+                return profile
 
-                hashtag_list = tags.hashtags()
-                for hashtag in hashtag_list:
-                    profile.add_hashtag(hashtag)
+            raise ValueError("No kind:0 event found")
 
-                namespace_tag = tags.find(
-                    TagKind.SINGLE_LETTER(SingleLetterTag.uppercase(Alphabet.L))
-                )
-                if namespace_tag is not None:
-                    profile.set_namespace(namespace_tag.content())
-
-                profile_type_tag = tags.find(
-                    TagKind.SINGLE_LETTER(SingleLetterTag.lowercase(Alphabet.L))
-                )
-                if profile_type_tag is not None:
-                    profile.set_profile_type(profile_type_tag.content())
-            return profile
         except RuntimeError as e:
-            raise RuntimeError(f"Unable to connect to relay: {e}") from e
-        except Exception as e:
-            raise ValueError(f"Unable to retrieve metadata: {e}") from e
+            raise RuntimeError(f"Unable to retrieve kind:0 event: {e}") from e
 
     def get_profile(self, public_key: Optional[str] = None) -> Profile:
         """
@@ -745,7 +758,8 @@ class NostrClient:
             # Initialize event response future
             message_received = asyncio.Future()
 
-            # Important: we need to use BOTH our public key and empty "p" tags to catch all messages
+            # Important: we need to use BOTH our public key and empty "p" tags to
+            # catch all messages
             # Some relays might send private messages without proper targeting
             message_filter = (
                 Filter()
@@ -755,12 +769,13 @@ class NostrClient:
             )
 
             self.logger.debug(
-                f"Creating subscription with filter: kinds=[4,1059], pubkey={self.keys.public_key().to_bech32()}"
+                "Creating subscription with filter: kinds=[4,1059], pubkey=%s",
+                self.keys.public_key().to_bech32(),
             )
 
             # Create subscription
             subscription = await self.client.subscribe(message_filter, None)
-            self.logger.debug(f"Subscription created: {subscription.id}")
+            self.logger.debug("Subscription created: %s", subscription.id)
 
             # Create a notification handler
             class SingleMessageHandler(HandleNotification):
@@ -772,14 +787,15 @@ class NostrClient:
 
                 async def handle_msg(self, relay_url: str, msg: RelayMessage) -> None:
                     # Use class-level logger
-                    NostrClient.logger.debug(f"Handle_msg from {relay_url}: {msg}")
+                    NostrClient.logger.debug("Handle_msg from %s: %s", relay_url, msg)
 
                     msg_enum = msg.as_enum()
 
                     # Handle end of stored events
                     if msg_enum.is_end_of_stored_events():
                         NostrClient.logger.debug(
-                            f"Received EOSE from {relay_url}, now waiting for real-time events"
+                            "Received EOSE from %s, now waiting for real-time events",
+                            relay_url,
                         )
                         self.received_eose = True
                         return
@@ -790,7 +806,9 @@ class NostrClient:
 
                     event = msg_enum.event
                     NostrClient.logger.debug(
-                        f"Received event kind {event.kind()} from {event.author().to_bech32()}"
+                        "Received event kind %s from %s",
+                        event.kind(),
+                        event.author().to_bech32(),
                     )
 
                     # Process based on event kind
@@ -802,7 +820,7 @@ class NostrClient:
                                     event.author(), event.content()
                                 )
                             )
-                            NostrClient.logger.debug(f"Decrypted content: {content}")
+                            NostrClient.logger.debug("Decrypted content: %s", content)
                             if not self.future.done():
                                 self.future.set_result(
                                     {
@@ -812,7 +830,7 @@ class NostrClient:
                                     }
                                 )
                         except Exception as e:
-                            NostrClient.logger.error(f"Failed to decrypt message: {e}")
+                            NostrClient.logger.error("Failed to decrypt message: %s", e)
 
                     elif event.kind() == Kind(1059):
                         NostrClient.logger.debug("Processing gift-wrapped message")
@@ -832,7 +850,7 @@ class NostrClient:
                                     sender = author.to_bech32()
 
                             NostrClient.logger.debug(
-                                f"Unwrapped content: {rumor.content()}"
+                                "Unwrapped content: %s", rumor.content()
                             )
                             if not self.future.done():
                                 self.future.set_result(
@@ -843,25 +861,28 @@ class NostrClient:
                                     }
                                 )
                         except Exception as e:
-                            NostrClient.logger.error(f"Failed to unwrap gift: {e}")
+                            NostrClient.logger.error("Failed to unwrap gift: %s", e)
 
                 async def handle(
                     self, relay_url: str, subscription_id: str, event: Event
                 ) -> None:
                     NostrClient.logger.debug(
-                        f"Handle from {relay_url}, subscription {subscription_id}, event {event.id()}"
+                        "Handle from %s, subscription %s, event %s",
+                        relay_url,
+                        subscription_id,
+                        event.id(),
                     )
 
                     # Process based on event kind
                     if event.kind() == Kind(4):
-                        NostrClient.logger.debug(f"Processing DM in handle")
+                        NostrClient.logger.debug("Processing DM in handle")
                         try:
                             content = (
                                 await self.nostr_client.nostr_signer.nip04_decrypt(
                                     event.author(), event.content()
                                 )
                             )
-                            NostrClient.logger.debug(f"Decrypted content: {content}")
+                            NostrClient.logger.debug("Decrypted content: %s", content)
                             if not self.future.done():
                                 self.future.set_result(
                                     {
@@ -871,11 +892,11 @@ class NostrClient:
                                     }
                                 )
                         except Exception as e:
-                            NostrClient.logger.error(f"Failed to decrypt message: {e}")
+                            NostrClient.logger.error("Failed to decrypt message: %s", e)
 
                     elif event.kind() == Kind(1059):
                         NostrClient.logger.debug(
-                            f"Processing gift-wrapped message in handle"
+                            "Processing gift-wrapped message in handle"
                         )
                         try:
                             unwrapped = await self.nostr_client.client.unwrap_gift_wrap(
@@ -893,7 +914,7 @@ class NostrClient:
                                     sender = author.to_bech32()
 
                             NostrClient.logger.debug(
-                                f"Unwrapped content: {rumor.content()}"
+                                "Unwrapped content: %s", rumor.content()
                             )
                             if not self.future.done():
                                 self.future.set_result(
@@ -904,7 +925,7 @@ class NostrClient:
                                     }
                                 )
                         except Exception as e:
-                            NostrClient.logger.error(f"Failed to unwrap gift: {e}")
+                            NostrClient.logger.error("Failed to unwrap gift: %s", e)
 
             # Create handler and notification task
             handler = SingleMessageHandler(self, message_received)
@@ -919,7 +940,7 @@ class NostrClient:
                 # Wait for either a message or timeout
                 try:
                     message = await asyncio.wait_for(message_received, timeout=timeout)
-                    self.logger.debug(f"Received message: {message}")
+                    self.logger.debug("Received message: %s", message)
                     return json.dumps(message)
                 except asyncio.TimeoutError:
                     # No message received within timeout
@@ -937,13 +958,13 @@ class NostrClient:
                         self.logger.debug("Cancelling notification task")
                         notification_task.cancel()
 
-                    self.logger.debug(f"Unsubscribing from {subscription.id}")
+                    self.logger.debug("Unsubscribing from %s", subscription.id)
                     await self.client.unsubscribe(subscription.id)
                 except Exception as e:
-                    self.logger.error(f"Error cleaning up subscription: {e}")
+                    self.logger.error("Error cleaning up subscription: %s", e)
 
         except Exception as e:
-            self.logger.error(f"Error in receive_message: {e}")
+            self.logger.error("Error in receive_message: %s", e)
             return json.dumps(
                 {"type": "none", "sender": "none", "content": f"Error: {str(e)}"}
             )
@@ -1109,6 +1130,7 @@ class NostrClient:
         if (name := self.profile.get_name()) == "":
             raise ValueError("A profile must have a value for the field `name`.")
 
+        # Populate standard Metadata fields
         metadata_content = metadata_content.set_name(name)
         if (about := self.profile.get_about()) != "":
             metadata_content = metadata_content.set_about(about)
@@ -1122,10 +1144,38 @@ class NostrClient:
             metadata_content = metadata_content.set_picture(picture)
         if (website := self.profile.get_website()) != "":
             metadata_content = metadata_content.set_website(website)
+
+        # Populate custom Metadata fields
         if (bot := self.profile.is_bot()) != "":
             metadata_content = metadata_content.set_custom_field(
                 key="bot", value=JsonValue.BOOL(bot)
             )
+        if (city := self.profile.get_city()) != "":
+            metadata_content = metadata_content.set_custom_field(
+                key="city", value=JsonValue.STR(city)
+            )
+        if (country := self.profile.get_country()) != "":
+            metadata_content = metadata_content.set_custom_field(
+                key="country", value=JsonValue.STR(country)
+            )
+        if (email := self.profile.get_email()) != "":
+            metadata_content = metadata_content.set_custom_field(
+                key="email", value=JsonValue.STR(email)
+            )
+        if (state := self.profile.get_state()) != "":
+            metadata_content = metadata_content.set_custom_field(
+                key="state", value=JsonValue.STR(state)
+            )
+        if (street := self.profile.get_street()) != "":
+            metadata_content = metadata_content.set_custom_field(
+                key="street", value=JsonValue.STR(street)
+            )
+        if (zip_code := self.profile.get_zip_code()) != "":
+            metadata_content = metadata_content.set_custom_field(
+                key="zip_code", value=JsonValue.STR(zip_code)
+            )
+
+        # Create event and populate profile fields carried as tags
 
         event_builder = EventBuilder.metadata(metadata_content)
 
@@ -1148,8 +1198,6 @@ class NostrClient:
         event_builder = event_builder.tags(
             [Tag.hashtag(hashtag) for hashtag in self.profile.get_hashtags()]
         )
-
-        NostrClient.logger.debug("Event builder: %s", event_builder)
 
         try:
             # event_id_obj = await self._async_publish_event(event_builder)
