@@ -1,8 +1,10 @@
 import json
 import logging
 import re
+import warnings
 from datetime import datetime, timezone
 from enum import Enum
+from functools import wraps
 from typing import ClassVar, List, Optional, Set
 
 import httpx
@@ -22,6 +24,38 @@ from nostr_sdk import (
     TagKind,
 )
 from pydantic import BaseModel, ConfigDict, Field
+
+
+def deprecated(reason: str, version: str = "2.0.0", alternative: str = None):
+    """
+    Decorator to mark functions as deprecated.
+
+    Args:
+        reason: Why the function is deprecated
+        version: Version when it will be removed
+        alternative: Suggested alternative function/method
+    """
+
+    def decorator(func):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            message = f"{func.__name__} is deprecated. {reason}"
+            if alternative:
+                message += f" Use {alternative} instead."
+            message += f" Will be removed in version {version}."
+
+            warnings.warn(message, DeprecationWarning, stacklevel=2)
+            return func(*args, **kwargs)
+
+        # Update docstring
+        if func.__doc__:
+            func.__doc__ += f"\n\n.. deprecated:: {version}\n    {reason}"
+            if alternative:
+                func.__doc__ += f" Use :func:`{alternative}` instead."
+
+        return wrapper
+
+    return decorator
 
 
 class Namespace(str, Enum):
@@ -122,7 +156,10 @@ class Profile(BaseModel):
     about: str = ""
     banner: str = ""
     bot: bool = False
+    city: str = ""
+    country: str = ""
     display_name: str = ""
+    email: str = ""
     hashtags: List[str] = []
     locations: Set[str] = Field(default_factory=set)
     name: str = ""
@@ -130,9 +167,13 @@ class Profile(BaseModel):
     nip05: str = ""
     nip05_validated: bool = False
     picture: str = ""
+    phone: str = ""
     profile_type: ProfileType = ProfileType.OTHER_OTHER
     profile_url: str = ""
+    state: str = ""
+    street: str = ""
     website: str = ""
+    zip_code: str = ""
 
     def __init__(self, public_key: str, **data) -> None:
         super().__init__(public_key=public_key, **data)
@@ -152,8 +193,17 @@ class Profile(BaseModel):
     def get_banner(self) -> str:
         return self.banner
 
+    def get_city(self) -> str:
+        return self.city
+
+    def get_country(self) -> str:
+        return self.country
+
     def get_display_name(self) -> str:
         return self.display_name
+
+    def get_email(self) -> str:
+        return self.email
 
     def get_hashtags(self) -> List[str]:
         return self.hashtags
@@ -169,6 +219,9 @@ class Profile(BaseModel):
 
     def get_nip05(self) -> str:
         return self.nip05
+
+    def get_phone(self) -> str:
+        return self.phone
 
     def get_picture(self) -> str:
         return self.picture
@@ -199,8 +252,17 @@ class Profile(BaseModel):
 
         raise ValueError("Invalid encoding. Must be 'bech32' or 'hex'.")
 
+    def get_state(self) -> str:
+        return self.state
+
+    def get_street(self) -> str:
+        return self.street
+
     def get_website(self) -> str:
         return self.website
+
+    def get_zip_code(self) -> str:
+        return self.zip_code
 
     def is_bot(self) -> bool:
         return self.bot
@@ -226,8 +288,17 @@ class Profile(BaseModel):
     def set_bot(self, bot: bool) -> None:
         self.bot = bot
 
+    def set_city(self, city: str) -> None:
+        self.city = city
+
+    def set_country(self, country: str) -> None:
+        self.country = country
+
     def set_display_name(self, display_name: str) -> None:
         self.display_name = display_name
+
+    def set_email(self, email: str) -> None:
+        self.email = email
 
     def set_name(self, name: str) -> None:
         self.name = name
@@ -248,31 +319,50 @@ class Profile(BaseModel):
     def set_picture(self, picture: str) -> None:
         self.picture = self._validate_url(picture) if picture else ""
 
+    def set_phone(self, phone: str) -> None:
+        self.phone = phone
+
     def set_profile_type(self, profile_type: ProfileType | str) -> None:
         if isinstance(profile_type, str):
             # Convert string to ProfileType enum safely
             profile_type = ProfileType(profile_type)
         self.profile_type = profile_type
 
+    def set_state(self, state: str) -> None:
+        self.state = state
+
+    def set_street(self, street: str) -> None:
+        self.street = street
+
     def set_website(self, website: str) -> None:
         self.website = self._validate_url(website) if website else ""
+
+    def set_zip_code(self, zip_code: str) -> None:
+        self.zip_code = zip_code
 
     def to_dict(self) -> dict:
         return {
             "about": self.about,
             "banner": self.banner,
             "bot": self.bot,
+            "city": self.city,
+            "country": self.country,
             "display_name": self.display_name,
+            "email": self.email,
             "hashtags": self.hashtags,
             "locations": list(self.locations),  # Convert set to list
             "name": self.name,
             "namespace": self.namespace,
             "nip05": self.nip05,
             "picture": self.picture,
+            "phone": self.phone,
             "profile_url": self.profile_url,
             "public_key": self.public_key,
             "profile_type": self.profile_type,
+            "state": self.state,
+            "street": self.street,
             "website": self.website,
+            "zip_code": self.zip_code,
         }
 
     def to_json(self) -> str:
@@ -280,17 +370,24 @@ class Profile(BaseModel):
             "about": self.about,
             "banner": self.banner,
             "bot": self.bot,
+            "city": self.city,
+            "country": self.country,
             "display_name": self.display_name,
+            "email": self.email,
             "hashtags": self.hashtags,
             "locations": (list(self.locations) if self.locations else []),
             "name": self.name,
             "namespace": self.namespace,
             "nip05": self.nip05,
             "picture": self.picture,
+            "phone": self.phone,
             "profile_url": self.profile_url,
             "public_key": self.public_key,
             "profile_type": self.profile_type.value,
+            "state": self.state,
+            "street": self.street,
             "website": self.website,
+            "zip_code": self.zip_code,
         }
         return json.dumps(data)
 
@@ -369,6 +466,10 @@ class Profile(BaseModel):
         return url
 
     @classmethod
+    @deprecated(
+        reason="Method is incomplete and lacks namespace/type/hashtags logic",
+        alternative="from_event",
+    )
     async def from_metadata(cls, metadata: Metadata, public_key: str) -> "Profile":
         """
         Create a Profile instance from a Metadata object.
@@ -387,6 +488,49 @@ class Profile(BaseModel):
             profile.set_bot(json_bot.bool)
         else:
             profile.set_bot(False)
+
+        json_city = metadata.get_custom_field("city")
+        if isinstance(json_city, JsonValue.STR):
+            profile.set_city(json_city.s)
+        else:
+            profile.set_city("")
+
+        json_country = metadata.get_custom_field("country")
+        if isinstance(json_country, JsonValue.STR):
+            profile.set_country(json_country.s)
+        else:
+            profile.set_country("")
+
+        json_email = metadata.get_custom_field("email")
+        if isinstance(json_email, JsonValue.STR):
+            profile.set_email(json_email.s)
+        else:
+            profile.set_email("")
+
+        json_phone = metadata.get_custom_field("phone")
+        if isinstance(json_phone, JsonValue.STR):
+            profile.set_phone(json_phone.s)
+        else:
+            profile.set_phone("")
+
+        json_state = metadata.get_custom_field("state")
+        if isinstance(json_state, JsonValue.STR):
+            profile.set_state(json_state.s)
+        else:
+            profile.set_state("")
+
+        json_street = metadata.get_custom_field("street")
+        if isinstance(json_street, JsonValue.STR):
+            profile.set_street(json_street.s)
+        else:
+            profile.set_street("")
+
+        json_zip_code = metadata.get_custom_field("zip_code")
+        if isinstance(json_zip_code, JsonValue.STR):
+            profile.set_zip_code(json_zip_code.s)
+        else:
+            profile.set_zip_code("")
+
         try:
             profile.nip05_validated = await profile._validate_profile_nip05()
 
@@ -420,11 +564,18 @@ class Profile(BaseModel):
         profile.set_about(metadata.get("about", ""))
         profile.set_banner(metadata.get("banner", ""))
         profile.set_bot(metadata.get("bot", False))
+        profile.set_city(metadata.get("city", ""))
+        profile.set_country(metadata.get("country", ""))
         profile.set_display_name(metadata.get("display_name", ""))
+        profile.set_email(metadata.get("email", ""))
         profile.set_name(metadata.get("name", ""))
         profile.set_nip05(metadata.get("nip05", ""))
         profile.set_picture(metadata.get("picture", ""))
+        profile.set_phone(metadata.get("phone", ""))
+        profile.set_state(metadata.get("state", ""))
+        profile.set_street(metadata.get("street", ""))
         profile.set_website(metadata.get("website", ""))
+        profile.set_zip_code(metadata.get("zip_code", ""))
 
         # process tags
         tags = event.tags()
@@ -468,15 +619,21 @@ class Profile(BaseModel):
         profile.set_banner(data.get("banner", ""))
         profile.set_bot(data.get("bot", False))
         profile.set_display_name(data.get("display_name", ""))
+        profile.set_email(data.get("email", ""))
         for hashtag in data.get("hashtags", []):
             profile.add_hashtag(hashtag)
+        profile.locations = set(data.get("locations", []))
         profile.set_namespace(data.get("namespace", ""))
         profile.set_name(data.get("name", ""))
         profile.set_nip05(data.get("nip05", ""))
         profile.set_picture(data.get("picture", ""))
+        profile.set_phone(data.get("phone", ""))
         profile.set_profile_type(data.get("profile_type", ProfileType.OTHER_OTHER))
+        profile.set_state(data.get("state", ""))
+        profile.set_street(data.get("street", ""))
         profile.set_website(data.get("website", ""))
-        profile.locations = set(data.get("locations", []))
+        profile.set_zip_code(data.get("zip_code", ""))
+
         return profile
 
     @staticmethod

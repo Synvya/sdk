@@ -4,7 +4,7 @@ This module contains the conftest file for the tests.
 
 from os import getenv
 from pathlib import Path
-from typing import List, Union
+from typing import List
 from unittest.mock import Mock
 
 import pytest
@@ -117,6 +117,48 @@ def merchant_picture_fixture() -> str:
     return "https://i.nostr.build/ocjZ5GlAKwrvgRhx.png"
 
 
+@pytest.fixture(scope="session", name="merchant_city")
+def merchant_city_fixture() -> str:
+    """Fixture providing the test profile city"""
+    return "Springfield"
+
+
+@pytest.fixture(scope="session", name="merchant_country")
+def merchant_country_fixture() -> str:
+    """Fixture providing the test profile country"""
+    return "USA"
+
+
+@pytest.fixture(scope="session", name="merchant_email")
+def merchant_email_fixture() -> str:
+    """Fixture providing the test profile email"""
+    return "merchant@synvya.com"
+
+
+@pytest.fixture(scope="session", name="merchant_phone")
+def merchant_phone_fixture() -> str:
+    """Fixture providing the test profile phone"""
+    return "+15551234567"
+
+
+@pytest.fixture(scope="session", name="merchant_state")
+def merchant_state_fixture() -> str:
+    """Fixture providing the test profile state"""
+    return "IL"
+
+
+@pytest.fixture(scope="session", name="merchant_street")
+def merchant_street_fixture() -> str:
+    """Fixture providing the test profile street"""
+    return "123 Main St"
+
+
+@pytest.fixture(scope="session", name="merchant_zip_code")
+def merchant_zip_code_fixture() -> str:
+    """Fixture providing the test profile zip code"""
+    return "62704"
+
+
 @pytest.fixture(scope="session", name="merchant_website")
 def merchant_website_fixture() -> str:
     """Fixture providing the test profile website"""
@@ -129,12 +171,19 @@ def merchant_profile_fixture(
     merchant_about: str,
     merchant_banner: str,
     merchant_bot: bool,
+    merchant_city: str,
+    merchant_country: str,
+    merchant_display_name: str,
+    merchant_email: str,
     merchant_location: str,
     merchant_name: str,
-    merchant_display_name: str,
-    merchant_picture: str,
-    merchant_website: str,
     merchant_nip05: str,
+    merchant_picture: str,
+    merchant_phone: str,
+    merchant_state: str,
+    merchant_street: str,
+    merchant_website: str,
+    merchant_zip_code: str,
 ) -> Profile:
     """Fixture providing the test merchant profile"""
     profile = Profile(merchant_keys.get_public_key())
@@ -142,11 +191,18 @@ def merchant_profile_fixture(
     profile.set_about(merchant_about)
     profile.set_banner(merchant_banner)
     profile.set_bot(merchant_bot)
+    profile.set_city(merchant_city)
+    profile.set_country(merchant_country)
+    profile.set_email(merchant_email)
     profile.set_name(merchant_name)
     profile.set_display_name(merchant_display_name)
     profile.set_nip05(merchant_nip05)
     profile.set_picture(merchant_picture)
+    profile.set_phone(merchant_phone)
+    profile.set_state(merchant_state)
+    profile.set_street(merchant_street)
     profile.set_website(merchant_website)
+    profile.set_zip_code(merchant_zip_code)
     return profile
 
 
