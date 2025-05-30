@@ -1,0 +1,207 @@
+---
+title: 'Delegation'
+description: 'NIP-26 Delegation Support.'
+icon: 'hand-holding-hand'
+---
+
+import Installation from '/snippets/installation.mdx'
+
+The Synvya SDK provides comprehensive support for NIP-26 delegation, allowing merchants to delegate publishing rights to servers or other entities while maintaining control over their identity and content.
+
+## Overview
+NIP-26 delegation enables a merchant (delegator) to grant specific publishing permissions to another party (delegatee) without sharing their private key. This is particularly useful for:
+Allowing servers to publish events on behalf of merchants
+Enabling automated systems to manage marketplace content
+Implementing secure multi-user merchant management
+
+## Key Components
+### Delegation Class
+The `Delegation` class wraps and validates NIP-26 delegation events (kind 30078):
+
+```python
+from synvya_sdk import Delegation
+
+# Parse a delegation event from JSON
+delegation = Delegation.parse(delegation_event_json)
+
+# Access delegation properties
+print(f"Delegator: {delegation.author}")
+print(f"Expires at: {delegation.expires_at}")
+print(f"Allowed kinds: {delegation.allowed_kinds}")
+```
+### Properties
+- `author`: Merchant's public key (bech32 or hex)
+- `conditions`: Raw query string defining delegation constraints
+- `sig`: Merchant's signature
+- `tag`: Complete delegation tag for re-attachment
+- `created_at`: Delegation creation timestamp (Unix)
+- `expires_at`: Delegation expiry timestamp (Unix)
+- `allowed_kinds`: Set of event kinds that can be published
+
+### NostrClient with Delegation
+The `NostrClient` can be initialized with a delegation event to automatically use it for publishing:
+```python
+from synvya_sdk import NostrClient
+
+# Create client with delegation
+nostr_client = await NostrClient.create(
+    relays=["wss://relay.example.com"],
+    private_key="delegatee_private_key",
+    delegation_event=delegation_event_json
+)
+```
+
+## Creating a Delegation Event
+A merchant creates a delegation event (kind 30078) that includes:
+- Delegation tag: ["delegation", delegatee_pubkey, conditions, delegation_token]
+- Conditions: Query string specifying constraints like allowed kinds and expiry
+- Signature: Merchant's signature over the delegation
+
+Example delegation event structure:
+
+```json
+{
+  "kind": 30078,
+  "pubkey": "merchant_pubkey",
+  "created_at": 1234567890,
+  "content": "",
+  "tags": [
+    [
+      "delegation",
+      "delegatee_pubkey",
+      "kind=30017,30018&created_at=1234567890&expires_at=1234567999",
+      "delegation_token"
+    ]
+  ],
+  "sig": "merchant_signature"
+}
+```
+
+## Methods
+### Delegation.parse(raw)
+Converts raw JSON (string or dict) of a kind 30078 event into a validated Delegation instance.
+- Parameters:
+  - raw: JSON string or dictionary containing the delegation event
+- Returns:
+  - Delegation: Validated delegation instance
+- Raises:
+  - ValueError: If event is not kind 30078, has invalid signature, or missing delegation tag
+
+```python
+# From JSON string
+delegation = Delegation.parse(json_string)
+
+# From dictionary
+delegation = Delegation.parse(event_dict)
+```
+### delegation.validate_event(event)
+Validates that a given event can be published under this delegation.
+- Parameters:
+  - event: Nostr event to validate
+- Raises:
+  - ValueError: If event kind not allowed or delegation expired
+
+```python
+from nostr_sdk import Event
+
+# Validate before publishing
+try:
+    delegation.validate_event(event)
+    print("Event is valid for this delegation")
+except ValueError as e:
+    print(f"Validation failed: {e}")
+```
+### delegation.delegation_tag
+Property that returns the ready-made delegation tag for attaching to events before publishing.
+```python
+# Get tag for event publishing
+tag = delegation.delegation_tag
+# Returns: ["delegation", delegatee_pubkey, conditions, token]
+```
+
+## Usage Examples
+### Server-Side Merchant Management
+```python
+import json
+from synvya_sdk import NostrClient, Delegation, Stall, Product
+
+async def setup_delegated_merchant():
+    # Parse delegation from merchant
+    delegation_event = {
+        "kind": 30078,
+        "pubkey": "merchant_pubkey",
+        # ... complete delegation event
+    }
+
+    delegation = Delegation.parse(delegation_event)
+
+    # Create client with delegation
+    client = await NostrClient.create(
+        relays=["wss://relay.example.com"],
+        private_key="server_private_key",
+        delegation_event=delegation_event
+    )
+
+    # Server can now publish on behalf of merchant
+    stall = Stall(
+        id="merchant-stall-1",
+        name="Merchant's Store",
+        description="Managed by server",
+        currency="USD",
+        shipping=[]
+    )
+
+    await client.async_set_stall(stall)
+```
+
+### Delegation Validation
+```python
+async def validate_delegation_permissions():
+    delegation = Delegation.parse(delegation_json)
+
+    # Check if delegation allows marketplace events
+    allowed_kinds = {30017, 30018}  # Stall and Product kinds
+
+    if not allowed_kinds.issubset(delegation.allowed_kinds):
+        raise ValueError("Delegation doesn't allow marketplace events")
+
+    # Check expiry
+    import time
+    if time.time() > delegation.expires_at:
+        raise ValueError("Delegation has expired")
+
+    print("Delegation is valid for marketplace operations")
+```
+## Security Considerations
+- Signature Verification: All delegation events are cryptographically verified
+- Time Bounds: Delegations include expiry timestamps for time-limited access
+- Kind Restrictions: Only specified event kinds can be published
+- Condition Parsing: Delegation conditions are parsed and validated
+## Error Handling
+The delegation system provides specific error messages for common issues:
+```python
+try:
+    delegation = Delegation.parse(event_json)
+    delegation.validate_event(some_event)
+except ValueError as e:
+    if "not a delegation" in str(e):
+        print("Invalid delegation event format")
+    elif "Invalid delegation signature" in str(e):
+        print("Signature verification failed")
+    elif "expired" in str(e):
+        print("Delegation has expired")
+    elif "not allowed" in str(e):
+        print("Event kind not permitted by delegation")
+```
+## Best Practices
+- Validate Early: Always validate delegation events immediately after parsing
+- Check Expiry: Implement regular checks for delegation expiry
+- Minimal Permissions: Request only the minimum required event kinds
+- Secure Storage: Store delegation events securely on the server side
+- Audit Trail: Log all actions performed under delegation for accountability
+This delegation system enables secure, controlled publishing while maintaining the decentralized nature of Nostr and giving merchants fine-grained control over their digital presence.
+
+
+## References
+
+- [NIP-26](https://github.com/nostr-protocol/nips/blob/master/26.md) - Delegation

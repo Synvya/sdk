@@ -1,6 +1,7 @@
 import json
 import logging
 import re
+from datetime import datetime, timezone
 from enum import Enum
 from typing import ClassVar, List, Optional, Set
 
@@ -992,3 +993,104 @@ class Stall(BaseModel):
             shipping=shipping_methods,
             geohash=data.get("geohash", None),
         )
+
+
+# ------------------------------------------------------------------------------ #
+# Delegation (NIP-26) Support
+# ------------------------------------------------------------------------------ #
+
+
+class Delegation(BaseModel):
+    """
+    NIP‑26 delegation wrapper.
+
+    A merchant signs a *kind 30078* event delegating publishing rights to the
+    server.  This helper parses that event, validates its signature and
+    provides convenience checks for downstream publishing code.
+    """
+
+    author: str  # Merchant pubkey (bech32 or hex)
+    conditions: str  # Raw query string e.g. "kind=30078&expires_at=…"
+    sig: str  # Merchant signature
+    tag: list[str]  # Complete ["delegation", …] tag to re‑attach
+    created_at: int  # Delegation creation (unix ts)
+    expires_at: int  # Expiry (unix ts)
+    allowed_kinds: Set[int]  # Kinds we may publish
+
+    # ------------------------------------------------------------------ #
+    # Construction helpers
+    # ------------------------------------------------------------------ #
+    @classmethod
+    def parse(cls, raw: str | dict) -> "Delegation":
+        """
+        Convert raw JSON (str or dict) of a *kind 30078* event into a validated
+        Delegation instance.
+
+        Raises:
+            ValueError - on wrong kind or bad signature.
+        """
+        evt = raw if isinstance(raw, dict) else json.loads(raw)
+
+        # Basic integrity checks
+        if evt.get("kind") != 30078:
+            raise ValueError("Event is not a delegation (kind 30078)")
+
+        # Verify sig using nostr‑sdk
+        event_obj = Event.from_json(json.dumps(evt))
+        if not event_obj.verify():
+            raise ValueError("Invalid delegation signature")
+
+        # Pull out the delegation tag parts
+        tags = evt.get("tags", [])
+
+        # Find the delegation tag (should be ["delegation", delegatee, conditions, token])
+        delegation_tag = None
+        for tag in tags:
+            if len(tag) >= 4 and tag[0] == "delegation":
+                delegation_tag = tag
+                break
+
+        if delegation_tag is None:
+            raise ValueError("Delegation tag missing")
+
+        cond_str = delegation_tag[2]  # "kind=30078&created_at=…&expires_at=…"
+        cond_map = {
+            k: v
+            for (k, v) in (kv.split("=", 1) for kv in cond_str.split("&") if "=" in kv)
+        }
+
+        allowed = {int(k) for k in cond_map.get("kind", "").split(",") if k.isdigit()}
+        created = int(cond_map.get("created_at", evt["created_at"]))
+        expires = int(cond_map.get("expires_at", created))
+
+        return cls(
+            author=evt["pubkey"],
+            conditions=cond_str,
+            sig=evt["sig"],
+            tag=delegation_tag,
+            created_at=created,
+            expires_at=expires,
+            allowed_kinds=allowed,
+        )
+
+    # ------------------------------------------------------------------ #
+    # Validation helpers
+    # ------------------------------------------------------------------ #
+    def validate_event(self, event: Event) -> None:
+        """
+        Ensure *event* is publishable under this delegation.
+
+        Raises:
+            ValueError - if kind not allowed or delegation expired.
+        """
+        if event.kind() not in self.allowed_kinds and self.allowed_kinds:
+            raise ValueError("Event kind not allowed by delegation")
+
+        now_ts = int(datetime.now(timezone.utc).timestamp())
+        if now_ts > self.expires_at:
+            raise ValueError("Delegation expired")
+
+    # Convenience: ready‑made tag to append before publish()
+    @property
+    def delegation_tag(self) -> list[str]:
+        return self.tag

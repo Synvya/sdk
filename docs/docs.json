@@ -27,7 +27,8 @@
               "essentials/profile",
               "essentials/agentdiscovery",
               "essentials/messages",
-              "essentials/marketplace"
+              "essentials/marketplace",
+              "essentials/delegation"
             ]
           }
         ]

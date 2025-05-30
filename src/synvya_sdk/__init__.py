@@ -17,7 +17,7 @@ from .models import (
     Stall,
     StallShippingMethod,
 )
-from .nostr import NostrClient, generate_keys
+from .nostr import NostrClient, generate_keys, verify_signature
 
 # Import version from pyproject.toml at runtime
 try:
@@ -42,4 +42,6 @@ __all__ = [
     "Product",
     "Stall",
     "NostrKeys",
+    "verify_signature",
+    "generate_keys",
 ]
