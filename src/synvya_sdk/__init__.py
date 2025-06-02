@@ -7,6 +7,7 @@ import logging
 
 # Import main classes to make them available at package level
 from .models import (
+    KeyEncoding,
     Namespace,
     NostrKeys,
     Product,

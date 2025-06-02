@@ -13,6 +13,7 @@ from dotenv import load_dotenv
 
 from agno.agent import AgentKnowledge
 from synvya_sdk import (
+    KeyEncoding,
     NostrKeys,
     Product,
     ProductShippingCost,
@@ -66,7 +67,7 @@ def merchant_keys_fixture() -> NostrKeys:
     if nsec is None:
         return generate_keys(env_var="TEST_MERCHANT_KEY", env_path=script_dir / ".env")
 
-    return NostrKeys.from_private_key(nsec)
+    return NostrKeys(private_key=nsec)
 
 
 @pytest.fixture(scope="session", name="merchant_about")
@@ -186,7 +187,7 @@ def merchant_profile_fixture(
     merchant_zip_code: str,
 ) -> Profile:
     """Fixture providing the test merchant profile"""
-    profile = Profile(merchant_keys.get_public_key())
+    profile = Profile(merchant_keys.get_public_key(KeyEncoding.BECH32))
     profile.add_location(merchant_location)
     profile.set_about(merchant_about)
     profile.set_banner(merchant_banner)
@@ -215,7 +216,7 @@ def buyer_keys_fixture() -> NostrKeys:
     nsec = getenv("TEST_BUYER_KEY")
     if nsec is None:
         return generate_keys(env_var="TEST_BUYER_KEY", env_path=script_dir / ".env")
-    return NostrKeys.from_private_key(nsec)
+    return NostrKeys(nsec)
 
 
 @pytest.fixture(scope="session", name="buyer_about")
@@ -258,7 +259,7 @@ def buyer_profile_fixture(
     buyer_website: str,
 ) -> Profile:
     """Fixture providing the test merchant profile"""
-    profile = Profile(buyer_keys.get_public_key())
+    profile = Profile(buyer_keys.get_public_key(KeyEncoding.BECH32))
     profile.set_about(buyer_about)
     profile.set_banner(buyer_banner)
     profile.set_name(buyer_name)
@@ -367,7 +368,7 @@ def products_fixture(
             shipping=[product_shipping_costs[0], product_shipping_costs[1]],
             specs=[["length", "10cm"], ["material", "steel"]],
             categories=["hardware", "tools"],
-            seller=merchant_keys.get_public_key(),
+            seller=merchant_keys.get_public_key(KeyEncoding.BECH32),
         ),
         Product(
             id="bcf00Rx8",
@@ -381,7 +382,7 @@ def products_fixture(
             shipping=[product_shipping_costs[0], product_shipping_costs[1]],
             specs=[["length", "100 cm"], ["material", "steel"]],
             categories=["hardware", "tools"],
-            seller=merchant_keys.get_public_key(),
+            seller=merchant_keys.get_public_key(KeyEncoding.BECH32),
         ),
         Product(
             id="ccf00Rx1",
@@ -395,7 +396,7 @@ def products_fixture(
             shipping=[product_shipping_costs[2]],
             specs=[["type", "online"], ["media", "video"]],
             categories=["education", "hardware tools"],
-            seller=merchant_keys.get_public_key(),
+            seller=merchant_keys.get_public_key(KeyEncoding.BECH32),
         ),
     ]
 
@@ -435,7 +436,9 @@ async def merchant_tools_fixture(
 
     # Replace specific methods that need to be async with AsyncMock
     mock_client.async_get_profile = AsyncMock()
-    mock_client.async_get_profile.return_value = Profile(merchant_keys.get_public_key())
+    mock_client.async_get_profile.return_value = Profile(
+        merchant_keys.get_public_key(KeyEncoding.BECH32)
+    )
     mock_client.async_get_merchants = AsyncMock()
     mock_client.async_get_merchants_in_marketplace = AsyncMock()
     mock_client.async_get_products = AsyncMock()
@@ -453,7 +456,7 @@ async def merchant_tools_fixture(
         # Step 3: Create MerchantTools instance with mocked dependencies
         # Convert relay to a list for compatibility with the updated interface
         merchant_tools = await MerchantTools.create(
-            [relay], merchant_keys.get_private_key(), stalls, products
+            [relay], merchant_keys.get_private_key(KeyEncoding.BECH32), stalls, products
         )
 
         # Ensure the mocked client is properly assigned to the instance
@@ -484,7 +487,9 @@ async def buyer_tools_fixture(
 
     # Replace specific methods that need to be async with AsyncMock
     mock_client.async_get_profile = AsyncMock()
-    mock_client.async_get_profile.return_value = Profile(buyer_keys.get_public_key())
+    mock_client.async_get_profile.return_value = Profile(
+        buyer_keys.get_public_key(KeyEncoding.BECH32)
+    )
     mock_client.async_get_merchants = AsyncMock()
     mock_client.async_get_merchants_in_marketplace = AsyncMock()
     mock_client.async_get_products = AsyncMock()
@@ -497,7 +502,9 @@ async def buyer_tools_fixture(
         # Step 3: Create BuyerTools instance with mocked dependencies
         # Convert relay to a list for compatibility with the updated interface
         buyer_tools = await BuyerTools.create(
-            mock_knowledge_base, [relay], buyer_keys.get_private_key()
+            mock_knowledge_base,
+            [relay],
+            buyer_keys.get_private_key(KeyEncoding.BECH32),
         )
         # Step 4: Set merchants directly
         buyer_tools.merchants = {merchant_profile}

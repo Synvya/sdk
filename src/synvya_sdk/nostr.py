@@ -14,6 +14,7 @@ import coincurve
 
 from .models import (
     Delegation,
+    KeyEncoding,
     Namespace,
     NostrKeys,
     Product,
@@ -1469,9 +1470,8 @@ def generate_keys(env_var: str, env_path: Path) -> NostrKeys:
         tuple[str, str]: [public key, private key] in bech32 format
     """
     # Generate new keys
-    keys = Keys.generate()
-    nsec = keys.secret_key().to_bech32()
-
+    nostr_keys = NostrKeys()
+    nsec = nostr_keys.get_private_key(KeyEncoding.BECH32)
     # Determine .env path
     if env_path is None:
         env_path = Path.cwd() / ".env"
@@ -1504,4 +1504,4 @@ def generate_keys(env_var: str, env_path: Path) -> NostrKeys:
         if new_lines:  # Add final newline if there's content
             f.write("\n")
 
-    return NostrKeys.from_private_key(nsec)
+    return nostr_keys

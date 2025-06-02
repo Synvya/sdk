@@ -27,7 +27,7 @@ from agno.agent import Agent, AgentKnowledge  # type: ignore
 from agno.embedder.openai import OpenAIEmbedder
 from agno.models.openai import OpenAIChat  # type: ignore
 from agno.vectordb.pgvector import PgVector, SearchType
-from synvya_sdk import NostrKeys, Profile, generate_keys
+from synvya_sdk import KeyEncoding, NostrKeys, Profile, generate_keys
 from synvya_sdk.agno import BuyerTools
 
 
@@ -192,11 +192,11 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     if NSEC is None:
         keys = generate_keys(env_var="BUYER_AGENT_KEY", env_path=script_dir / ".env")
     else:
-        keys = NostrKeys.from_private_key(NSEC)
+        keys = NostrKeys(private_key=NSEC)
 
     RELAY = getenv("RELAY") or "wss://relay.damus.io"
 
-    profile = Profile(keys.get_public_key())
+    profile = Profile(keys.get_public_key(KeyEncoding.BECH32))
     profile.set_name(NAME)
     profile.set_about(ABOUT)
     profile.set_display_name(DISPLAY_NAME)

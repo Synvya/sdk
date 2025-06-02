@@ -8,6 +8,7 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 from synvya_sdk import (
+    KeyEncoding,
     Namespace,
     NostrKeys,
     Product,
@@ -31,7 +32,7 @@ NSEC = getenv(ENV_KEY)
 if NSEC is None:
     keys = generate_keys(env_var=ENV_KEY, env_path=script_dir / ".env")
 else:
-    keys = NostrKeys.from_private_key(NSEC)
+    keys = NostrKeys(private_key=NSEC)
 
 # --*-- Merchant info
 ABOUT = "A merchant test profile"
@@ -103,7 +104,7 @@ products = [
         shipping=[product_shipping_costs[0], product_shipping_costs[1]],
         specs=[["length", "10cm"], ["material", "steel"]],
         categories=["hardware", "tools"],
-        seller=keys.get_public_key(),
+        seller=keys.get_public_key(KeyEncoding.BECH32),
     ),
     Product(
         id="bcf00Rx8",
@@ -117,7 +118,7 @@ products = [
         shipping=[product_shipping_costs[0], product_shipping_costs[1]],
         specs=[["length", "100 cm"], ["material", "steel"]],
         categories=["hardware", "tools"],
-        seller=keys.get_public_key(),
+        seller=keys.get_public_key(KeyEncoding.BECH32),
     ),
     Product(
         id="ccf00Rx1",
@@ -131,11 +132,11 @@ products = [
         shipping=[product_shipping_costs[2]],
         specs=[["type", "online"], ["media", "video"]],
         categories=["education", "hardware tools"],
-        seller=keys.get_public_key(),
+        seller=keys.get_public_key(KeyEncoding.BECH32),
     ),
 ]
 
-profile = Profile(keys.get_public_key())
+profile = Profile(keys.get_public_key(KeyEncoding.BECH32))
 profile.set_name(NAME)
 profile.set_display_name(DISPLAY_NAME)
 profile.set_about(ABOUT)

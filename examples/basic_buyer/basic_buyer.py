@@ -19,7 +19,7 @@ from agno.agent import Agent, AgentKnowledge  # type: ignore
 from agno.embedder.openai import OpenAIEmbedder
 from agno.models.openai import OpenAIChat  # type: ignore
 from agno.vectordb.pgvector import PgVector, SearchType
-from synvya_sdk import NostrKeys, Profile, generate_keys
+from synvya_sdk import KeyEncoding, NostrKeys, Profile, generate_keys
 from synvya_sdk.agno import BuyerTools
 
 # Set logging to WARN level to suppress INFO logs
@@ -40,7 +40,7 @@ NSEC = getenv("BUYER_AGENT_KEY")
 if NSEC is None:
     keys = generate_keys(env_var="BUYER_AGENT_KEY", env_path=script_dir / ".env")
 else:
-    keys = NostrKeys.from_private_key(NSEC)
+    keys = NostrKeys(private_key=NSEC)
 
 # Load or use default relay
 RELAY = getenv("RELAY")
@@ -154,12 +154,12 @@ buyer_tools = asyncio.run(
     BuyerTools.create(
         knowledge_base=knowledge_base,
         relays=RELAY,
-        private_key=keys.get_private_key(),
+        private_key=keys.get_private_key(KeyEncoding.BECH32),
     )
 )
 
 # Update the buyer profile
-profile = Profile(keys.get_public_key())
+profile = Profile(keys.get_public_key(KeyEncoding.BECH32))
 profile.set_name(NAME)
 profile.set_about(DESCRIPTION)
 profile.set_display_name(DISPLAY_NAME)

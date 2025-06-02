@@ -10,6 +10,7 @@ from mtp import keys, products, profile, stalls
 # --***---
 from agno.agent import Agent  # type: ignore
 from agno.models.openai import OpenAIChat  # type: ignore
+from synvya_sdk import KeyEncoding
 from synvya_sdk.agno import MerchantTools
 
 # --***---
@@ -35,14 +36,14 @@ if OPENAI_API_KEY is None:
     raise ValueError("OPENAI_API_KEY is not set")
 # print(f"OpenAI API key: {openai_api_key}")
 
-print(f"Private Key: {keys.get_private_key()}")
-print(f"Public Key (bech32): {keys.get_public_key()}")
-print(f"Public Key (hex): {keys.get_public_key(encoding='hex')}")
+print(f"Private Key: {keys.get_private_key(KeyEncoding.BECH32)}")
+print(f"Public Key (bech32): {keys.get_public_key(KeyEncoding.BECH32)}")
+print(f"Public Key (hex): {keys.get_public_key(KeyEncoding.HEX)}")
 
 merchant_tools = asyncio.run(
     MerchantTools.create(
         relays=RELAY,
-        private_key=keys.get_private_key(),
+        private_key=keys.get_private_key(KeyEncoding.BECH32),
         stalls=stalls,
         products=products,
     )
