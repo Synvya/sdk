@@ -1120,10 +1120,33 @@ class NostrClient:
             ValueError: if the public key of the profile does not match the private
             key of the Nostr client
         """
-        if profile.get_public_key() != self.keys.public_key().to_bech32():
-            raise ValueError(
-                "Public key of the profile does not match the private key of the Nostr client"
-            )
+        # Validate public key ownership or delegation
+        if hasattr(self, "delegation") and self.delegation is not None:
+            # If delegation exists, profile can belong to either:
+            # 1. The client's own public key
+            # 2. The delegator's public key (delegation.author)
+            client_pubkey = self.keys.public_key().to_bech32()
+
+            # Parse the delegator's public key to ensure consistent format comparison
+            try:
+                delegator_pubkey = PublicKey.parse(self.delegation.author).to_bech32()
+            except Exception as e:
+                raise ValueError(f"Invalid delegation author public key: {e}") from e
+
+            if (
+                profile.get_public_key() != client_pubkey
+                and profile.get_public_key() != delegator_pubkey
+            ):
+                raise ValueError(
+                    "Public key of the profile must match either the client's public key "
+                    "or the delegator's public key when using delegation"
+                )
+        else:
+            # No delegation - profile must match client's public key (original behavior)
+            if profile.get_public_key() != self.keys.public_key().to_bech32():
+                raise ValueError(
+                    "Public key of the profile does not match the private key of the Nostr client"
+                )
 
         self.profile = profile
 
