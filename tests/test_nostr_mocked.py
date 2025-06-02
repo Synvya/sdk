@@ -9,7 +9,7 @@ from unittest.mock import patch
 import pytest
 from nostr_sdk import EventId
 
-from synvya_sdk import NostrClient, NostrKeys, Product, Profile, Stall
+from synvya_sdk import KeyEncoding, NostrClient, NostrKeys, Product, Profile, Stall
 
 
 # used in test_nostr_mocked.py
@@ -36,6 +36,35 @@ def mock_nostr_client(  # type: ignore[no-untyped-def]
         instance.get_stalls.return_value = stalls
         instance.get_profile.return_value = merchant_profile
         yield instance
+
+
+class TestNostrKeys:
+    """Test NostrKeys"""
+
+    def test_init_new(self) -> None:
+        """Test NostrKeys initialization"""
+        keys = NostrKeys()
+        assert keys is not None
+
+    def test_init_hex(self, merchant_keys: NostrKeys) -> None:
+        """Test NostrKeys initialization with hex key"""
+        keys = NostrKeys(merchant_keys.get_private_key(KeyEncoding.HEX))
+        assert keys is not None
+
+    def test_init_bech32(self, merchant_keys: NostrKeys) -> None:
+        """Test NostrKeys initialization with bech32 key"""
+        keys = NostrKeys(merchant_keys.get_private_key(KeyEncoding.BECH32))
+        assert keys is not None
+
+    def test_get_public_key(self) -> None:
+        """Test NostrKeys get_public_key"""
+        keys = NostrKeys()
+        assert keys.get_public_key(KeyEncoding.BECH32) is not None
+
+    def test_get_private_key(self) -> None:
+        """Test NostrKeys get_private_key"""
+        keys = NostrKeys()
+        assert keys.get_private_key(KeyEncoding.BECH32) is not None
 
 
 class TestNostrClientMocked:
@@ -81,9 +110,7 @@ class TestNostrClientMocked:
         stalls = nostr_client.get_stalls(merchant_keys.get_public_key())
         assert len(stalls) > 0
 
-    def test_get_profile(
-        self, nostr_client: NostrClient, merchant_keys: NostrKeys
-    ) -> None:
+    def test_get_profile(self, nostr_client: NostrClient) -> None:
         """Test get profile"""
         profile = nostr_client.get_profile()
         assert profile is not None

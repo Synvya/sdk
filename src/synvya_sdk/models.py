@@ -648,30 +648,70 @@ class Profile(BaseModel):
         return tag
 
 
+class KeyEncoding(str, Enum):
+    """
+    Enum representing the valid encoding formats for public or private keys.
+
+    Attributes:
+        BECH32 (str): Encodes the key using Bech32 format.
+        HEX (str): Encodes the key using hexadecimal format.
+    """
+
+    BECH32 = "bech32"
+    HEX = "hex"
+
+    @classmethod
+    def from_str(cls, value: str) -> "KeyEncoding":
+        """
+        Convert a string to a KeyEncoding enum value, case-insensitively.
+
+        Args:
+            value (str): The input string, e.g. "bech32" or "HEX".
+
+        Returns:
+            KeyEncoding: A corresponding enum value.
+
+        Raises:
+            ValueError: If the input is not a valid encoding.
+        """
+        try:
+            return cls(value.lower())
+        except ValueError:
+            raise ValueError(
+                f"Invalid encoding: '{value}'. Must be one of: {[e.value for e in cls]}"
+            )
+
+
 class NostrKeys(BaseModel):
     """
     NostrKeys is a class that contains a public and private key
     in bech32 format.
     """
 
-    public_key: str
-    private_key: str
+    model_config = ConfigDict(arbitrary_types_allowed=True)
 
-    def __init__(self, public_key: str, private_key: str) -> None:
+    keys: Keys
+
+    def __init__(self, private_key: Optional[str] = None) -> None:
         """
         Initialize a NostrKeys instance.
+        If no private key is provided, a new one will be generated.
+        Args:
+            private_key: str in bech32 or hex format
         """
-        super().__init__(public_key=public_key, private_key=private_key)
-        self.public_key = public_key
-        self.private_key = private_key
+        if private_key is None:
+            keys = Keys.generate()
+        else:
+            keys = Keys.parse(private_key)
 
-    def get_public_key(self, encoding: str = "bech32") -> str:
+        super().__init__(keys=keys)
+
+    def get_public_key(self, encoding: KeyEncoding = KeyEncoding.BECH32) -> str:
         """
         Get the public key.
 
         Args:
-            encoding (str, optional): The encoding format for the public key.
-            Must be 'bech32' or 'hex'. Default is 'bech32'.
+            encoding (KeyEncoding, optional): The encoding format for the public key.
 
         Returns:
             str: public key
@@ -679,41 +719,104 @@ class NostrKeys(BaseModel):
         Raises:
             ValueError: If the encoding is not 'bech32' or 'hex'.
         """
-        if encoding == "bech32":
-            return self.public_key
-        elif encoding == "hex":
-            return PublicKey.parse(self.public_key).to_hex()
-        else:
-            raise ValueError("Invalid encoding. Must be 'bech32' or 'hex'.")
+        if isinstance(encoding, str):
+            try:
+                encoding = KeyEncoding(encoding.lower())
+            except ValueError as e:
+                raise ValueError(
+                    f"Invalid encoding. Must be one of: {[e.value for e in KeyEncoding]}"
+                ) from e
 
-    def get_private_key(self) -> str:
-        """Get the private key."""
-        return self.private_key
+        match encoding:
+            case KeyEncoding.BECH32:
+                return self.keys.public_key().to_bech32()
+            case KeyEncoding.HEX:
+                return self.keys.public_key().to_hex()
 
-    def to_json(self) -> str:
-        """Returns a JSON representation of the NostrKeys object."""
-        return json.dumps(self.to_dict())
+    def get_private_key(self, encoding: KeyEncoding = KeyEncoding.BECH32) -> str:
+        """
+        Get the private key.
+
+        Args:
+            encoding (KeyEncoding, optional): The encoding format for the public key.
+
+        Returns:
+            str: private key
+
+        Raises:
+            ValueError: If the encoding is not 'bech32' or 'hex'.
+        """
+        if isinstance(encoding, str):
+            try:
+                encoding = KeyEncoding(encoding.lower())
+            except ValueError as e:
+                raise ValueError(
+                    f"Invalid encoding. Must be one of: {[e.value for e in KeyEncoding]}"
+                ) from e
+
+        match encoding:
+            case KeyEncoding.BECH32:
+                return self.keys.secret_key().to_bech32()
+            case KeyEncoding.HEX:
+                return self.keys.secret_key().to_hex()
+
+    def to_json(self, encoding: KeyEncoding = KeyEncoding.BECH32) -> str:
+        """
+        Returns a JSON representation of the NostrKeys object.
+
+        The resulting JSON contains both the public and private keys in bech32 format.
+
+        Returns:
+            str: JSON string with keys.
+        """
+        if isinstance(encoding, str):
+            try:
+                encoding = KeyEncoding(encoding.lower())
+            except ValueError as e:
+                raise ValueError(
+                    f"Invalid encoding. Must be one of: {[e.value for e in KeyEncoding]}"
+                ) from e
+
+        match encoding:
+            case KeyEncoding.BECH32:
+                return json.dumps(
+                    {
+                        "public_key": self.keys.public_key().to_bech32(),
+                        "private_key": self.keys.secret_key().to_bech32(),
+                    }
+                )
+            case KeyEncoding.HEX:
+                return json.dumps(
+                    {
+                        "public_key": self.keys.public_key().to_hex(),
+                        "private_key": self.keys.secret_key().to_hex(),
+                    }
+                )
 
     def __str__(self) -> str:
-        """Return a string representation of the NostrKeys object."""
-        return f"Public_key: {self.public_key} \nPrivate_key: {self.private_key}"
+        """Return a string representation of the NostrKeys object using bech32 encoding."""
+        return f"Public_key: {self.keys.public_key().to_bech32()} \nPrivate_key: {self.keys.secret_key().to_bech32()}"
 
     @classmethod
+    @deprecated(
+        reason="Use new NostrKeys constructor instead.",
+        alternative="NostrKeys(private_key=private_key)",
+    )
     def from_private_key(cls, private_key: str) -> "NostrKeys":
         """Create a NostrKeys object from a private key."""
-        keys = Keys.parse(private_key)
-        return cls(keys.public_key().to_bech32(), private_key)
+        return cls(private_key)
 
     @classmethod
-    def derive_public_key(cls, private_key: str, encoding: str = "bech32") -> str:
+    def derive_public_key(
+        cls, private_key: str, encoding: KeyEncoding = KeyEncoding.BECH32
+    ) -> str:
         """
         Class method to parse a private key and return a public key
         in bech32 or hex format.
 
         Args:
             private_key (str): The private key to derive the public key from.
-            encoding (str): The encoding to use for the public key. Must be
-            'bech32' or 'hex'. Default is 'bech32'.
+            encoding (KeyEncoding): The encoding to use for the public key.
 
         Returns:
             str: The public key in the specified encoding.
@@ -721,12 +824,18 @@ class NostrKeys(BaseModel):
         Raises:
             ValueError: If the encoding is not 'bech32' or 'hex'.
         """
-        if encoding not in {"bech32", "hex"}:
-            raise ValueError("Invalid format. Must be 'bech32' or 'hex'.")
-        if encoding == "bech32":
-            return Keys.parse(private_key).public_key().to_bech32()
-        if encoding == "hex":
-            return Keys.parse(private_key).public_key().to_hex()
+        if isinstance(encoding, str):
+            try:
+                encoding = KeyEncoding(encoding.lower())
+            except ValueError as e:
+                raise ValueError(
+                    f"Invalid encoding. Must be one of: {[e.value for e in KeyEncoding]}"
+                ) from e
+        match encoding:
+            case KeyEncoding.BECH32:
+                return Keys.parse(private_key).public_key().to_bech32()
+            case KeyEncoding.HEX:
+                return Keys.parse(private_key).public_key().to_hex()
 
 
 class ProductShippingCost(BaseModel):

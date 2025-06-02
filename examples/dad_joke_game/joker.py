@@ -13,7 +13,14 @@ from dotenv import load_dotenv
 # --***---
 from agno.agent import Agent  # type: ignore
 from agno.models.openai import OpenAIChat  # type: ignore
-from synvya_sdk import Namespace, NostrKeys, Profile, ProfileType, generate_keys
+from synvya_sdk import (
+    KeyEncoding,
+    Namespace,
+    NostrKeys,
+    Profile,
+    ProfileType,
+    generate_keys,
+)
 from synvya_sdk.agno import DadJokeGamerTools
 
 
@@ -38,9 +45,9 @@ NSEC = getenv(ENV_KEY)
 if NSEC is None:
     keys = generate_keys(env_var=ENV_KEY, env_path=script_dir / ".env")
 else:
-    keys = NostrKeys.from_private_key(NSEC)
+    keys = NostrKeys(private_key=NSEC)
 
-print(f"Public key: {keys.get_public_key('hex')}")
+print(f"Public key: {keys.get_public_key(KeyEncoding.HEX)}")
 
 # Load or use default relay
 RELAY = getenv(ENV_RELAY)
@@ -63,7 +70,7 @@ NAMESPACE = Namespace.GAMER
 PROFILE_TYPE = ProfileType.GAMER_DADJOKE
 HASHTAG = "joker"
 
-joker_profile = Profile(keys.get_public_key())
+joker_profile = Profile(keys.get_public_key(KeyEncoding.BECH32))
 joker_profile.set_name(NAME)
 joker_profile.set_about(ABOUT)
 joker_profile.set_banner(BANNER)
@@ -81,7 +88,7 @@ joker_tools: DadJokeGamerTools = asyncio.run(
     DadJokeGamerTools.create(
         name=DISPLAY_NAME,
         relays=RELAY,
-        private_key=keys.get_private_key(),
+        private_key=keys.get_private_key(KeyEncoding.BECH32),
     )
 )
 
