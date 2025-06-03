@@ -11,6 +11,7 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 from synvya_sdk import (
+    KeyEncoding,
     Namespace,
     NostrClient,
     NostrKeys,
@@ -88,10 +89,10 @@ async def main() -> None:
         print("No private key found!")
         sys.exit(1)
 
-    keys = NostrKeys.from_private_key(NSEC)
-    print(f"Private Key: {keys.get_private_key()}")
-    print(f"Public Key (bech32): {keys.get_public_key()}")
-    print(f"Public Key (hex): {keys.get_public_key(encoding='hex')}")
+    keys = NostrKeys(NSEC)
+    print(f"Private Key: {keys.get_private_key(encoding=KeyEncoding.BECH32)}")
+    print(f"Public Key (bech32): {keys.get_public_key(encoding=KeyEncoding.BECH32)}")
+    print(f"Public Key (hex): {keys.get_public_key(encoding=KeyEncoding.HEX)}")
 
     ABOUT = (
         "Welcome to the Northwest Railway Museum where you can experience "
@@ -108,7 +109,7 @@ async def main() -> None:
     NAMESPACE = Namespace.MERCHANT
     HASHTAGS = ["railway", "museum", "history"]
 
-    profile = Profile(keys.get_public_key())
+    profile = Profile(keys.get_public_key(encoding=KeyEncoding.BECH32))
     profile.set_about(ABOUT)
     profile.set_banner(BANNER)
     profile.set_display_name(DISPLAY_NAME)
