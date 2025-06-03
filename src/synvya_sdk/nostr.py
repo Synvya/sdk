@@ -1121,12 +1121,13 @@ class NostrClient:
             key of the Nostr client
         """
         # Validate public key ownership or delegation
+        client_pubkey = self.keys.public_key().to_bech32()
+
         if hasattr(self, "delegation") and self.delegation is not None:
             # If delegation exists, profile can belong to either:
             # 1. The client's own public key
             # 2. The delegator's public key (delegation.author)
-            client_pubkey = self.keys.public_key().to_bech32()
-
+            print(f"Delegation: {self.delegation}")
             # Parse the delegator's public key to ensure consistent format comparison
             try:
                 delegator_pubkey = PublicKey.parse(self.delegation.author).to_bech32()
@@ -1143,58 +1144,61 @@ class NostrClient:
                 )
         else:
             # No delegation - profile must match client's public key (original behavior)
-            if profile.get_public_key() != self.keys.public_key().to_bech32():
+            print(f"No delegation:")
+            if profile.get_public_key() != client_pubkey:
                 raise ValueError(
                     "Public key of the profile does not match the private key of the Nostr client"
                 )
 
-        self.profile = profile
+        # Only update self.profile if the profile belongs to the client
+        if profile.get_public_key() == client_pubkey:
+            self.profile = profile
 
         metadata_content = Metadata()
-        if (name := self.profile.get_name()) == "":
+        if (name := profile.get_name()) == "":
             raise ValueError("A profile must have a value for the field `name`.")
 
         # Populate standard Metadata fields
         metadata_content = metadata_content.set_name(name)
-        if (about := self.profile.get_about()) != "":
+        if (about := profile.get_about()) != "":
             metadata_content = metadata_content.set_about(about)
-        if (banner := self.profile.get_banner()) != "":
+        if (banner := profile.get_banner()) != "":
             metadata_content = metadata_content.set_banner(banner)
-        if (display_name := self.profile.get_display_name()) != "":
+        if (display_name := profile.get_display_name()) != "":
             metadata_content = metadata_content.set_display_name(display_name)
-        if (nip05 := self.profile.get_nip05()) != "":
+        if (nip05 := profile.get_nip05()) != "":
             metadata_content = metadata_content.set_nip05(nip05)
-        if (picture := self.profile.get_picture()) != "":
+        if (picture := profile.get_picture()) != "":
             metadata_content = metadata_content.set_picture(picture)
-        if (website := self.profile.get_website()) != "":
+        if (website := profile.get_website()) != "":
             metadata_content = metadata_content.set_website(website)
 
         # Populate custom Metadata fields
-        if (bot := self.profile.is_bot()) != "":
+        if (bot := profile.is_bot()) != "":
             metadata_content = metadata_content.set_custom_field(
                 key="bot", value=JsonValue.BOOL(bot)
             )
-        if (city := self.profile.get_city()) != "":
+        if (city := profile.get_city()) != "":
             metadata_content = metadata_content.set_custom_field(
                 key="city", value=JsonValue.STR(city)
             )
-        if (country := self.profile.get_country()) != "":
+        if (country := profile.get_country()) != "":
             metadata_content = metadata_content.set_custom_field(
                 key="country", value=JsonValue.STR(country)
             )
-        if (email := self.profile.get_email()) != "":
+        if (email := profile.get_email()) != "":
             metadata_content = metadata_content.set_custom_field(
                 key="email", value=JsonValue.STR(email)
             )
-        if (state := self.profile.get_state()) != "":
+        if (state := profile.get_state()) != "":
             metadata_content = metadata_content.set_custom_field(
                 key="state", value=JsonValue.STR(state)
             )
-        if (street := self.profile.get_street()) != "":
+        if (street := profile.get_street()) != "":
             metadata_content = metadata_content.set_custom_field(
                 key="street", value=JsonValue.STR(street)
             )
-        if (zip_code := self.profile.get_zip_code()) != "":
+        if (zip_code := profile.get_zip_code()) != "":
             metadata_content = metadata_content.set_custom_field(
                 key="zip_code", value=JsonValue.STR(zip_code)
             )
@@ -1207,20 +1211,20 @@ class NostrClient:
             [
                 Tag.custom(
                     TagKind.SINGLE_LETTER(SingleLetterTag.uppercase(Alphabet.L)),
-                    [self.profile.get_namespace()],
+                    [profile.get_namespace()],
                 ),
                 Tag.custom(
                     TagKind.SINGLE_LETTER(SingleLetterTag.lowercase(Alphabet.L)),
                     [
-                        self.profile.get_profile_type(),
-                        self.profile.get_namespace(),
+                        profile.get_profile_type(),
+                        profile.get_namespace(),
                     ],
                 ),
             ]
         )
 
         event_builder = event_builder.tags(
-            [Tag.hashtag(hashtag) for hashtag in self.profile.get_hashtags()]
+            [Tag.hashtag(hashtag) for hashtag in profile.get_hashtags()]
         )
 
         try:
