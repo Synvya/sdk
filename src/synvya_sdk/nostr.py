@@ -76,7 +76,6 @@ class NostrClient:
         self,
         relays: Union[str, List[str]],
         private_key: str,
-        delegation: Optional[Delegation] = None,
         _from_create: bool = False,
     ) -> None:
         """
@@ -86,8 +85,6 @@ class NostrClient:
             relays: Nostr relay(s) that the client will connect to.
                     Can be a single URL string or a list of URLs.
             private_key: Private key for the client in hex or bech32 format
-            delegation: Optional delegation event to use by the client.
-                        If provided, the client will use the delegation event to publish events.
         """
         if not _from_create:
             raise RuntimeError("NostrClient must be created using the create() method")
@@ -101,8 +98,8 @@ class NostrClient:
         if not self.relays:
             raise ValueError("At least one relay URL must be provided")
 
-        if delegation is not None:
-            self.delegation = delegation
+        # Initialize delegations as empty dictionary: merchant_pubkey -> Delegation
+        self.delegations: Dict[str, Delegation] = {}
 
         self.keys: Keys = Keys.parse(private_key)
         self.nostr_signer: NostrSigner = NostrSigner.keys(self.keys)
@@ -132,7 +129,6 @@ class NostrClient:
         cls,
         relays: Union[str, List[str]],
         private_key: str,
-        delegation_event: Optional[dict | str] = None,
     ) -> "NostrClient":
         """
         Asynchronous factory method for proper initialization.
@@ -141,16 +137,11 @@ class NostrClient:
         Args:
             relays: Nostr relay(s) that the client will connect to. Can be a single URL string or a list of URLs.
             private_key: Private key for the client in hex or bech32 format
-            delegation_event: Optional delegation event to use by the client
 
         Returns:
             NostrClient: An initialized NostrClient instance
         """
-        if delegation_event is not None:
-            delegation = Delegation.parse(delegation_event)
-            instance = cls(relays, private_key, delegation, _from_create=True)
-        else:
-            instance = cls(relays, private_key, _from_create=True)
+        instance = cls(relays, private_key, _from_create=True)
 
         try:
             # Try to download the profile from the relay if it already exists
@@ -1122,32 +1113,50 @@ class NostrClient:
         """
         # Validate public key ownership or delegation
         client_pubkey = self.keys.public_key().to_bech32()
+        profile_pubkey = profile.get_public_key()
 
-        if hasattr(self, "delegation") and self.delegation is not None:
-            # If delegation exists, profile can belong to either:
-            # 1. The client's own public key
-            # 2. The delegator's public key (delegation.author)
-            print(f"Delegation: {self.delegation}")
-            # Parse the delegator's public key to ensure consistent format comparison
-            try:
-                delegator_pubkey = PublicKey.parse(self.delegation.author).to_bech32()
-            except Exception as e:
-                raise ValueError(f"Invalid delegation author public key: {e}") from e
-
-            if (
-                profile.get_public_key() != client_pubkey
-                and profile.get_public_key() != delegator_pubkey
-            ):
-                raise ValueError(
-                    "Public key of the profile must match either the client's public key "
-                    "or the delegator's public key when using delegation"
-                )
+        # Check if profile belongs to client
+        if profile_pubkey == client_pubkey:
+            # Profile belongs to client - always allowed
+            pass
         else:
-            # No delegation - profile must match client's public key (original behavior)
-            print(f"No delegation:")
-            if profile.get_public_key() != client_pubkey:
+            # Profile doesn't belong to client - check delegations
+            authorized = False
+
+            # Get valid (non-expired) delegations
+            valid_delegations = self.get_valid_delegations()
+
+            if not valid_delegations:
                 raise ValueError(
-                    "Public key of the profile does not match the private key of the Nostr client"
+                    "Public key of the profile does not match the private key of the Nostr client "
+                    "and no valid delegations exist"
+                )
+
+            # Check if profile matches any delegated merchant
+            for merchant_pubkey, delegation in valid_delegations.items():
+                if profile_pubkey == merchant_pubkey:
+                    # Validate that the delegation allows profile updates (kind 0)
+                    try:
+                        # Create a mock event to test delegation permissions
+                        test_event_builder = EventBuilder(Kind(0), "test")
+                        test_event = await self.client.sign_event_builder(
+                            test_event_builder
+                        )
+                        delegation.validate_event(test_event)
+                        authorized = True
+                        break
+                    except ValueError as e:
+                        self.logger.warning(
+                            "Delegation for merchant %s does not allow profile updates: %s",
+                            merchant_pubkey,
+                            e,
+                        )
+                        continue
+
+            if not authorized:
+                raise ValueError(
+                    "Public key of the profile does not match the client's public key "
+                    "or any authorized delegation"
                 )
 
         # Only update self.profile if the profile belongs to the client
@@ -1357,6 +1366,101 @@ class NostrClient:
                 proxy=proxy,
             )
         )
+
+    async def add_delegation(self, delegation_event: dict | str) -> None:
+        """
+        Add a delegation to the client.
+
+        Args:
+            delegation_event: Delegation event (dict or JSON string) to add
+
+        Raises:
+            ValueError: if the delegation is invalid or already exists
+        """
+        delegation = Delegation.parse(delegation_event)
+
+        # Use bech32 format for consistent key comparison
+        try:
+            merchant_pubkey = PublicKey.parse(delegation.author).to_bech32()
+        except Exception as e:
+            raise ValueError(f"Invalid delegation author public key: {e}") from e
+
+        if merchant_pubkey in self.delegations:
+            self.logger.warning(
+                "Replacing existing delegation for merchant: %s", merchant_pubkey
+            )
+
+        self.delegations[merchant_pubkey] = delegation
+        self.logger.info("Added delegation for merchant: %s", merchant_pubkey)
+
+    def remove_delegation(self, merchant_pubkey: str) -> None:
+        """
+        Remove a delegation from the client.
+
+        Args:
+            merchant_pubkey: Public key of the merchant whose delegation to remove
+
+        Raises:
+            ValueError: if no delegation exists for the merchant
+        """
+        try:
+            # Normalize the key format
+            normalized_key = PublicKey.parse(merchant_pubkey).to_bech32()
+        except Exception as e:
+            raise ValueError(f"Invalid merchant public key: {e}") from e
+
+        if normalized_key not in self.delegations:
+            raise ValueError(f"No delegation found for merchant: {normalized_key}")
+
+        del self.delegations[normalized_key]
+        self.logger.info("Removed delegation for merchant: %s", normalized_key)
+
+    def get_delegations(self) -> Dict[str, Delegation]:
+        """
+        Get all current delegations.
+
+        Returns:
+            Dict[str, Delegation]: Dictionary mapping merchant public keys to their delegations
+        """
+        return self.delegations.copy()
+
+    def has_delegation_for(self, merchant_pubkey: str) -> bool:
+        """
+        Check if a delegation exists for a specific merchant.
+
+        Args:
+            merchant_pubkey: Public key of the merchant to check
+
+        Returns:
+            bool: True if delegation exists, False otherwise
+        """
+        try:
+            normalized_key = PublicKey.parse(merchant_pubkey).to_bech32()
+            return normalized_key in self.delegations
+        except Exception:
+            return False
+
+    def get_valid_delegations(self) -> Dict[str, Delegation]:
+        """
+        Get all currently valid (non-expired) delegations.
+
+        Returns:
+            Dict[str, Delegation]: Dictionary of valid delegations
+        """
+        from datetime import datetime, timezone
+
+        now_ts = int(datetime.now(timezone.utc).timestamp())
+        valid_delegations = {}
+
+        for merchant_key, delegation in self.delegations.items():
+            if now_ts <= delegation.expires_at:
+                valid_delegations[merchant_key] = delegation
+            else:
+                self.logger.warning(
+                    "Delegation for merchant %s has expired", merchant_key
+                )
+
+        return valid_delegations
 
     # ----------------------------------------------------------------
     # Class methods

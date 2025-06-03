@@ -684,8 +684,7 @@ class KeyEncoding(str, Enum):
 
 class NostrKeys(BaseModel):
     """
-    NostrKeys is a class that contains a public and private key
-    in bech32 format.
+    NostrKeys is a class that contains a public and private key.
     """
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
@@ -1319,13 +1318,26 @@ class Delegation(BaseModel):
         if delegation_tag is None:
             raise ValueError("Delegation tag missing")
 
-        cond_str = delegation_tag[2]  # "kind=30078&created_at=…&expires_at=…"
-        cond_map = {
-            k: v
-            for (k, v) in (kv.split("=", 1) for kv in cond_str.split("&") if "=" in kv)
-        }
+        cond_str = delegation_tag[2]  # "kind=0,1,30023&created_at<1751565393"
+        cond_map = {}
 
-        allowed = {int(k) for k in cond_map.get("kind", "").split(",") if k.isdigit()}
+        # Parse conditions more flexibly to handle different formats
+        for condition in cond_str.split("&"):
+            if "=" in condition:
+                k, v = condition.split("=", 1)
+                cond_map[k] = v
+            elif "<" in condition:
+                # Handle created_at<timestamp format
+                k, v = condition.split("<", 1)
+                if k == "created_at":
+                    cond_map["expires_at"] = (
+                        v  # created_at<timestamp means expires at timestamp
+                    )
+
+        allowed = set()
+        if "kind" in cond_map:
+            allowed = {int(k) for k in cond_map["kind"].split(",") if k.isdigit()}
+
         created = int(cond_map.get("created_at", evt["created_at"]))
         expires = int(cond_map.get("expires_at", created))
 
@@ -1360,3 +1372,28 @@ class Delegation(BaseModel):
     @property
     def delegation_tag(self) -> list[str]:
         return self.tag
+
+    @property
+    def delegatee(self) -> str:
+        """
+        Get the delegatee's public key from the delegation tag.
+
+        Note: According to NIP-26, the delegatee public key is NOT stored in the
+        delegation tag. The delegatee is the entity that will use this delegation
+        to publish events. This property returns empty string as the delegatee
+        must be determined from context.
+
+        Returns:
+            str: Empty string (delegatee not stored in delegation tag)
+        """
+        return ""  # Delegatee not stored in delegation tag per NIP-26
+
+    @property
+    def delegator(self) -> str:
+        """
+        Get the delegator's public key (same as author).
+
+        Returns:
+            str: Public key of the delegator (entity granting delegation rights)
+        """
+        return self.author
