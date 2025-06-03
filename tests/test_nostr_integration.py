@@ -7,7 +7,7 @@ from typing import List
 
 import pytest
 
-from synvya_sdk import NostrClient, NostrKeys, Product, Stall
+from synvya_sdk import KeyEncoding, NostrClient, NostrKeys, Product, Stall
 
 # Configure logging for the test module
 logging.basicConfig(
@@ -23,9 +23,15 @@ async def nostr_client_fixture(relay: str, merchant_keys: NostrKeys) -> NostrCli
     # test suite
     nostr_client = await NostrClient.create([relay], merchant_keys.get_private_key())
     nostr_client.set_logging_level(logging.DEBUG)
-    print(f"Merchant public key: {merchant_keys.get_public_key()}")
-    print(f"Merchant public key hex: {merchant_keys.get_public_key(encoding='hex')}")
-    print(f"Merchant private key: {merchant_keys.get_private_key()}")
+    print(
+        f"Merchant public key: {merchant_keys.get_public_key(encoding=KeyEncoding.BECH32)}"
+    )
+    print(
+        f"Merchant public key hex: {merchant_keys.get_public_key(encoding=KeyEncoding.HEX)}"
+    )
+    print(
+        f"Merchant private key: {merchant_keys.get_private_key(encoding=KeyEncoding.BECH32)}"
+    )
     return nostr_client
 
 
