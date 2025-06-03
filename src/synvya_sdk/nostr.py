@@ -350,7 +350,7 @@ class NostrClient:
                     continue
 
                 for event in stall_events.to_vec():
-                    merchant_keys.add(event.author().to_bech32())
+                    merchant_keys.add(event.author().to_hex())
 
             # Now fetch the profiles for these merchants
             for key in merchant_keys:
@@ -459,6 +459,17 @@ class NostrClient:
         """
         Retrieve all products from a given merchant.
         Optional stall argument to only retrieve products from a specific stall.
+
+        Args:
+            merchant: Public key of the merchant in hex or bech32 format
+            stall: Optional stall to retrieve products from
+
+        Returns:
+            List[Product]: list of products
+
+        Raises:
+            RuntimeError: if the merchant key is invalid
+            RuntimeError: if the products can't be retrieved
         """
 
         # Convert owner to PublicKey
@@ -1097,7 +1108,8 @@ class NostrClient:
     async def async_set_profile(self, profile: Profile) -> str:
         """
         Sets the properties of the profile associated with the Nostr client.
-        The public key of profile must match the private key of the Nostr client.
+        The public key of profile must match the private key of the Nostr client
+        or match a valid delegation.
         The profile is automatically published to the relay.
 
         Args:
@@ -1109,15 +1121,17 @@ class NostrClient:
         Raises:
             RuntimeError: if the profile can't be published
             ValueError: if the public key of the profile does not match the private
-            key of the Nostr client
+            key of the Nostr client or a valid delegation
         """
         # Validate public key ownership or delegation
-        client_pubkey = self.keys.public_key().to_bech32()
-        profile_pubkey = profile.get_public_key()
+        client_pubkey = self.keys.public_key().to_hex()
+        profile_pubkey = profile.get_public_key(KeyEncoding.HEX)
 
         # Check if profile belongs to client
         if profile_pubkey == client_pubkey:
             # Profile belongs to client - always allowed
+            # update client profile
+            self.profile = profile
             pass
         else:
             # Profile doesn't belong to client - check delegations
@@ -1158,10 +1172,6 @@ class NostrClient:
                     "Public key of the profile does not match the client's public key "
                     "or any authorized delegation"
                 )
-
-        # Only update self.profile if the profile belongs to the client
-        if profile.get_public_key() == client_pubkey:
-            self.profile = profile
 
         metadata_content = Metadata()
         if (name := profile.get_name()) == "":
@@ -1379,9 +1389,9 @@ class NostrClient:
         """
         delegation = Delegation.parse(delegation_event)
 
-        # Use bech32 format for consistent key comparison
+        # Use hex format for consistent key comparison
         try:
-            merchant_pubkey = PublicKey.parse(delegation.author).to_bech32()
+            merchant_pubkey = PublicKey.parse(delegation.author).to_hex()
         except Exception as e:
             raise ValueError(f"Invalid delegation author public key: {e}") from e
 
@@ -1398,14 +1408,14 @@ class NostrClient:
         Remove a delegation from the client.
 
         Args:
-            merchant_pubkey: Public key of the merchant whose delegation to remove
+            merchant_pubkey: Public key of the merchant in hex or bech32 format
 
         Raises:
             ValueError: if no delegation exists for the merchant
         """
         try:
             # Normalize the key format
-            normalized_key = PublicKey.parse(merchant_pubkey).to_bech32()
+            normalized_key = PublicKey.parse(merchant_pubkey).to_hex()
         except Exception as e:
             raise ValueError(f"Invalid merchant public key: {e}") from e
 
@@ -1429,13 +1439,13 @@ class NostrClient:
         Check if a delegation exists for a specific merchant.
 
         Args:
-            merchant_pubkey: Public key of the merchant to check
+            merchant_pubkey: Public key of the merchant in hex or bech32 format
 
         Returns:
             bool: True if delegation exists, False otherwise
         """
         try:
-            normalized_key = PublicKey.parse(merchant_pubkey).to_bech32()
+            normalized_key = PublicKey.parse(merchant_pubkey).to_hex()
             return normalized_key in self.delegations
         except Exception:
             return False
@@ -1526,6 +1536,7 @@ def verify_signature(message: str, signature: str, public_key: str) -> bool:
 
     Raises:
         ImportError: If secp256k1 library is not installed
+        RuntimeError: If proper Schnorr verification is not available
     """
 
     try:
@@ -1570,19 +1581,26 @@ def verify_signature(message: str, signature: str, public_key: str) -> bool:
         try:
             # For schnorr signatures, we need to use the schnorr verification
             # Note: secp256k1-py might not have direct schnorr support
-            # In that case, we fall back to ECDSA verification as approximation
 
             # Try schnorr verification if available
             if hasattr(secp_pubkey, "schnorr_verify"):
-                return secp_pubkey.verify(sig_bytes, message_hash)
+                return secp_pubkey.schnorr_verify(sig_bytes, message_hash)
             else:
-                # Fallback: validate that it's a proper signature format
-                # This is not cryptographically secure but validates format
-                return len(sig_bytes) == 64 and len(pubkey_bytes) == 32
+                # No proper Schnorr verification available
+                raise RuntimeError(
+                    "Proper Schnorr signature verification is not available. "
+                    "This function requires a library that supports Schnorr signatures."
+                )
 
+        except RuntimeError:
+            # Re-raise RuntimeError for missing Schnorr support
+            raise
         except Exception:
             return False
 
+    except RuntimeError:
+        # Re-raise RuntimeError for missing Schnorr support
+        raise
     except Exception:
         # Any parsing or verification error means invalid signature
         return False

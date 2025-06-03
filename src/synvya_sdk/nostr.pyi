@@ -20,6 +20,7 @@ from nostr_sdk import (  # type: ignore
     Events,
     Filter,
     HandleNotification,
+    KeyEncoding,
     Keys,
     NostrSigner,
     PublicKey,
@@ -137,6 +138,7 @@ class NostrClient:
 
     # Internal methods
     async def _async_connect(self) -> None: ...
+    def get_public_key(self, encoding: KeyEncoding = KeyEncoding.BECH32) -> str: ...
 
 def generate_keys(env_var: str, env_path: Optional[Path] = None) -> NostrKeys: ...
 def verify_signature(message: str, signature: str, public_key: str) -> bool: ...

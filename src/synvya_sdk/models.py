@@ -58,6 +58,40 @@ def deprecated(reason: str, version: str = "2.0.0", alternative: str = None):
     return decorator
 
 
+class KeyEncoding(str, Enum):
+    """
+    Enum representing the valid encoding formats for public or private keys.
+
+    Attributes:
+        BECH32 (str): Encodes the key using Bech32 format.
+        HEX (str): Encodes the key using hexadecimal format.
+    """
+
+    BECH32 = "bech32"
+    HEX = "hex"
+
+    @classmethod
+    def from_str(cls, value: str) -> "KeyEncoding":
+        """
+        Convert a string to a KeyEncoding enum value, case-insensitively.
+
+        Args:
+            value (str): The input string, e.g. "bech32" or "HEX".
+
+        Returns:
+            KeyEncoding: A corresponding enum value.
+
+        Raises:
+            ValueError: If the input is not a valid encoding.
+        """
+        try:
+            return cls(value.lower())
+        except ValueError:
+            raise ValueError(
+                f"Invalid encoding: '{value}'. Must be one of: {[e.value for e in cls]}"
+            )
+
+
 class Namespace(str, Enum):
     """
     Represents a namespace.
@@ -152,7 +186,7 @@ class Profile(BaseModel):
     PROFILE_URL_PREFIX: ClassVar[str] = "https://primal.net/p/"
     logger: ClassVar[logging.Logger] = logging.getLogger("Profile")
 
-    public_key: str
+    public_key: str  # stored in hex format
     about: str = ""
     banner: str = ""
     bot: bool = False
@@ -176,6 +210,16 @@ class Profile(BaseModel):
     zip_code: str = ""
 
     def __init__(self, public_key: str, **data) -> None:
+        """
+        Initialize a Profile instance.
+        Args:
+            public_key: Public key of the Nostr profile in hex or bech32 format.
+            **data: Additional data to initialize the Profile instance.
+
+        Returns:
+            None
+        """
+        public_key = PublicKey.parse(public_key).to_hex()
         super().__init__(public_key=public_key, **data)
         self.profile_url = self.PROFILE_URL_PREFIX + public_key
 
@@ -232,7 +276,7 @@ class Profile(BaseModel):
     def get_profile_url(self) -> str:
         return self.profile_url
 
-    def get_public_key(self, encoding: str = "bech32") -> str:
+    def get_public_key(self, encoding: KeyEncoding = KeyEncoding.BECH32) -> str:
         """Get the public key of the Nostr profile.
 
         Args:
@@ -245,9 +289,9 @@ class Profile(BaseModel):
         Raises:
             ValueError: if the encoding is not 'bech32' or 'hex'
         """
-        if encoding == "bech32":
-            return self.public_key
-        if encoding == "hex":
+        if encoding == KeyEncoding.BECH32:
+            return PublicKey.parse(self.public_key).to_bech32()
+        if encoding == KeyEncoding.HEX:
             return PublicKey.parse(self.public_key).to_hex()
 
         raise ValueError("Invalid encoding. Must be 'bech32' or 'hex'.")
@@ -557,7 +601,7 @@ class Profile(BaseModel):
         if event.kind() != Kind(0):
             raise ValueError("Event is not a kind:0 Nostr event")
 
-        profile = cls(event.author().to_bech32())
+        profile = cls(event.author().to_hex())
 
         # Process metadata
         metadata = json.loads(event.content())
@@ -646,40 +690,6 @@ class Profile(BaseModel):
         tag = tag.lower()
         tag = re.sub(r"[\s\-_]+", "", tag)  # Remove spaces, hyphens, underscores
         return tag
-
-
-class KeyEncoding(str, Enum):
-    """
-    Enum representing the valid encoding formats for public or private keys.
-
-    Attributes:
-        BECH32 (str): Encodes the key using Bech32 format.
-        HEX (str): Encodes the key using hexadecimal format.
-    """
-
-    BECH32 = "bech32"
-    HEX = "hex"
-
-    @classmethod
-    def from_str(cls, value: str) -> "KeyEncoding":
-        """
-        Convert a string to a KeyEncoding enum value, case-insensitively.
-
-        Args:
-            value (str): The input string, e.g. "bech32" or "HEX".
-
-        Returns:
-            KeyEncoding: A corresponding enum value.
-
-        Raises:
-            ValueError: If the input is not a valid encoding.
-        """
-        try:
-            return cls(value.lower())
-        except ValueError:
-            raise ValueError(
-                f"Invalid encoding: '{value}'. Must be one of: {[e.value for e in cls]}"
-            )
 
 
 class NostrKeys(BaseModel):
