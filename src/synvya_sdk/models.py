@@ -100,6 +100,10 @@ class Namespace(str, Enum):
     MERCHANT = "com.synvya.merchant"
     GAMER = "com.synvya.gamer"
     OTHER = "com.synvya.other"
+    BUSINESS_TYPE = "business.type"
+    BUSINESS_EMAIL = "business.email"
+    BUSINESS_PHONE = "business.phone"
+    BUSINESS_LOCATION = "business.location"
 
     """Configuration for Pydantic models to use enum values directly."""
     model_config = ConfigDict(use_enum_values=True)
@@ -110,12 +114,12 @@ class ProfileType(str, Enum):
     Represents a profile type.
     """
 
-    MERCHANT_RETAIL = "retail"
-    MERCHANT_RESTAURANT = "restaurant"
-    MERCHANT_SERVICE = "service"
-    MERCHANT_BUSINESS = "business"
-    MERCHANT_ENTERTAINMENT = "entertainment"
-    MERCHANT_OTHER = "other"
+    RETAIL = "retail"
+    RESTAURANT = "restaurant"
+    SERVICE = "service"
+    BUSINESS = "business"
+    ENTERTAINMENT = "entertainment"
+    OTHER = "other"
     GAMER_DADJOKE = "dad-joke-game"
     OTHER_OTHER = "other"
 
@@ -1371,7 +1375,8 @@ class Delegation(BaseModel):
         Raises:
             ValueError - if kind not allowed or delegation expired.
         """
-        if event.kind() not in self.allowed_kinds and self.allowed_kinds:
+        event_kind_value = event.kind().as_u16()  # Convert Kind to integer
+        if event_kind_value not in self.allowed_kinds and self.allowed_kinds:
             raise ValueError("Event kind not allowed by delegation")
 
         now_ts = int(datetime.now(timezone.utc).timestamp())
