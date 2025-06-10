@@ -28,7 +28,7 @@ from nostr_sdk import (  # type: ignore
     UnsignedEvent,
 )
 
-from .models import Delegation, NostrKeys, Product, Profile, ProfileFilter, Stall
+from .models import NostrKeys, Product, Profile, ProfileFilter, Stall
 
 class NostrClient:
     """
@@ -43,7 +43,7 @@ class NostrClient:
     client: Client
     connected: bool
     profile: Profile
-    delegations: Dict[str, Delegation]
+    # delegations: Dict[str, Delegation]
 
     # Initialization methods
     def __init__(

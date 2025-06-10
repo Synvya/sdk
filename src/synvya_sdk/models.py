@@ -21,6 +21,7 @@ from nostr_sdk import (
     ShippingMethod,
     SingleLetterTag,
     StallData,
+    Tag,
     TagKind,
 )
 from pydantic import BaseModel, ConfigDict, Field
@@ -172,12 +173,11 @@ class ProfileFilter(BaseModel):
     @staticmethod
     def _normalize_hashtag(tag: str) -> str:
         """
-        Normalize hashtags by removing spaces, underscores, and hyphens,
-        and converting to lowercase.
+        Normalize hashtags by converting to lowercase.
         Ensures consistent matching across variations.
         """
         tag = tag.lower()
-        tag = re.sub(r"[\s\-_]+", "", tag)  # Remove spaces, hyphens, underscores
+        # tag = re.sub(r"[\s\-_]+", "", tag)  # Remove spaces, hyphens, underscores
         return tag
 
 
@@ -196,6 +196,7 @@ class Profile(BaseModel):
     bot: bool = False
     city: str = ""
     country: str = ""
+    created_at: int = 0
     display_name: str = ""
     email: str = ""
     hashtags: List[str] = []
@@ -246,6 +247,9 @@ class Profile(BaseModel):
 
     def get_country(self) -> str:
         return self.country
+
+    def get_created_at(self) -> int:
+        return self.created_at
 
     def get_display_name(self) -> str:
         return self.display_name
@@ -342,6 +346,9 @@ class Profile(BaseModel):
     def set_country(self, country: str) -> None:
         self.country = country
 
+    def set_created_at(self, created_at: int) -> None:
+        self.created_at = created_at
+
     def set_display_name(self, display_name: str) -> None:
         self.display_name = display_name
 
@@ -395,6 +402,7 @@ class Profile(BaseModel):
             "bot": self.bot,
             "city": self.city,
             "country": self.country,
+            "created_at": self.created_at,
             "display_name": self.display_name,
             "email": self.email,
             "hashtags": self.hashtags,
@@ -420,6 +428,7 @@ class Profile(BaseModel):
             "bot": self.bot,
             "city": self.city,
             "country": self.country,
+            "created_at": self.created_at,
             "display_name": self.display_name,
             "email": self.email,
             "hashtags": self.hashtags,
@@ -537,47 +546,47 @@ class Profile(BaseModel):
         else:
             profile.set_bot(False)
 
-        json_city = metadata.get_custom_field("city")
-        if isinstance(json_city, JsonValue.STR):
-            profile.set_city(json_city.s)
-        else:
-            profile.set_city("")
+        # json_city = metadata.get_custom_field("city")
+        # if isinstance(json_city, JsonValue.STR):
+        #     profile.set_city(json_city.s)
+        # else:
+        #     profile.set_city("")
 
-        json_country = metadata.get_custom_field("country")
-        if isinstance(json_country, JsonValue.STR):
-            profile.set_country(json_country.s)
-        else:
-            profile.set_country("")
+        # json_country = metadata.get_custom_field("country")
+        # if isinstance(json_country, JsonValue.STR):
+        #     profile.set_country(json_country.s)
+        # else:
+        #     profile.set_country("")
 
-        json_email = metadata.get_custom_field("email")
-        if isinstance(json_email, JsonValue.STR):
-            profile.set_email(json_email.s)
-        else:
-            profile.set_email("")
+        # json_email = metadata.get_custom_field("email")
+        # if isinstance(json_email, JsonValue.STR):
+        #     profile.set_email(json_email.s)
+        # else:
+        #     profile.set_email("")
 
-        json_phone = metadata.get_custom_field("phone")
-        if isinstance(json_phone, JsonValue.STR):
-            profile.set_phone(json_phone.s)
-        else:
-            profile.set_phone("")
+        # json_phone = metadata.get_custom_field("phone")
+        # if isinstance(json_phone, JsonValue.STR):
+        #     profile.set_phone(json_phone.s)
+        # else:
+        #     profile.set_phone("")
 
-        json_state = metadata.get_custom_field("state")
-        if isinstance(json_state, JsonValue.STR):
-            profile.set_state(json_state.s)
-        else:
-            profile.set_state("")
+        # json_state = metadata.get_custom_field("state")
+        # if isinstance(json_state, JsonValue.STR):
+        #     profile.set_state(json_state.s)
+        # else:
+        #     profile.set_state("")
 
-        json_street = metadata.get_custom_field("street")
-        if isinstance(json_street, JsonValue.STR):
-            profile.set_street(json_street.s)
-        else:
-            profile.set_street("")
+        # json_street = metadata.get_custom_field("street")
+        # if isinstance(json_street, JsonValue.STR):
+        #     profile.set_street(json_street.s)
+        # else:
+        #     profile.set_street("")
 
-        json_zip_code = metadata.get_custom_field("zip_code")
-        if isinstance(json_zip_code, JsonValue.STR):
-            profile.set_zip_code(json_zip_code.s)
-        else:
-            profile.set_zip_code("")
+        # json_zip_code = metadata.get_custom_field("zip_code")
+        # if isinstance(json_zip_code, JsonValue.STR):
+        #     profile.set_zip_code(json_zip_code.s)
+        # else:
+        #     profile.set_zip_code("")
 
         try:
             profile.nip05_validated = await profile._validate_profile_nip05()
@@ -612,21 +621,56 @@ class Profile(BaseModel):
         profile.set_about(metadata.get("about", ""))
         profile.set_banner(metadata.get("banner", ""))
         profile.set_bot(metadata.get("bot", False))
-        profile.set_city(metadata.get("city", ""))
-        profile.set_country(metadata.get("country", ""))
+        # profile.set_city(metadata.get("city", ""))
+        # profile.set_country(metadata.get("country", ""))
         profile.set_display_name(metadata.get("display_name", ""))
-        profile.set_email(metadata.get("email", ""))
+        # profile.set_email(metadata.get("email", ""))
         profile.set_name(metadata.get("name", ""))
         profile.set_nip05(metadata.get("nip05", ""))
         profile.set_picture(metadata.get("picture", ""))
-        profile.set_phone(metadata.get("phone", ""))
-        profile.set_state(metadata.get("state", ""))
-        profile.set_street(metadata.get("street", ""))
+        # profile.set_phone(metadata.get("phone", ""))
+        # profile.set_state(metadata.get("state", ""))
+        # profile.set_street(metadata.get("street", ""))
         profile.set_website(metadata.get("website", ""))
-        profile.set_zip_code(metadata.get("zip_code", ""))
+        # profile.set_zip_code(metadata.get("zip_code", ""))
+
+        profile.set_created_at(event.created_at().as_secs())
 
         # process tags
         tags = event.tags()
+
+        tag_vector: List[Tag] = tags.to_vec()
+
+        for tag in tag_vector:
+            if tag.kind() == TagKind.SINGLE_LETTER(
+                SingleLetterTag.lowercase(Alphabet.I)
+            ):
+                # Extract identity claims from i-tags
+                tag_content = tag.content()
+                if ":" in tag_content:
+                    claim_type, identity = tag_content.split(":", 1)
+
+                    if claim_type == "email":
+                        profile.set_email(identity)
+                    elif claim_type == "phone":
+                        profile.set_phone(identity)
+                    elif claim_type == "location":
+                        # Parse location string into components
+                        # Expected format: street, city, state, country, zip_code
+                        # Modify expected format to: street, city, state, zip_code, country
+                        location_parts = [part.strip() for part in identity.split(",")]
+
+                        if len(location_parts) >= 1:
+                            profile.set_street(location_parts[0])
+                        if len(location_parts) >= 2:
+                            profile.set_city(location_parts[1])
+                        if len(location_parts) >= 3:
+                            profile.set_state(location_parts[2])
+                        if len(location_parts) >= 4:
+                            profile.set_zip_code(location_parts[3])
+                        if len(location_parts) >= 5:
+                            profile.set_country(location_parts[4])
+
         hashtag_list = tags.hashtags()
         for hashtag in hashtag_list:
             profile.add_hashtag(hashtag)
@@ -648,6 +692,7 @@ class Profile(BaseModel):
         except Exception as e:
             profile.logger.error("Failed to validate NIP-05: %s", e)
             profile.nip05_validated = False
+        profile.logger.debug("Profile: %s", profile)
         return profile
 
     @classmethod
@@ -666,6 +711,9 @@ class Profile(BaseModel):
         profile.set_about(data.get("about", ""))
         profile.set_banner(data.get("banner", ""))
         profile.set_bot(data.get("bot", False))
+        profile.set_city(data.get("city", ""))
+        profile.set_country(data.get("country", ""))
+        profile.set_created_at(data.get("created_at", 0))
         profile.set_display_name(data.get("display_name", ""))
         profile.set_email(data.get("email", ""))
         for hashtag in data.get("hashtags", []):
@@ -1273,142 +1321,140 @@ class Stall(BaseModel):
             geohash=data.get("geohash", None),
         )
 
+        # ------------------------------------------------------------------------------ #
+        # Delegation (NIP-26) Support
+        # ------------------------------------------------------------------------------ #
 
-# ------------------------------------------------------------------------------ #
-# Delegation (NIP-26) Support
-# ------------------------------------------------------------------------------ #
+        # class Delegation(BaseModel):
+        #     """
+        #     NIP‑26 delegation wrapper.
 
+        #     A merchant signs a *kind 30078* event delegating publishing rights to the
+        #     server.  This helper parses that event, validates its signature and
+        #     provides convenience checks for downstream publishing code.
+        #     """
 
-class Delegation(BaseModel):
-    """
-    NIP‑26 delegation wrapper.
+        #     author: str  # Merchant pubkey (bech32 or hex)
+        #     conditions: str  # Raw query string e.g. "kind=30078&expires_at=…"
+        #     sig: str  # Merchant signature
+        #     tag: list[str]  # Complete ["delegation", …] tag to re‑attach
+        #     created_at: int  # Delegation creation (unix ts)
+        #     expires_at: int  # Expiry (unix ts)
+        #     allowed_kinds: Set[int]  # Kinds we may publish
 
-    A merchant signs a *kind 30078* event delegating publishing rights to the
-    server.  This helper parses that event, validates its signature and
-    provides convenience checks for downstream publishing code.
-    """
+        #     # ------------------------------------------------------------------ #
+        #     # Construction helpers
+        #     # ------------------------------------------------------------------ #
+        #     @classmethod
+        #     def parse(cls, raw: str | dict) -> "Delegation":
+        #         """
+        #         Convert raw JSON (str or dict) of a *kind 30078* event into a validated
+        #         Delegation instance.
 
-    author: str  # Merchant pubkey (bech32 or hex)
-    conditions: str  # Raw query string e.g. "kind=30078&expires_at=…"
-    sig: str  # Merchant signature
-    tag: list[str]  # Complete ["delegation", …] tag to re‑attach
-    created_at: int  # Delegation creation (unix ts)
-    expires_at: int  # Expiry (unix ts)
-    allowed_kinds: Set[int]  # Kinds we may publish
+        #         Raises:
+        #             ValueError - on wrong kind or bad signature.
+        #         """
+        #         evt = raw if isinstance(raw, dict) else json.loads(raw)
 
-    # ------------------------------------------------------------------ #
-    # Construction helpers
-    # ------------------------------------------------------------------ #
-    @classmethod
-    def parse(cls, raw: str | dict) -> "Delegation":
-        """
-        Convert raw JSON (str or dict) of a *kind 30078* event into a validated
-        Delegation instance.
+        #         # Basic integrity checks
+        #         if evt.get("kind") != 30078:
+        #             raise ValueError("Event is not a delegation (kind 30078)")
 
-        Raises:
-            ValueError - on wrong kind or bad signature.
-        """
-        evt = raw if isinstance(raw, dict) else json.loads(raw)
+        #         # Verify sig using nostr‑sdk
+        #         event_obj = Event.from_json(json.dumps(evt))
+        #         if not event_obj.verify():
+        #             raise ValueError("Invalid delegation signature")
 
-        # Basic integrity checks
-        if evt.get("kind") != 30078:
-            raise ValueError("Event is not a delegation (kind 30078)")
+        #         # Pull out the delegation tag parts
+        #         tags = evt.get("tags", [])
 
-        # Verify sig using nostr‑sdk
-        event_obj = Event.from_json(json.dumps(evt))
-        if not event_obj.verify():
-            raise ValueError("Invalid delegation signature")
+        #         # Find the delegation tag (should be ["delegation", delegatee, conditions, token])
+        #         delegation_tag = None
+        #         for tag in tags:
+        #             if len(tag) >= 4 and tag[0] == "delegation":
+        #                 delegation_tag = tag
+        #                 break
 
-        # Pull out the delegation tag parts
-        tags = evt.get("tags", [])
+        #         if delegation_tag is None:
+        #             raise ValueError("Delegation tag missing")
 
-        # Find the delegation tag (should be ["delegation", delegatee, conditions, token])
-        delegation_tag = None
-        for tag in tags:
-            if len(tag) >= 4 and tag[0] == "delegation":
-                delegation_tag = tag
-                break
+        #         cond_str = delegation_tag[2]  # "kind=0,1,30023&created_at<1751565393"
+        #         cond_map = {}
 
-        if delegation_tag is None:
-            raise ValueError("Delegation tag missing")
+        #         # Parse conditions more flexibly to handle different formats
+        #         for condition in cond_str.split("&"):
+        #             if "=" in condition:
+        #                 k, v = condition.split("=", 1)
+        #                 cond_map[k] = v
+        #             elif "<" in condition:
+        #                 # Handle created_at<timestamp format
+        #                 k, v = condition.split("<", 1)
+        #                 if k == "created_at":
+        #                     cond_map["expires_at"] = (
+        #                         v  # created_at<timestamp means expires at timestamp
+        #                     )
 
-        cond_str = delegation_tag[2]  # "kind=0,1,30023&created_at<1751565393"
-        cond_map = {}
+        #         allowed = set()
+        #         if "kind" in cond_map:
+        #             allowed = {int(k) for k in cond_map["kind"].split(",") if k.isdigit()}
 
-        # Parse conditions more flexibly to handle different formats
-        for condition in cond_str.split("&"):
-            if "=" in condition:
-                k, v = condition.split("=", 1)
-                cond_map[k] = v
-            elif "<" in condition:
-                # Handle created_at<timestamp format
-                k, v = condition.split("<", 1)
-                if k == "created_at":
-                    cond_map["expires_at"] = (
-                        v  # created_at<timestamp means expires at timestamp
-                    )
+        #         created = int(cond_map.get("created_at", evt["created_at"]))
+        #         expires = int(cond_map.get("expires_at", created))
 
-        allowed = set()
-        if "kind" in cond_map:
-            allowed = {int(k) for k in cond_map["kind"].split(",") if k.isdigit()}
+        #         return cls(
+        #             author=evt["pubkey"],
+        #             conditions=cond_str,
+        #             sig=evt["sig"],
+        #             tag=delegation_tag,
+        #             created_at=created,
+        #             expires_at=expires,
+        #             allowed_kinds=allowed,
+        #         )
 
-        created = int(cond_map.get("created_at", evt["created_at"]))
-        expires = int(cond_map.get("expires_at", created))
+        # ------------------------------------------------------------------ #
+        # Validation helpers
+        # ------------------------------------------------------------------ #
+        # def validate_event(self, event: Event) -> None:
+        #     """
+        #     Ensure *event* is publishable under this delegation.
 
-        return cls(
-            author=evt["pubkey"],
-            conditions=cond_str,
-            sig=evt["sig"],
-            tag=delegation_tag,
-            created_at=created,
-            expires_at=expires,
-            allowed_kinds=allowed,
-        )
+        #     Raises:
+        #         ValueError - if kind not allowed or delegation expired.
+        #     """
+        #     event_kind_value = event.kind().as_u16()  # Convert Kind to integer
+        #     if event_kind_value not in self.allowed_kinds and self.allowed_kinds:
+        #         raise ValueError("Event kind not allowed by delegation")
 
-    # ------------------------------------------------------------------ #
-    # Validation helpers
-    # ------------------------------------------------------------------ #
-    def validate_event(self, event: Event) -> None:
-        """
-        Ensure *event* is publishable under this delegation.
+        #     now_ts = int(datetime.now(timezone.utc).timestamp())
+        #     if now_ts > self.expires_at:
+        #         raise ValueError("Delegation expired")
 
-        Raises:
-            ValueError - if kind not allowed or delegation expired.
-        """
-        event_kind_value = event.kind().as_u16()  # Convert Kind to integer
-        if event_kind_value not in self.allowed_kinds and self.allowed_kinds:
-            raise ValueError("Event kind not allowed by delegation")
+        # # Convenience: ready‑made tag to append before publish()
+        # @property
+        # def delegation_tag(self) -> list[str]:
+        #     return self.tag
 
-        now_ts = int(datetime.now(timezone.utc).timestamp())
-        if now_ts > self.expires_at:
-            raise ValueError("Delegation expired")
+        # @property
+        # def delegatee(self) -> str:
+        #     """
+        #     Get the delegatee's public key from the delegation tag.
 
-    # Convenience: ready‑made tag to append before publish()
-    @property
-    def delegation_tag(self) -> list[str]:
-        return self.tag
+        #     Note: According to NIP-26, the delegatee public key is NOT stored in the
+        #     delegation tag. The delegatee is the entity that will use this delegation
+        #     to publish events. This property returns empty string as the delegatee
+        #     must be determined from context.
 
-    @property
-    def delegatee(self) -> str:
-        """
-        Get the delegatee's public key from the delegation tag.
+        #     Returns:
+        #         str: Empty string (delegatee not stored in delegation tag)
+        #     """
+        #     return ""  # Delegatee not stored in delegation tag per NIP-26
 
-        Note: According to NIP-26, the delegatee public key is NOT stored in the
-        delegation tag. The delegatee is the entity that will use this delegation
-        to publish events. This property returns empty string as the delegatee
-        must be determined from context.
+        # @property
+        # def delegator(self) -> str:
+        #     """
+        #     Get the delegator's public key (same as author).
 
-        Returns:
-            str: Empty string (delegatee not stored in delegation tag)
-        """
-        return ""  # Delegatee not stored in delegation tag per NIP-26
-
-    @property
-    def delegator(self) -> str:
-        """
-        Get the delegator's public key (same as author).
-
-        Returns:
-            str: Public key of the delegator (entity granting delegation rights)
-        """
-        return self.author
+        #     Returns:
+        #         str: Public key of the delegator (entity granting delegation rights)
+        #     """
+        # return self.author

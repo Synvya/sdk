@@ -13,7 +13,6 @@ from typing import Dict, List, Optional, Union
 import coincurve
 
 from .models import (
-    Delegation,
     KeyEncoding,
     Namespace,
     NostrKeys,
@@ -99,7 +98,7 @@ class NostrClient:
             raise ValueError("At least one relay URL must be provided")
 
         # Initialize delegations as empty dictionary: merchant_pubkey -> Delegation
-        self.delegations: Dict[str, Delegation] = {}
+        # self.delegations: Dict[str, Delegation] = {}
 
         self.keys: Keys = Keys.parse(private_key)
         self.nostr_signer: NostrSigner = NostrSigner.keys(self.keys)
@@ -275,21 +274,6 @@ class NostrClient:
         merchants: set[Profile] = set()
 
         if profile_filter is not None:
-            if profile_filter.namespace != Namespace.MERCHANT:
-                raise ValueError(
-                    f"Profile filter namespace must be {Namespace.MERCHANT}"
-                )
-
-            # events_filter = (
-            #     Filter()
-            #     .kind(Kind(0))
-            #     .custom_tag(
-            #         SingleLetterTag.uppercase(Alphabet.L), profile_filter.namespace
-            #     )
-            #     .custom_tag(
-            #         SingleLetterTag.lowercase(Alphabet.L), profile_filter.profile_type
-            #     )
-            # )
 
             events_filter = (
                 Filter()
@@ -307,17 +291,20 @@ class NostrClient:
             # retrieve all kind 0 events with the filter.
             try:
                 # events = await self._async_get_events(events_filter)
-
+                NostrClient.logger.debug("Fetching events")
                 events = await self.client.fetch_events(
                     filter=events_filter,
                     timeout=timedelta(seconds=2),
                 )
+                NostrClient.logger.debug("Events: %s", events)
                 if events.len() == 0:
                     NostrClient.logger.debug("No events found")
                     return merchants  # returning empty set
                 events_list = events.to_vec()
+
                 for event in events_list:
                     profile = await Profile.from_event(event)
+                    NostrClient.logger.debug("Profile: %s", profile)
                     if all(
                         hashtag in profile.get_hashtags()
                         for hashtag in profile_filter.hashtags
@@ -1122,6 +1109,7 @@ class NostrClient:
             ValueError: if the public key of the profile does not match the private
             key of the Nostr client
         """
+        NostrClient.logger.debug("Setting profile: %s", profile)
         # Validate public key ownership or delegation
         client_pubkey = self.keys.public_key().to_hex()
         profile_pubkey = profile.get_public_key(KeyEncoding.HEX)
