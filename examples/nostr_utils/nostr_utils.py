@@ -105,7 +105,7 @@ async def main() -> None:
     NIP05 = "nrm@synvya.com"
     PICTURE = "https://i.nostr.build/eZvrJNK9kFni5QR3.jpg"
     WEBSITE = "https://trainmuseum.org"
-    CATEGORY = ProfileType.MERCHANT_RETAIL
+    CATEGORY = ProfileType.RETAIL
     NAMESPACE = Namespace.MERCHANT
     HASHTAGS = ["railway", "museum", "history"]
 
