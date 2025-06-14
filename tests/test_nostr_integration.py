@@ -16,7 +16,7 @@ logging.basicConfig(
 )
 
 
-@pytest.fixture(scope="session", name="nostr_client")
+@pytest.fixture(scope="function", name="nostr_client")
 async def nostr_client_fixture(relay: str, merchant_keys: NostrKeys) -> NostrClient:
     """Async fixture providing a properly initialized NostrClient instance"""
     # Convert relay to a list for the new API, but keep backward compatibility with

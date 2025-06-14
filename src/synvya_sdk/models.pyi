@@ -1,7 +1,7 @@
 from enum import Enum
 from functools import wraps
 from logging import Logger
-from typing import Any, Callable, ClassVar, List, Optional, Set
+from typing import Any, Callable, ClassVar, Dict, List, Optional, Set, Union
 
 from nostr_sdk import Event, Keys, Metadata, ProductData, StallData
 from pydantic import BaseModel, ConfigDict, Field
@@ -9,6 +9,21 @@ from pydantic import BaseModel, ConfigDict, Field
 def deprecated(
     reason: str, version: str = "2.0.0", alternative: Optional[str] = None
 ) -> Callable[[Callable[..., Any]], Callable[..., Any]]: ...
+
+class KeyEncoding(str, Enum):
+    """
+    Enum representing the valid encoding formats for public or private keys.
+
+    Attributes:
+        BECH32 (str): Encodes the key using Bech32 format.
+        HEX (str): Encodes the key using hexadecimal format.
+    """
+
+    BECH32 = "bech32"
+    HEX = "hex"
+
+    @classmethod
+    def from_str(cls, value: str) -> "KeyEncoding": ...
 
 class Namespace(str, Enum):
     """
@@ -18,6 +33,10 @@ class Namespace(str, Enum):
     MERCHANT = "com.synvya.merchant"
     GAMER = "com.synvya.gamer"
     OTHER = "com.synvya.other"
+    BUSINESS_TYPE = "business.type"
+    BUSINESS_EMAIL = "business.email"
+    BUSINESS_PHONE = "business.phone"
+    BUSINESS_LOCATION = "business.location"
 
     """Configuration for Pydantic models to use enum values directly."""
     model_config = ConfigDict(use_enum_values=True)
@@ -27,12 +46,12 @@ class ProfileType(str, Enum):
     Represents a profile type.
     """
 
-    MERCHANT_RETAIL = "retail"
-    MERCHANT_RESTAURANT = "restaurant"
-    MERCHANT_SERVICE = "service"
-    MERCHANT_BUSINESS = "business"
-    MERCHANT_ENTERTAINMENT = "entertainment"
-    MERCHANT_OTHER = "other"
+    RETAIL = "retail"
+    RESTAURANT = "restaurant"
+    SERVICE = "service"
+    BUSINESS = "business"
+    ENTERTAINMENT = "entertainment"
+    OTHER = "other"
     GAMER_DADJOKE = "dad-joke-game"
     OTHER_OTHER = "other"
 
@@ -69,29 +88,29 @@ class Profile(BaseModel):
     PROFILE_URL_PREFIX: ClassVar[str]
     logger: ClassVar[Logger]
 
-    public_key: str
-    about: str
-    banner: str
-    bot: bool
-    city: str
-    country: str
-    created_at: int
-    display_name: str
-    email: str
-    hashtags: List[str]
-    locations: Set[str]
-    name: str
-    namespace: str
-    nip05: str
-    nip05_validated: bool
-    picture: str
-    phone: str
-    profile_type: ProfileType
-    profile_url: str
-    state: str
-    street: str
-    website: str
-    zip_code: str
+    public_key: str  # stored in hex format
+    about: str = ""
+    banner: str = ""
+    bot: bool = False
+    city: str = ""
+    country: str = ""
+    created_at: int = 0
+    display_name: str = ""
+    email: str = ""
+    hashtags: List[str] = []
+    locations: Set[str] = Field(default_factory=set)
+    name: str = ""
+    namespace: str = ""
+    nip05: str = ""
+    nip05_validated: bool = False
+    picture: str = ""
+    phone: str = ""
+    profile_type: ProfileType = ProfileType.OTHER_OTHER
+    profile_url: str = ""
+    state: str = ""
+    street: str = ""
+    website: str = ""
+    zip_code: str = ""
 
     def __init__(self, public_key: str, **data: Any) -> None: ...
     def add_hashtag(self, hashtag: str) -> None: ...
@@ -129,11 +148,11 @@ class Profile(BaseModel):
     def set_display_name(self, display_name: str) -> None: ...
     def set_email(self, email: str) -> None: ...
     def set_name(self, name: str) -> None: ...
-    def set_namespace(self, namespace: Namespace | str) -> None: ...
+    def set_namespace(self, namespace: Union[Namespace, str]) -> None: ...
     def set_nip05(self, nip05: str) -> None: ...
     def set_phone(self, phone: str) -> None: ...
     def set_picture(self, picture: str) -> None: ...
-    def set_profile_type(self, profile_type: ProfileType | str) -> None: ...
+    def set_profile_type(self, profile_type: Union[ProfileType, str]) -> None: ...
     def set_state(self, state: str) -> None: ...
     def set_street(self, street: str) -> None: ...
     def set_website(self, website: str) -> None: ...
@@ -154,27 +173,12 @@ class Profile(BaseModel):
     @staticmethod
     def _normalize_hashtag(tag: str) -> str: ...
 
-class KeyEncoding(str, Enum):
-    """
-    Enum representing the valid encoding formats for public or private keys.
-
-    Attributes:
-        BECH32 (str): Encodes the key using Bech32 format.
-        HEX (str): Encodes the key using hexadecimal format.
-    """
-
-    BECH32 = "bech32"
-    HEX = "hex"
-
-    @classmethod
-    def from_str(cls, value: str) -> "KeyEncoding": ...
-
 class NostrKeys(BaseModel):
     """
-    NostrKeys is a class that contains a public and private key
-    in bech32 format.
+    NostrKeys is a class that contains a public and private key.
     """
 
+    model_config = ConfigDict(arbitrary_types_allowed=True)
     keys: Keys
 
     def __init__(self, private_key: Optional[str] = None) -> None: ...
@@ -210,7 +214,7 @@ class StallShippingMethod(BaseModel):
     ssm_id: str
     ssm_cost: float
     ssm_name: str
-    ssm_regions: List[str]
+    ssm_regions: List[str] = Field(default_factory=list)
 
     def __init__(
         self,
@@ -232,6 +236,8 @@ class StallShippingMethod(BaseModel):
     def __str__(self) -> str: ...
 
 class Product(BaseModel):
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
     id: str
     stall_id: str
     name: str
@@ -241,38 +247,44 @@ class Product(BaseModel):
     price: float
     quantity: int
     shipping: List[ProductShippingCost]
-    categories: List[str]
-    specs: List[List[str]]
+    categories: List[str] = Field(default_factory=list)
+    specs: List[List[str]] = Field(default_factory=list)
     seller: str
 
+    def set_seller(self, seller: str) -> None: ...
+    def get_seller(self) -> str: ...
     @classmethod
     def from_product_data(cls, product_data: ProductData) -> "Product": ...
-    @classmethod
-    def from_json(cls, json_str: str) -> "Product": ...
-    def get_seller(self) -> str: ...
-    def set_seller(self, seller: str) -> None: ...
     def to_product_data(self) -> ProductData: ...
     def to_dict(self) -> dict: ...
     def to_json(self) -> str: ...
+    @classmethod
+    def from_json(cls, json_str: str) -> "Product": ...
     def __eq__(self, other: object) -> bool: ...
 
 class Stall(BaseModel):
+    """
+    Stall represents a NIP-15 stall.
+    TBD: NIP-15 does not have a geohash field. Add logic to retrieve geohash from
+    somewhere else when using the from_stall_data() class constructor.
+    """
+
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
     id: str
     name: str
     description: str
     currency: str
     shipping: List[StallShippingMethod]
-    geohash: Optional[str]
+    geohash: Optional[str] = None
 
-    # @classmethod
-    # def from_stall_data(cls, stall_data: StallData) -> "MerchantStall": ...
-    @classmethod
-    def from_json(cls, stall_content: str) -> "Stall": ...
     def get_geohash(self) -> str: ...
     def set_geohash(self, geohash: str) -> None: ...
     def to_dict(self) -> dict: ...
     def to_json(self) -> str: ...
     def to_stall_data(self) -> StallData: ...
+    @classmethod
+    def from_json(cls, stall_content: str) -> "Stall": ...
 
 # class Delegation(BaseModel):
 #     author: str

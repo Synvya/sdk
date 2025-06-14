@@ -471,7 +471,7 @@ def mock_knowledge_base_fixture() -> Mock:
     return Mock(spec=AgentKnowledge)
 
 
-@pytest.fixture(scope="session", name="buyer_tools")
+@pytest.fixture(scope="function", name="buyer_tools")
 async def buyer_tools_fixture(
     mock_knowledge_base: Mock,
     relay: str,
