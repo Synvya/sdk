@@ -16,7 +16,6 @@ from synvya_sdk import (
     NostrClient,
     NostrKeys,
     Profile,
-    ProfileFilter,
     ProfileType,
 )
 
@@ -106,7 +105,7 @@ async def main() -> None:
     PICTURE = "https://i.nostr.build/eZvrJNK9kFni5QR3.jpg"
     WEBSITE = "https://trainmuseum.org"
     CATEGORY = ProfileType.RETAIL
-    NAMESPACE = Namespace.MERCHANT
+    NAMESPACE = Namespace.BUSINESS_TYPE
     HASHTAGS = ["railway", "museum", "history"]
 
     profile = Profile(keys.get_public_key(encoding=KeyEncoding.BECH32))
@@ -119,6 +118,14 @@ async def main() -> None:
     profile.set_website(WEBSITE)
     profile.set_profile_type(CATEGORY)
     profile.set_namespace(NAMESPACE)
+    profile.set_profile_type(ProfileType.ENTERTAINMENT)
+    profile.set_city("Snoqualmie")
+    profile.set_state("WA")
+    profile.set_country("USA")
+    profile.set_zip_code("98065")
+    profile.set_street("38625 SE King Street")
+    profile.set_email("info@TrainMuseum.org")
+    profile.set_phone("425-888-3030 ext. 7202")
     for hashtag in HASHTAGS:
         profile.add_hashtag(hashtag)
 
@@ -129,7 +136,7 @@ async def main() -> None:
     await nostr_client.async_set_profile(profile)
 
     # Test NIP-96 file upload functionality
-    await test_nip96_upload(nostr_client)
+    # await test_nip96_upload(nostr_client)
 
     # # Create the ProfileFilter
     # profile_filter = ProfileFilter(

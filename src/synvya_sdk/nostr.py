@@ -1142,34 +1142,34 @@ class NostrClient:
             metadata_content = metadata_content.set_website(website)
 
         # Populate custom Metadata fields
-        if (bot := profile.is_bot()) != "":
-            metadata_content = metadata_content.set_custom_field(
-                key="bot", value=JsonValue.BOOL(bot)
-            )
-        if (city := profile.get_city()) != "":
-            metadata_content = metadata_content.set_custom_field(
-                key="city", value=JsonValue.STR(city)
-            )
-        if (country := profile.get_country()) != "":
-            metadata_content = metadata_content.set_custom_field(
-                key="country", value=JsonValue.STR(country)
-            )
-        if (email := profile.get_email()) != "":
-            metadata_content = metadata_content.set_custom_field(
-                key="email", value=JsonValue.STR(email)
-            )
-        if (state := profile.get_state()) != "":
-            metadata_content = metadata_content.set_custom_field(
-                key="state", value=JsonValue.STR(state)
-            )
-        if (street := profile.get_street()) != "":
-            metadata_content = metadata_content.set_custom_field(
-                key="street", value=JsonValue.STR(street)
-            )
-        if (zip_code := profile.get_zip_code()) != "":
-            metadata_content = metadata_content.set_custom_field(
-                key="zip_code", value=JsonValue.STR(zip_code)
-            )
+        # if (bot := profile.is_bot()) != "":
+        #     metadata_content = metadata_content.set_custom_field(
+        #         key="bot", value=JsonValue.BOOL(bot)
+        #     )
+        # if (city := profile.get_city()) != "":
+        #     metadata_content = metadata_content.set_custom_field(
+        #         key="city", value=JsonValue.STR(city)
+        #     )
+        # if (country := profile.get_country()) != "":
+        #     metadata_content = metadata_content.set_custom_field(
+        #         key="country", value=JsonValue.STR(country)
+        #     )
+        # if (email := profile.get_email()) != "":
+        #     metadata_content = metadata_content.set_custom_field(
+        #         key="email", value=JsonValue.STR(email)
+        #     )
+        # if (state := profile.get_state()) != "":
+        #     metadata_content = metadata_content.set_custom_field(
+        #         key="state", value=JsonValue.STR(state)
+        #     )
+        # if (street := profile.get_street()) != "":
+        #     metadata_content = metadata_content.set_custom_field(
+        #         key="street", value=JsonValue.STR(street)
+        #     )
+        # if (zip_code := profile.get_zip_code()) != "":
+        #     metadata_content = metadata_content.set_custom_field(
+        #         key="zip_code", value=JsonValue.STR(zip_code)
+        #     )
 
         # Create event and populate profile fields carried as tags
 
@@ -1190,6 +1190,52 @@ class NostrClient:
                 ),
             ]
         )
+
+        if (email := profile.get_email()) != "":
+            event_builder = event_builder.tags(
+                [
+                    Tag.custom(
+                        TagKind.SINGLE_LETTER(SingleLetterTag.lowercase(Alphabet.I)),
+                        [
+                            f"email:{email}",
+                            "",
+                        ],
+                    ),
+                ]
+            )
+
+        if (phone := profile.get_phone()) != "":
+            event_builder = event_builder.tags(
+                [
+                    Tag.custom(
+                        TagKind.SINGLE_LETTER(SingleLetterTag.lowercase(Alphabet.I)),
+                        [f"phone:{phone}", ""],
+                    ),
+                ]
+            )
+
+        # Location tag construction
+        locationt = ""
+        if (street := profile.get_street()) != "":
+            locationt = f"{street}"
+        if (city := profile.get_city()) != "":
+            locationt += f", {city}"
+        if (state := profile.get_state()) != "":
+            locationt += f", {state}"
+        if (zip_code := profile.get_zip_code()) != "":
+            locationt += f", {zip_code}"
+        if (country := profile.get_country()) != "":
+            locationt += f", {country}"
+
+        if locationt != "":
+            event_builder = event_builder.tags(
+                [
+                    Tag.custom(
+                        TagKind.SINGLE_LETTER(SingleLetterTag.lowercase(Alphabet.I)),
+                        [f"location:{locationt}", ""],
+                    ),
+                ]
+            )
 
         event_builder = event_builder.tags(
             [Tag.hashtag(hashtag) for hashtag in profile.get_hashtags()]
