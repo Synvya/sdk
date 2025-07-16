@@ -1142,10 +1142,16 @@ class NostrClient:
             metadata_content = metadata_content.set_website(website)
 
         # Populate custom Metadata fields
-        # if (bot := profile.is_bot()) != "":
-        #     metadata_content = metadata_content.set_custom_field(
-        #         key="bot", value=JsonValue.BOOL(bot)
-        #     )
+        if (bot := profile.is_bot()) != "":
+            metadata_content = metadata_content.set_custom_field(
+                key="bot", value=JsonValue.BOOL(bot)
+            )
+
+        if (environment := profile.get_environment()) != "":
+            metadata_content = metadata_content.set_custom_field(
+                key="environment", value=JsonValue.STR(environment)
+            )
+
         # if (city := profile.get_city()) != "":
         #     metadata_content = metadata_content.set_custom_field(
         #         key="city", value=JsonValue.STR(city)
@@ -1244,7 +1250,7 @@ class NostrClient:
         try:
             # event_id_obj = await self._async_publish_event(event_builder)
             output = await self.client.send_event_builder(event_builder)
-            return str(output.id.to_bech32())
+            return str(output.id.to_hex())
         except RuntimeError as e:
             raise RuntimeError(f"Failed to publish profile: {e}") from e
 

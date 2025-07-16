@@ -5,7 +5,7 @@ import warnings
 from datetime import datetime, timezone
 from enum import Enum
 from functools import wraps
-from typing import ClassVar, List, Optional, Set
+from typing import ClassVar, List, Literal, Optional, Set
 
 import httpx
 from nostr_sdk import (
@@ -213,6 +213,7 @@ class Profile(BaseModel):
     street: str = ""
     website: str = ""
     zip_code: str = ""
+    environment: Literal["production", "demo"] = "production"
 
     def __init__(self, public_key: str, **data) -> None:
         """
@@ -253,6 +254,9 @@ class Profile(BaseModel):
 
     def get_display_name(self) -> str:
         return self.display_name
+
+    def get_environment(self) -> Literal["production", "demo"]:
+        return self.environment
 
     def get_email(self) -> str:
         return self.email
@@ -352,6 +356,9 @@ class Profile(BaseModel):
     def set_display_name(self, display_name: str) -> None:
         self.display_name = display_name
 
+    def set_environment(self, environment: Literal["production", "demo"]) -> None:
+        self.environment = environment
+
     def set_email(self, email: str) -> None:
         self.email = email
 
@@ -404,6 +411,7 @@ class Profile(BaseModel):
             "country": self.country,
             "created_at": self.created_at,
             "display_name": self.display_name,
+            "environment": self.environment,
             "email": self.email,
             "hashtags": self.hashtags,
             "locations": list(self.locations),  # Convert set to list
@@ -430,6 +438,7 @@ class Profile(BaseModel):
             "country": self.country,
             "created_at": self.created_at,
             "display_name": self.display_name,
+            "environment": self.environment,
             "email": self.email,
             "hashtags": self.hashtags,
             "locations": (list(self.locations) if self.locations else []),
@@ -546,6 +555,12 @@ class Profile(BaseModel):
         else:
             profile.set_bot(False)
 
+        json_environment = metadata.get_custom_field("environment")
+        if isinstance(json_environment, JsonValue.STR):
+            profile.set_environment(json_environment.s)
+        else:
+            profile.set_environment("production")
+
         # json_city = metadata.get_custom_field("city")
         # if isinstance(json_city, JsonValue.STR):
         #     profile.set_city(json_city.s)
@@ -624,6 +639,7 @@ class Profile(BaseModel):
         # profile.set_city(metadata.get("city", ""))
         # profile.set_country(metadata.get("country", ""))
         profile.set_display_name(metadata.get("display_name", ""))
+        profile.set_environment(metadata.get("environment", "production"))
         # profile.set_email(metadata.get("email", ""))
         profile.set_name(metadata.get("name", ""))
         profile.set_nip05(metadata.get("nip05", ""))
@@ -715,6 +731,7 @@ class Profile(BaseModel):
         profile.set_country(data.get("country", ""))
         profile.set_created_at(data.get("created_at", 0))
         profile.set_display_name(data.get("display_name", ""))
+        profile.set_environment(data.get("environment", "production"))
         profile.set_email(data.get("email", ""))
         for hashtag in data.get("hashtags", []):
             profile.add_hashtag(hashtag)
