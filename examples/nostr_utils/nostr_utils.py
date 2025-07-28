@@ -137,7 +137,7 @@ async def main() -> None:
     await nostr_client.async_set_profile(profile)
 
     # Test NIP-96 file upload functionality
-    # await test_nip96_upload(nostr_client)
+    await test_nip96_upload(nostr_client)
 
     # # Create the ProfileFilter
     # profile_filter = ProfileFilter(

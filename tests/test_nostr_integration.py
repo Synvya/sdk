@@ -163,3 +163,24 @@ class TestNostrClient:
         """Test receiving a NIP-17 message"""
         response = await nostr_client.async_receive_message()
         assert isinstance(response, str)
+
+    @pytest.mark.asyncio
+    async def test_nip96_upload(
+        self,
+        nostr_client: NostrClient,
+        nip96_server_url: str,
+        test_file_data: bytes,
+        test_file_mime_type: str,
+    ) -> None:
+        """Test NIP-96 file upload functionality"""
+        # Test upload with default (free) plan
+        download_url = await nostr_client.async_nip96_upload(
+            server_url=nip96_server_url,
+            file_data=test_file_data,
+            mime_type=test_file_mime_type,
+        )
+
+        # Verify we got a valid URL back
+        assert isinstance(download_url, str)
+        assert download_url.startswith("http")
+        print(f"Successfully uploaded file. Download URL: {download_url}")

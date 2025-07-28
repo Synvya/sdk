@@ -101,7 +101,7 @@ class NostrClient:
         server_url: str,
         file_data: bytes,
         mime_type: Optional[str] = None,
-        proxy: Optional[str] = None,
+        plan: Optional[str] = None,
     ) -> str: ...
 
     # Sync wrappers for sync users
@@ -133,7 +133,7 @@ class NostrClient:
         server_url: str,
         file_data: bytes,
         mime_type: Optional[str] = None,
-        proxy: Optional[str] = None,
+        plan: Optional[str] = None,
     ) -> str: ...
 
     # Internal methods

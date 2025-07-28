@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Dict, List, Optional, Union
 
 import coincurve
+import requests
 
 from .models import (
     KeyEncoding,
@@ -38,15 +39,18 @@ try:
         Keys,
         Kind,
         Metadata,
+        MetadataRecord,
+        Nip96ServerConfig,
+        Nip96UploadRequest,
+        Nip96UploadResponse,
         NostrSigner,
         ProductData,
         PublicKey,
         RelayMessage,
+        RelayUrl,
         SingleLetterTag,
         Tag,
         TagKind,
-        get_nip96_server_config,
-        nip96_upload,
     )
 
 except ImportError as exc:
@@ -231,7 +235,9 @@ class NostrClient:
         try:
             # events = await self._async_get_events(events_filter)
             events = await self.client.fetch_events_from(
-                urls=self.relays, filter=events_filter, timeout=timedelta(seconds=2)
+                urls=self._get_relay_urls(),
+                filter=events_filter,
+                timeout=timedelta(seconds=2),
             )
             if events.len() == 0:
                 return agents  # returning empty set
@@ -331,7 +337,9 @@ class NostrClient:
                 # Use a filter to get the merchant's profile info
                 stall_filter = Filter().kind(Kind(30017)).identifier(stall.id)
                 stall_events = await self.client.fetch_events_from(
-                    urls=self.relays, filter=stall_filter, timeout=timedelta(seconds=2)
+                    urls=self._get_relay_urls(),
+                    filter=stall_filter,
+                    timeout=timedelta(seconds=2),
                 )
 
                 # Skip if no events found
@@ -405,7 +413,9 @@ class NostrClient:
         try:
             # events = await self._async_get_events(events_filter)
             events = await self.client.fetch_events_from(
-                urls=self.relays, filter=events_filter, timeout=timedelta(seconds=2)
+                urls=self._get_relay_urls(),
+                filter=events_filter,
+                timeout=timedelta(seconds=2),
             )
         except Exception as e:
             raise RuntimeError(f"Failed to retrieve marketplace: {e}") from e
@@ -485,7 +495,9 @@ class NostrClient:
                 )
                 events_filter = events_filter.coordinate(coordinate_tag)
             events = await self.client.fetch_events_from(
-                urls=self.relays, filter=events_filter, timeout=timedelta(seconds=2)
+                urls=self._get_relay_urls(),
+                filter=events_filter,
+                timeout=timedelta(seconds=2),
             )
         except Exception as e:
             raise RuntimeError(f"Unable to retrieve stalls: {e}") from e
@@ -613,7 +625,9 @@ class NostrClient:
                 events_filter = events_filter.authors([merchant_key])
 
             events = await self.client.fetch_events_from(
-                urls=self.relays, filter=events_filter, timeout=timedelta(seconds=5)
+                urls=self._get_relay_urls(),
+                filter=events_filter,
+                timeout=timedelta(seconds=5),
             )
         except Exception as e:
             self.logger.warning("Unable to retrieve stalls: %s", e)
@@ -1088,35 +1102,32 @@ class NostrClient:
 
         self.profile = profile
 
-        metadata_content = Metadata()
         if (name := profile.get_name()) == "":
             raise ValueError("A profile must have a value for the field `name`.")
 
-        # Populate standard Metadata fields
-        metadata_content = metadata_content.set_name(name)
-        if (about := profile.get_about()) != "":
-            metadata_content = metadata_content.set_about(about)
-        if (banner := profile.get_banner()) != "":
-            metadata_content = metadata_content.set_banner(banner)
-        if (display_name := profile.get_display_name()) != "":
-            metadata_content = metadata_content.set_display_name(display_name)
-        if (nip05 := profile.get_nip05()) != "":
-            metadata_content = metadata_content.set_nip05(nip05)
-        if (picture := profile.get_picture()) != "":
-            metadata_content = metadata_content.set_picture(picture)
-        if (website := profile.get_website()) != "":
-            metadata_content = metadata_content.set_website(website)
-
-        # Populate custom Metadata fields
+        # Prepare custom fields
+        custom_fields = {}
         if (bot := profile.is_bot()) != "":
-            metadata_content = metadata_content.set_custom_field(
-                key="bot", value=JsonValue.BOOL(bot)
-            )
-
+            custom_fields["bot"] = JsonValue.BOOL(bot)
         if (environment := profile.get_environment()) != "":
-            metadata_content = metadata_content.set_custom_field(
-                key="environment", value=JsonValue.STR(environment)
-            )
+            custom_fields["environment"] = JsonValue.STR(environment)
+
+        # Create MetadataRecord with all fields
+        metadata_record = MetadataRecord(
+            name=name,
+            about=profile.get_about() if profile.get_about() != "" else None,
+            banner=profile.get_banner() if profile.get_banner() != "" else None,
+            display_name=(
+                profile.get_display_name() if profile.get_display_name() != "" else None
+            ),
+            nip05=profile.get_nip05() if profile.get_nip05() != "" else None,
+            picture=profile.get_picture() if profile.get_picture() != "" else None,
+            website=profile.get_website() if profile.get_website() != "" else None,
+            custom=custom_fields if custom_fields else None,
+        )
+
+        # Create Metadata from record
+        metadata_content = Metadata.from_record(metadata_record)
 
         event_builder = EventBuilder.metadata(metadata_content)
 
@@ -1256,7 +1267,7 @@ class NostrClient:
         server_url: str,
         file_data: bytes,
         mime_type: Optional[str] = None,
-        proxy: Optional[str] = None,
+        plan: Optional[str] = None,
     ) -> str:
         """
         Upload a file to a NIP-96 compatible server.
@@ -1265,28 +1276,80 @@ class NostrClient:
             server_url: URL of the NIP-96 compatible server
             file_data: Binary data of the file to upload
             mime_type: Optional MIME type of the file
-            proxy: Optional proxy URL to use for the request
+            plan: Optional plan name to use (defaults to "free" if available)
 
         Returns:
             str: URL of the uploaded file
 
         Raises:
-            RuntimeError: if the file upload fails
+            RuntimeError: if the file upload fails or plan is not available
         """
+        # obtain the server configuration from NIP-96 well-known endpoint
+        config_url = f"{server_url.rstrip('/')}/.well-known/nostr/nip96.json"
         try:
-            # Get the server configuration
-            server_config = await get_nip96_server_config(server_url, proxy)
+            config_response = requests.get(config_url, timeout=10)
+            config_response.raise_for_status()  # Raise an exception for HTTP errors
+            server_config = Nip96ServerConfig.from_json(config_response.text)
+        except requests.exceptions.RequestException as e:
+            raise RuntimeError(f"Failed to get server configuration: {e}") from e
 
-            # Upload the file using the nostr_sdk.nip96_upload function
-            result = await nip96_upload(
-                signer=self.nostr_signer,
-                config=server_config,
-                file_data=file_data,
-                mime_type=mime_type,
-                proxy=proxy,
-            )
-            return str(result)
-        except Exception as e:
+        NostrClient.logger.debug("Server json file %s", config_response.text)
+
+        # Select plan: default to "free" if not specified
+        selected_plan = plan if plan is not None else "free"
+
+        # Check if the plan exists in server configuration
+        server_config_dict = json.loads(config_response.text)
+        available_plans = server_config_dict.get("plans", {})
+
+        if selected_plan not in available_plans:
+            if plan is None:
+                # User didn't specify a plan and "free" doesn't exist
+                available_plan_names = list(available_plans.keys())
+                raise RuntimeError(
+                    f"No 'free' plan available on server. Available plans: {available_plan_names}. "
+                    f"Please specify a plan using the 'plan' parameter."
+                )
+            else:
+                # User specified a plan that doesn't exist
+                available_plan_names = list(available_plans.keys())
+                raise RuntimeError(
+                    f"Plan '{selected_plan}' not available on server. "
+                    f"Available plans: {available_plan_names}"
+                )
+
+        NostrClient.logger.debug("Using plan: %s", selected_plan)
+
+        request = await Nip96UploadRequest.create(
+            signer=self.nostr_signer, config=server_config, file_data=file_data
+        )
+
+        NostrClient.logger.debug("Request %s", request)
+
+        try:
+            auth_header = request.authorization()
+            url = request.url()
+
+            # Prepare multipart form data for file upload
+            files = {
+                "file": ("upload", file_data, mime_type or "application/octet-stream")
+            }
+            headers = {
+                "Authorization": auth_header,
+            }
+            # Don't set Content-Type header - requests will set it automatically for multipart
+
+            upload = requests.post(url, headers=headers, files=files, timeout=10)
+            upload.raise_for_status()
+            NostrClient.logger.debug("Upload response %s", upload.text)
+            upload_response = Nip96UploadResponse.from_json(upload.text)
+            if upload_response.is_success():
+                return upload_response.download_url()
+            else:
+                raise RuntimeError(
+                    f"Failed to upload file: {upload_response.message()}"
+                )
+        except requests.exceptions.RequestException as e:
             raise RuntimeError(f"Failed to upload file: {e}") from e
 
     def nip96_upload(
@@ -1294,7 +1357,7 @@ class NostrClient:
         server_url: str,
         file_data: bytes,
         mime_type: Optional[str] = None,
-        proxy: Optional[str] = None,
+        plan: Optional[str] = None,
     ) -> str:
         """
         Synchronous wrapper for async_nip96_upload
@@ -1303,7 +1366,7 @@ class NostrClient:
             server_url: URL of the NIP-96 compatible server
             file_data: Binary data of the file to upload
             mime_type: Optional MIME type of the file
-            proxy: Optional proxy URL to use for the request
+            plan: Optional plan name to use (defaults to "free" if available)
 
         Returns:
             str: URL of the uploaded file
@@ -1313,7 +1376,7 @@ class NostrClient:
                 server_url=server_url,
                 file_data=file_data,
                 mime_type=mime_type,
-                proxy=proxy,
+                plan=plan,
             )
         )
 
@@ -1338,6 +1401,15 @@ class NostrClient:
     # Developers should use synchronous functions above
     # ----------------------------------------------------------------
 
+    def _get_relay_urls(self) -> List[RelayUrl]:
+        """
+        Convert string relay URLs to RelayUrl objects.
+
+        Returns:
+            List[RelayUrl]: converted relay URLs
+        """
+        return [RelayUrl.parse(relay) for relay in self.relays]
+
     async def _async_connect(self) -> None:
         """
         Asynchronous function to add relays to the NostrClient
@@ -1350,7 +1422,8 @@ class NostrClient:
             try:
                 # Add all relays to the client
                 for relay in self.relays:
-                    await self.client.add_relay(relay)
+                    relay_url = RelayUrl.parse(relay)
+                    await self.client.add_relay(relay_url)
                     NostrClient.logger.info("Relay %s successfully added.", relay)
 
                 # Connect to all relays
