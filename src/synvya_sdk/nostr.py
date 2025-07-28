@@ -78,7 +78,8 @@ class NostrClient:
         _from_create: bool = False,
     ) -> None:
         """
-        Initialize the Nostr client.
+        Internal method to initialize the Nostr client.
+        SDK users should use the create() method instead.
 
         Args:
             relays: Nostr relay(s) that the client will connect to.
@@ -130,11 +131,12 @@ class NostrClient:
         private_key: str,
     ) -> "NostrClient":
         """
-        Asynchronous factory method for proper initialization.
+        Asynchronous factory method to initialize the Nostr client.
         Use instead of the __init__ method.
 
         Args:
-            relays: Nostr relay(s) that the client will connect to. Can be a single URL string or a list of URLs.
+            relays: Nostr relay(s) that the client will connect to.
+                    Can be a single URL string or a list of URLs.
             private_key: Private key for the client in hex or bech32 format
 
         Returns:
@@ -200,7 +202,7 @@ class NostrClient:
     async def async_get_agents(self, profile_filter: ProfileFilter) -> set[Profile]:
         """
         Retrieve all agents from the relay that match the filter.
-        Agents are defined as profiles with kind:0 bot property set to true
+        Agents are defined as profiles (kind:0 events) with bot property set to true
         that also match the ProfileFilter
 
         Args:
@@ -256,10 +258,10 @@ class NostrClient:
         self, profile_filter: Optional[ProfileFilter] = None
     ) -> set[Profile]:
         """
-        Retrieve all merchants from the relay that match the filter.
+        Retrieve all profiles from the relay that match the filter and contain metadata.
 
         If no ProfileFilter is provided, all Nostr profiles that have published a stall
-        are included in the results.
+        (kind:30017 events) are included in the results.
 
         Args:
             profile_filter: filter to apply to the results
@@ -557,42 +559,6 @@ class NostrClient:
             raise RuntimeError(f"Unable to connect to relay: {e}") from e
 
         profile_key = PublicKey.parse(public_key)
-
-        # # retrieve standard metadata
-        # metadata = await self.client.fetch_metadata(
-        #     public_key=profile_key, timeout=timedelta(seconds=2)
-        # )
-
-        # if metadata is None:
-        #     raise RuntimeError("async_get_profile: Unable to retrieve metadata")
-
-        # # Create profile from standard metadata
-        # profile = await Profile.from_metadata(metadata, profile_key.to_bech32())
-
-        # # retreive raw event for non-standard metadata
-        # events = await self.client.fetch_events(
-        #     filter=Filter().authors([profile_key]).kind(Kind(0)).limit(1),
-        #     timeout=timedelta(seconds=2),
-        # )
-        # if events.len() > 0:
-        #     tags = events.first().tags()
-
-        #     hashtag_list = tags.hashtags()
-        #     for hashtag in hashtag_list:
-        #         profile.add_hashtag(hashtag)
-
-        #     namespace_tag = tags.find(
-        #         TagKind.SINGLE_LETTER(SingleLetterTag.uppercase(Alphabet.L))
-        #     )
-        #     if namespace_tag is not None:
-        #         profile.set_namespace(namespace_tag.content())
-
-        #     profile_type_tag = tags.find(
-        #         TagKind.SINGLE_LETTER(SingleLetterTag.lowercase(Alphabet.L))
-        #     )
-        #     if profile_type_tag is not None:
-        #         profile.set_profile_type(profile_type_tag.content())
-        # return profile
 
         try:
             events = await self.client.fetch_events(
@@ -1152,33 +1118,6 @@ class NostrClient:
                 key="environment", value=JsonValue.STR(environment)
             )
 
-        # if (city := profile.get_city()) != "":
-        #     metadata_content = metadata_content.set_custom_field(
-        #         key="city", value=JsonValue.STR(city)
-        #     )
-        # if (country := profile.get_country()) != "":
-        #     metadata_content = metadata_content.set_custom_field(
-        #         key="country", value=JsonValue.STR(country)
-        #     )
-        # if (email := profile.get_email()) != "":
-        #     metadata_content = metadata_content.set_custom_field(
-        #         key="email", value=JsonValue.STR(email)
-        #     )
-        # if (state := profile.get_state()) != "":
-        #     metadata_content = metadata_content.set_custom_field(
-        #         key="state", value=JsonValue.STR(state)
-        #     )
-        # if (street := profile.get_street()) != "":
-        #     metadata_content = metadata_content.set_custom_field(
-        #         key="street", value=JsonValue.STR(street)
-        #     )
-        # if (zip_code := profile.get_zip_code()) != "":
-        #     metadata_content = metadata_content.set_custom_field(
-        #         key="zip_code", value=JsonValue.STR(zip_code)
-        #     )
-
-        # Create event and populate profile fields carried as tags
-
         event_builder = EventBuilder.metadata(metadata_content)
 
         event_builder = event_builder.tags(
@@ -1377,101 +1316,6 @@ class NostrClient:
                 proxy=proxy,
             )
         )
-
-    # async def add_delegation(self, delegation_event: dict | str) -> None:
-    #     """
-    #     Add a delegation to the client.
-
-    #     Args:
-    #         delegation_event: Delegation event (dict or JSON string) to add
-
-    #     Raises:
-    #         ValueError: if the delegation is invalid or already exists
-    #     """
-    #     delegation = Delegation.parse(delegation_event)
-
-    #     # Use hex format for consistent key comparison
-    #     try:
-    #         merchant_pubkey = PublicKey.parse(delegation.author).to_hex()
-    #     except Exception as e:
-    #         raise ValueError(f"Invalid delegation author public key: {e}") from e
-
-    #     if merchant_pubkey in self.delegations:
-    #         self.logger.warning(
-    #             "Replacing existing delegation for merchant: %s", merchant_pubkey
-    #         )
-
-    #     self.delegations[merchant_pubkey] = delegation
-    #     self.logger.info("Added delegation for merchant: %s", merchant_pubkey)
-
-    # def remove_delegation(self, merchant_pubkey: str) -> None:
-    #     """
-    #     Remove a delegation from the client.
-
-    #     Args:
-    #         merchant_pubkey: Public key of the merchant in hex or bech32 format
-
-    #     Raises:
-    #         ValueError: if no delegation exists for the merchant
-    #     """
-    #     try:
-    #         # Normalize the key format
-    #         normalized_key = PublicKey.parse(merchant_pubkey).to_hex()
-    #     except Exception as e:
-    #         raise ValueError(f"Invalid merchant public key: {e}") from e
-
-    #     if normalized_key not in self.delegations:
-    #         raise ValueError(f"No delegation found for merchant: {normalized_key}")
-
-    #     del self.delegations[normalized_key]
-    #     self.logger.info("Removed delegation for merchant: %s", normalized_key)
-
-    # def get_delegations(self) -> Dict[str, Delegation]:
-    #     """
-    #     Get all current delegations.
-
-    #     Returns:
-    #         Dict[str, Delegation]: Dictionary mapping merchant public keys to their delegations
-    #     """
-    #     return self.delegations.copy()
-
-    # def has_delegation_for(self, merchant_pubkey: str) -> bool:
-    #     """
-    #     Check if a delegation exists for a specific merchant.
-
-    #     Args:
-    #         merchant_pubkey: Public key of the merchant in hex or bech32 format
-
-    #     Returns:
-    #         bool: True if delegation exists, False otherwise
-    #     """
-    #     try:
-    #         normalized_key = PublicKey.parse(merchant_pubkey).to_hex()
-    #         return normalized_key in self.delegations
-    #     except Exception:
-    #         return False
-
-    # def get_valid_delegations(self) -> Dict[str, Delegation]:
-    #     """
-    #     Get all currently valid (non-expired) delegations.
-
-    #     Returns:
-    #         Dict[str, Delegation]: Dictionary of valid delegations
-    #     """
-    #     from datetime import datetime, timezone
-
-    #     now_ts = int(datetime.now(timezone.utc).timestamp())
-    #     valid_delegations = {}
-
-    #     for merchant_key, delegation in self.delegations.items():
-    #         if now_ts <= delegation.expires_at:
-    #             valid_delegations[merchant_key] = delegation
-    #         else:
-    #             self.logger.warning(
-    #                 "Delegation for merchant %s has expired", merchant_key
-    #             )
-
-    #     return valid_delegations
 
     # ----------------------------------------------------------------
     # Class methods

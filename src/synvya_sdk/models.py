@@ -102,9 +102,6 @@ class Namespace(str, Enum):
     GAMER = "com.synvya.gamer"
     OTHER = "com.synvya.other"
     BUSINESS_TYPE = "business.type"
-    BUSINESS_EMAIL = "business.email"
-    BUSINESS_PHONE = "business.phone"
-    BUSINESS_LOCATION = "business.location"
 
     """Configuration for Pydantic models to use enum values directly."""
     model_config = ConfigDict(use_enum_values=True)
