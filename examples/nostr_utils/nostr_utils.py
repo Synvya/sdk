@@ -128,6 +128,7 @@ async def main() -> None:
     profile.set_phone("425-888-3030 ext. 7202")
     for hashtag in HASHTAGS:
         profile.add_hashtag(hashtag)
+    profile.set_environment("demo")
 
     # Pass relay as a list for the new multi-relay API
     relays = [RELAY]
