@@ -57,6 +57,30 @@ def relay_fixture() -> str:
     return "wss://nos.lol"
 
 
+@pytest.fixture(scope="session", name="nip96_server_url")
+def nip96_server_url_fixture() -> str:
+    """Fixture providing the NIP-96 test server URL"""
+    return "https://nostr.build"
+
+
+@pytest.fixture(scope="session", name="test_file_data")
+def test_file_data_fixture() -> bytes:
+    """Fixture providing test file data for NIP-96 upload"""
+    # Use the sample image from tests directory
+    script_dir = Path(__file__).parent
+    sample_image_path = script_dir / "sample_image.jpg"
+
+    with open(sample_image_path, "rb") as f:
+        return f.read()
+
+
+@pytest.fixture(scope="session", name="test_file_mime_type")
+def test_file_mime_type_fixture() -> str:
+    """Fixture providing test file MIME type"""
+    # Using JPEG since we have sample_image.jpg in tests directory
+    return "image/jpeg"
+
+
 ###--- Merchant Fixtures ---###
 
 
