@@ -3,6 +3,7 @@ Basic buyer agent example.
 """
 
 import asyncio
+import logging
 import uuid
 from os import getenv
 from pathlib import Path
@@ -19,7 +20,14 @@ from agno.agent import Agent, AgentKnowledge  # type: ignore
 from agno.embedder.openai import OpenAIEmbedder
 from agno.models.openai import OpenAIChat  # type: ignore
 from agno.vectordb.pgvector import PgVector, SearchType
-from synvya_sdk import KeyEncoding, NostrKeys, Profile, generate_keys
+from synvya_sdk import (
+    KeyEncoding,
+    Namespace,
+    NostrKeys,
+    Profile,
+    ProfileType,
+    generate_keys,
+)
 from synvya_sdk.agno import BuyerTools
 
 # Set logging to WARN level to suppress INFO logs
@@ -155,6 +163,7 @@ buyer_tools = asyncio.run(
         knowledge_base=knowledge_base,
         relays=RELAY,
         private_key=keys.get_private_key(KeyEncoding.BECH32),
+        log_level=logging.DEBUG,
     )
 )
 
@@ -167,102 +176,116 @@ profile.set_picture(PICTURE)
 profile.set_nip05(NIP05)
 
 asyncio.run(buyer_tools.async_set_profile(profile))
-# buyer_tools.set_profile(profile)
+
+reset_database()
+
+profile_types = list(ProfileType)
+
+for profile_type in profile_types:
+    profile_filter_json = {
+        "namespace": Namespace.BUSINESS_TYPE.value,
+        "profile_type": profile_type.value,
+    }
+
+    print(f"Fetching merchants for profile_type='{profile_type.value}'")
+    response = asyncio.run(buyer_tools.async_get_merchants(profile_filter_json))
+    print(response)
+
 
 # When asked to populate your knowledge base, you will download the sellers
 # from the marketplace "Historic Downtown Snoqualmie" with the public key
 # "npub1nar4a3vv59qkzdlskcgxrctkw9f0ekjgqaxn8vd0y82f9kdve9rqwjcurn".
 
-buyer = Agent(  # type: ignore[call-arg]
-    name=f"AI Agent for {profile.get_name()}",
-    model=OpenAIChat(id="gpt-4o-mini", api_key=OPENAI_API_KEY),
-    tools=[buyer_tools],
-    add_history_to_messages=True,
-    num_history_responses=10,
-    read_chat_history=True,
-    read_tool_call_history=True,
-    knowledge=knowledge_base,
-    search_knowledge=True,
-    show_tool_calls=True,
-    debug_mode=False,
-    instructions=[
-        """
-        You're an tourist AI assistant for people visiting Snoqualmie.
-        You help visitors find things to do, places to go, and things to buy
-        from the businesses (also known as merchants) in Snoqualmie Valley.
+# buyer = Agent(  # type: ignore[call-arg]
+#     name=f"AI Agent for {profile.get_name()}",
+#     model=OpenAIChat(id="gpt-4o-mini", api_key=OPENAI_API_KEY),
+#     tools=[buyer_tools],
+#     add_history_to_messages=True,
+#     num_history_responses=10,
+#     read_chat_history=True,
+#     read_tool_call_history=True,
+#     knowledge=knowledge_base,
+#     search_knowledge=True,
+#     show_tool_calls=True,
+#     debug_mode=False,
+#     instructions=[
+#         """
+#         You're an tourist AI assistant for people visiting Snoqualmie.
+#         You help visitors find things to do, places to go, and things to buy
+#         from the businesses (also known as merchants) in Snoqualmie Valley.
 
-        When asked to find merchants, you will use the tool `get_merchants`
-        with a profile filter to find the merchants.
-        Here is an example profile filter:
-        {
-           "namespace": "com.synvya.merchant",
-           "profile_type": "restaurant",
-           "hashtags": ["pizza"]
-        }
+#         When asked to find merchants, you will use the tool `get_merchants`
+#         with a profile filter to find the merchants.
+#         Here is an example profile filter:
+#         {
+#            "namespace": "business.type",
+#            "profile_type": "restaurant",
+#            "hashtags": ["pizza"]
+#         }
 
-        namespace is always "com.synvya.merchant".
+#         namespace is always "business.type".
 
-        Here is the list of valid profile types:
-        - "retail"
-        - "restaurant"
-        - "service"
-        - "business"
-        - "entertainment"
-        - "other"
+#         Here is the list of valid profile types:
+#         - "retail"
+#         - "restaurant"
+#         - "service"
+#         - "business"
+#         - "entertainment"
+#         - "other"
 
-        Use the hashtags provided by the user in the query.
+#         Use the hashtags provided by the user in the query.
 
-        Include pictures of the businesses in your response when possible.
+#         Include pictures of the businesses in your response when possible.
 
-        Include in your response an offer to purchase the products or make a reservation
-        for the user.
+#         Include in your response an offer to purchase the products or make a reservation
+#         for the user.
 
-        When asked to purchase a product, you will:
-        1. use the tool `get_products_from_knowledge_base` to get the product
-        details from the knowledge base
-        2. use the tool `async_submit_order` to submit one order to the seller
-        for the product
-        3. use the tool `async_listen_for_message` to listen for a payment
-        request from the seller
-        4. Coontinue listening for a payment request from the seller until
-        you receive one
-        5. use the tool `async_submit_payment` to submit the payment with the
-        information sent by the seller in the payment request
-        6. use the tool `async_listen_for_message` to listen for a payment
-        verification from the seller
-
-
-        Only if you can't find the product in the knowledge base, you will use the tool
-        `get_products`.
-        """.strip(),
-    ],
-)
+#         When asked to purchase a product, you will:
+#         1. use the tool `get_products_from_knowledge_base` to get the product
+#         details from the knowledge base
+#         2. use the tool `async_submit_order` to submit one order to the seller
+#         for the product
+#         3. use the tool `async_listen_for_message` to listen for a payment
+#         request from the seller
+#         4. Coontinue listening for a payment request from the seller until
+#         you receive one
+#         5. use the tool `async_submit_payment` to submit the payment with the
+#         information sent by the seller in the payment request
+#         6. use the tool `async_listen_for_message` to listen for a payment
+#         verification from the seller
 
 
-async def buyer_cli() -> None:
-    """
-    Command-line interface for the buyer agent.
-    """
-    print("\n🔹 Snoqualmie Valley Visitor Assistant (Type 'exit' to quit)\n")
+#         Only if you can't find the product in the knowledge base, you will use the tool
+#         `get_products`.
+#         """.strip(),
+#     ],
+# )
 
-    ##---###
-    # Example prompts to run when populating the database
-    # "Populate your knowledge base"
-    # "Download the stalls for all the merchants in your knowledge base"
-    # Download the products for all the merchants in your knowledge base"
-    # Purchase `xyz`
-    ##---###
 
-    while True:
-        user_query = input("💬 You: ")
-        if user_query.lower() in ["exit", "quit"]:
-            print("\n👋 Goodbye!\n")
-            break
+# async def buyer_cli() -> None:
+#     """
+#     Command-line interface for the buyer agent.
+#     """
+#     print("\n🔹 Snoqualmie Valley Visitor Assistant (Type 'exit' to quit)\n")
 
-        response = await buyer.arun(user_query)  # Get response from agent
-        print(f"\n🤖 Visitor Assistant: {response.get_content_as_string()}\n")
+#     ##---###
+#     # Example prompts to run when populating the database
+#     # "Populate your knowledge base"
+#     # "Download the stalls for all the merchants in your knowledge base"
+#     # Download the products for all the merchants in your knowledge base"
+#     # Purchase `xyz`
+#     ##---###
+
+#     while True:
+#         user_query = input("💬 You: ")
+#         if user_query.lower() in ["exit", "quit"]:
+#             print("\n👋 Goodbye!\n")
+#             break
+
+#         response = await buyer.arun(user_query)  # Get response from agent
+#         print(f"\n🤖 Visitor Assistant: {response.get_content_as_string()}\n")
 
 
 # Run the CLI
-if __name__ == "__main__":
-    asyncio.run(buyer_cli())
+# if __name__ == "__main__":
+#     asyncio.run(buyer_cli())

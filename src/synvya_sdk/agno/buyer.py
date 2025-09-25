@@ -7,7 +7,7 @@ import logging
 import re
 import secrets
 from sys import stdout
-from typing import List, Optional, Union
+from typing import Any, List, Optional, Union
 
 from pydantic import ConfigDict
 
@@ -303,8 +303,8 @@ class BuyerTools(Toolkit):
             str(profile_filter_json),
         )
 
-        # Initialize filter list
-        search_filters = []
+        # Initialize filter map used by the vector store
+        search_filters: dict[str, Any] = {}
 
         # Process profile filter if provided
         if profile_filter_json:
@@ -319,18 +319,18 @@ class BuyerTools(Toolkit):
                 # Add namespace filter (exact match)
                 namespace = filter_data.get("namespace")
                 if namespace:
-                    search_filters.append({"namespace": namespace})
+                    search_filters["namespace"] = namespace
 
                 # Add profile_type filter (exact match)
                 profile_type = filter_data.get("profile_type")
                 if profile_type:
-                    search_filters.append({"profile_type": profile_type})
+                    search_filters["profile_type"] = profile_type
 
                 # Add hashtag filters (boolean match per hashtag)
                 hashtags = filter_data.get("hashtags", [])
                 for tag in hashtags:
                     normalized_tag = self._normalize_hashtag(tag)
-                    search_filters.append({f"hashtag_{normalized_tag}": True})
+                    search_filters[f"hashtag_{normalized_tag}"] = True
 
                 buyer_logger.debug("Applied search filters: %s", search_filters)
 
@@ -349,7 +349,7 @@ class BuyerTools(Toolkit):
 
         # Execute search
         documents = self.knowledge_base.search(
-            query="", num_documents=100, filters=search_filters
+            query="", num_documents=100, filters=search_filters or None
         )
 
         buyer_logger.debug("Found %d merchants in the knowledge base", len(documents))
@@ -897,15 +897,14 @@ class BuyerTools(Toolkit):
         )
 
         hashtags = profile.get_hashtags()
-        hashtag_filters = [
-            {f"hashtag_{self._normalize_hashtag(tag)}": True} for tag in hashtags
-        ]
+        filters = {
+            "namespace": profile.get_namespace(),
+            "profile_type": profile_type_str,
+        }
 
-        filters = [
-            {"namespace": profile.get_namespace()},
-            {"profile_type": profile_type_str},
-            *hashtag_filters,
-        ]
+        for tag in hashtags:
+            filters[f"hashtag_{self._normalize_hashtag(tag)}"] = True
+
         buyer_logger.debug("_store_profile_in_kb: filters: %s", filters)
         self.knowledge_base.load_document(
             document=doc,
