@@ -107,7 +107,8 @@ class Seller(Base):
     """
 
     __tablename__ = "sellers"
-    __table_args__ = {"schema": "ai"}  # If the table is inside the 'ai' schema
+    # __table_args__ = {"schema": "ai"}  # If the table is inside the 'ai' schema
+    __table_args__ = {"schema": "nostr"}  # If the table is inside the 'ai' schema
 
     id = Column(
         String, primary_key=True, default=lambda: str(uuid.uuid4())
@@ -149,7 +150,8 @@ def reset_database() -> None:
 vector_db = PgVector(
     table_name="sellers",
     db_url=DB_URL,
-    schema="ai",
+    # schema="ai",
+    schema="nostr",
     search_type=SearchType.vector,
     embedder=OpenAIEmbedder(),
 )
@@ -195,13 +197,15 @@ async def refresh_knowledge_base() -> None:
         print(response)
 
 
-async def query_knowledge_base() -> None:
+async def query_knowledge_base(search_query: str) -> None:
     profile_filter_json = {
         "namespace": Namespace.BUSINESS_TYPE.value,
         "profile_type": ProfileType.RESTAURANT.value,
     }
 
-    response = buyer_tools.get_merchants_from_knowledge_base(profile_filter_json)
+    response = buyer_tools.get_merchants_from_knowledge_base(
+        search_query, profile_filter_json
+    )
     print(response)
 
 
@@ -280,5 +284,6 @@ async def buyer_cli() -> None:
 
 # Run the CLI
 if __name__ == "__main__":
-    # asyncio.run(query_knowledge_base())
+    # print(f"DB_URL: {DB_URL}")
+    # asyncio.run(query_knowledge_base("find me an indian restaurant"))
     asyncio.run(buyer_cli())

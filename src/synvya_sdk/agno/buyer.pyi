@@ -59,7 +59,7 @@ class BuyerTools(Toolkit):
 
     # Query information from local knowledge base
     def get_merchants_from_knowledge_base(
-        self, profile_filter_json: Optional[str | dict] = None
+        self, search_query: str, profile_filter_json: Optional[str | dict] = None
     ) -> str: ...
     def get_products_from_knowledge_base(
         self,

@@ -286,7 +286,7 @@ class BuyerTools(Toolkit):
         return response
 
     def get_merchants_from_knowledge_base(
-        self, profile_filter_json: Optional[str | dict] = None
+        self, search_query: str, profile_filter_json: Optional[str | dict] = None
     ) -> str:
         """
         Get the list of merchants stored in the knowledge base.
@@ -299,7 +299,8 @@ class BuyerTools(Toolkit):
             str: JSON string of merchants
         """
         buyer_logger.debug(
-            "GET_MERCHANTS_FROM_KNOWLEDGE_BASE: profile_filter_json: %s",
+            "GET_MERCHANTS_FROM_KNOWLEDGE_BASE: query: %s, profile_filter_json: %s",
+            search_query,
             str(profile_filter_json),
         )
 
@@ -349,7 +350,7 @@ class BuyerTools(Toolkit):
 
         # Execute search
         documents = self.knowledge_base.search(
-            query="", num_documents=100, filters=search_filters or None
+            query=search_query, num_documents=100, filters=search_filters or None
         )
 
         buyer_logger.debug("Found %d merchants in the knowledge base", len(documents))
