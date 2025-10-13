@@ -3,6 +3,7 @@ Basic buyer agent example.
 """
 
 import asyncio
+import json
 import logging
 import uuid
 from os import getenv
@@ -13,7 +14,7 @@ from dotenv import load_dotenv
 from pgvector.sqlalchemy import Vector  # Correct import for vector storage
 from sqlalchemy import Column, String, Text, create_engine
 from sqlalchemy.dialects.postgresql import JSONB
-from sqlalchemy.orm import DeclarativeBase, sessionmaker
+from sqlalchemy.orm import DeclarativeBase
 from sqlalchemy.sql import text
 
 from agno.agent import Agent
@@ -95,7 +96,6 @@ DB_URL = (
 )
 
 engine = create_engine(DB_URL)
-SessionLocal = sessionmaker(bind=engine)
 
 
 class Base(DeclarativeBase):
@@ -121,6 +121,7 @@ class Seller(Base):
     embedding: Optional[Vector] = Column(Vector(1536), nullable=True)
     usage = Column(JSONB, default={})
     content_hash = Column(Text, nullable=True)
+    content_id = Column(Text, nullable=True)
 
     def __repr__(self) -> str:
         """
@@ -156,9 +157,7 @@ vector_db = PgVector(
     embedder=OpenAIEmbedder(),
 )
 
-
 knowledge_base = Knowledge(vector_db=vector_db)
-# json_knowledge_base = AgentKnowledge(vector_db=json_vector_db)
 
 
 # Update the buyer profile
@@ -182,7 +181,7 @@ asyncio.run(buyer_tools.async_set_profile(profile))
 
 
 async def refresh_knowledge_base() -> None:
-    # reset_database()
+    reset_database()
 
     profile_types = list(ProfileType)
 
@@ -206,7 +205,7 @@ async def query_knowledge_base(search_query: str) -> None:
     response = buyer_tools.get_merchants_from_knowledge_base(
         search_query, profile_filter_json
     )
-    print(response)
+    print(json.dumps(response, indent=2))
 
 
 # When asked to populate your knowledge base, you will download the sellers
@@ -281,5 +280,7 @@ async def buyer_cli() -> None:
 # Run the CLI
 if __name__ == "__main__":
     # print(f"DB_URL: {DB_URL}")
+
     # asyncio.run(query_knowledge_base("find me an indian restaurant"))
+    # asyncio.run(refresh_knowledge_base())
     asyncio.run(buyer_cli())

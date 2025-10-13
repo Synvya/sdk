@@ -2,12 +2,13 @@
 Module implementing the BuyerTools Toolkit for Agno agents.
 """
 
+import hashlib
 import json
 import logging
 import re
 import secrets
 from sys import stdout
-from typing import Any, List, Optional, Union
+from typing import Any, List, Optional, Union, cast
 
 from pydantic import ConfigDict
 
@@ -22,9 +23,11 @@ from synvya_sdk import (
 )
 
 try:
+    from agno.knowledge.document import Document
     from agno.knowledge.knowledge import Knowledge
     from agno.tools import Toolkit
     from agno.utils.log import logger
+    from agno.vectordb import VectorDb
 except ImportError as exc:
     raise ImportError(
         "`agno` not installed. Please install using `pip install agno`"
@@ -56,6 +59,20 @@ def _map_location_to_geohash(location: str) -> str:
         return "C23Q7U36W"
 
     return ""
+
+
+def _get_vector_db(knowledge: Knowledge) -> Optional[VectorDb]:
+    """
+    Safely extract the configured vector database from a Knowledge instance.
+
+    Args:
+        knowledge: Knowledge container that may hold a vector DB.
+
+    Returns:
+        Optional[VectorDb]: The vector database if configured, otherwise None.
+    """
+    vector_db = getattr(knowledge, "vector_db", None)
+    return cast(Optional[VectorDb], vector_db)
 
 
 class BuyerTools(Toolkit):
@@ -203,7 +220,7 @@ class BuyerTools(Toolkit):
 
             # Store merchants in knowledge base
             for merchant in self.merchants:
-                self._store_profile_in_kb(merchant)
+                await self._store_profile_in_kb(merchant)
 
             response = json.dumps({"status": "success", "count": len(self.merchants)})
             buyer_logger.debug("GET_MERCHANTS: response: %s", response)
@@ -277,7 +294,7 @@ class BuyerTools(Toolkit):
 
         # Store merchants in knowledge base
         for merchant in self.merchants:
-            self._store_profile_in_kb(merchant)
+            await self._store_profile_in_kb(merchant)
 
         response = json.dumps({"status": "success", "count": len(self.merchants)})
         buyer_logger.debug("GET_MERCHANTS: response: %s", response)
@@ -388,7 +405,7 @@ class BuyerTools(Toolkit):
             )
             # Store merchants in the knowledge base
             for merchant in self.merchants:
-                self._store_profile_in_kb(merchant)
+                await self._store_profile_in_kb(merchant)
 
             # Return the number of merchants downloaded
             response = json.dumps({"status": "success", "count": len(self.merchants)})
@@ -849,43 +866,68 @@ class BuyerTools(Toolkit):
         except json.JSONDecodeError:
             return False
 
-    def _store_profile_in_kb(self, profile: Profile) -> None:
+    async def _store_profile_in_kb(self, profile: Profile) -> None:
         """
-        Store a Nostr profile in the knowledge base.
+        Store a Nostr profile directly in the vector database.
 
         Args:
-        profile: Nostr profile to store
+            profile: Nostr profile to store
         """
         buyer_logger.debug("_store_profile_in_kb: profile: %s", profile.get_name())
 
-        profile_type_str = profile.get_profile_type().value
+        vector_db = _get_vector_db(self.knowledge_base)
+        if vector_db is None:
+            buyer_logger.warning("Vector DB not configured; skipping profile storage")
+            return
 
-        # doc = Document(
-        #     content=profile.to_json(),
-        #     name=profile.get_name(),
-        #     meta_data={
-        #         "type": "merchant",
-        #         "public_key": profile.get_public_key(),
-        #     },
-        # )
+        namespace = profile.get_namespace()
+        profile_type = (
+            profile.get_profile_type().value if profile.get_profile_type() else None
+        )
+        filters: dict[str, Any] = {}
+        if namespace:
+            filters["namespace"] = namespace
+        if profile_type:
+            filters["profile_type"] = profile_type
 
-        hashtags = profile.get_hashtags()
-        filters = {
-            "namespace": profile.get_namespace(),
-            "profile_type": profile_type_str,
-        }
-
-        for tag in hashtags:
+        for tag in profile.get_hashtags():
             filters[f"hashtag_{self._normalize_hashtag(tag)}"] = True
 
-        buyer_logger.debug("_store_profile_in_kb: filters: %s", filters)
+        profile_json = profile.to_json()
+        if not profile_json:
+            buyer_logger.warning(
+                "Profile serialization returned empty payload for %s; skipping storage",
+                profile.get_name(),
+            )
+            return
 
-        self.knowledge_base.add_content_async(
+        document_id = profile.get_public_key()
+        document = Document(
+            id=document_id,
             name=profile.get_name(),
-            text_content=profile.to_json(),
-            metadata=filters,
-            topics=hashtags,
+            content=profile_json,
+            meta_data=filters.copy(),
         )
+        document.content_id = document_id
+
+        hash_source = document_id or profile_json
+        content_hash = hashlib.sha256(
+            hash_source.encode("utf-8", errors="ignore")
+        ).hexdigest()
+
+        try:
+            await vector_db.async_upsert(content_hash, [document], filters)
+        except NotImplementedError:
+            vector_db.upsert(content_hash, [document], filters)
+        except Exception as err:
+            buyer_logger.error(
+                "Failed to upsert profile %s into vector DB: %s",
+                profile.get_name(),
+                err,
+            )
+            return
+
+        self.knowledge_base.add_filters(filters)
         # self.knowledge_base.load_document(
         #     document=doc,
         #     filters=filters,
@@ -900,12 +942,48 @@ class BuyerTools(Toolkit):
         """
         buyer_logger.debug("Storing product in knowledge base: %s", product.name)
 
-        # Store response
-        self.knowledge_base.add_content(
+        vector_db = _get_vector_db(self.knowledge_base)
+        if vector_db is None:
+            buyer_logger.warning("Vector DB not configured; skipping product storage")
+            return
+
+        product_json = product.to_json()
+        if not product_json:
+            buyer_logger.warning(
+                "Product serialization returned empty payload for %s", product.name
+            )
+            return
+
+        metadata: dict[str, Any] = {
+            "type": "product",
+            "seller": product.seller,
+            "stall_id": product.stall_id,
+            "categories": product.categories,
+        }
+        for category in product.categories:
+            metadata[f"category_{self._normalize_hashtag(category)}"] = True
+
+        document_id = f"product:{product.id}"
+        document = Document(
+            id=document_id,
             name=product.name,
-            text_content=product.to_json(),
-            metadata={"type": "product", "categories": str(product.categories)},
+            content=product_json,
+            meta_data=metadata.copy(),
         )
+        document.content_id = document_id
+        content_hash = hashlib.sha256(
+            document_id.encode("utf-8", errors="ignore")
+        ).hexdigest()
+
+        try:
+            vector_db.upsert(content_hash, [document], metadata)
+        except Exception as err:
+            buyer_logger.error(
+                "Failed to upsert product %s into vector DB: %s", product.id, err
+            )
+            return
+
+        self.knowledge_base.add_filters(metadata)
 
     def _store_stall_in_kb(self, stall: Stall) -> None:
         """
@@ -916,12 +994,47 @@ class BuyerTools(Toolkit):
         """
         buyer_logger.debug("Storing stall in knowledge base: %s", stall.name)
 
-        # Store response
-        self.knowledge_base.add_content(
+        vector_db = _get_vector_db(self.knowledge_base)
+        if vector_db is None:
+            buyer_logger.warning("Vector DB not configured; skipping stall storage")
+            return
+
+        stall_json = stall.to_json()
+        if not stall_json:
+            buyer_logger.warning(
+                "Stall serialization returned empty payload for %s", stall.name
+            )
+            return
+
+        shipping_methods = [method.to_dict() for method in stall.shipping]
+        metadata: dict[str, Any] = {
+            "type": "stall",
+            "currency": stall.currency,
+            "geohash": stall.get_geohash(),
+            "shipping_methods": shipping_methods,
+        }
+
+        document_id = f"stall:{stall.id}"
+        document = Document(
+            id=document_id,
             name=stall.name,
-            text_content=stall.to_json(),
-            metadata={"type": "stall"},
+            content=stall_json,
+            meta_data=metadata.copy(),
         )
+        document.content_id = document_id
+        content_hash = hashlib.sha256(
+            document_id.encode("utf-8", errors="ignore")
+        ).hexdigest()
+
+        try:
+            vector_db.upsert(content_hash, [document], metadata)
+        except Exception as err:
+            buyer_logger.error(
+                "Failed to upsert stall %s into vector DB: %s", stall.id, err
+            )
+            return
+
+        self.knowledge_base.add_filters(metadata)
 
     @staticmethod
     def _normalize_hashtag(tag: str) -> str:
