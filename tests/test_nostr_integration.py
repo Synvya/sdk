@@ -7,7 +7,14 @@ from typing import List
 
 import pytest
 
-from synvya_sdk import KeyEncoding, NostrClient, NostrKeys, Product, Stall
+from synvya_sdk import (
+    ClassifiedListing,
+    KeyEncoding,
+    NostrClient,
+    NostrKeys,
+    Product,
+    Stall,
+)
 
 # Configure logging for the test module
 logging.basicConfig(
@@ -116,6 +123,18 @@ class TestNostrClient:
         assert len(products) > 0
         for product in products:
             assert isinstance(product, Product)
+
+    @pytest.mark.asyncio
+    async def test_get_classified_listings(
+        self, nostr_client: NostrClient, classified_merchant_keys: NostrKeys
+    ) -> None:
+        """Test retrieving products from a classified merchant"""
+        classified_listings = await nostr_client.async_get_classified_listings(
+            classified_merchant_keys.get_public_key()
+        )
+        assert len(classified_listings) > 0
+        for classified_listing in classified_listings:
+            assert isinstance(classified_listing, ClassifiedListing)
 
     @pytest.mark.asyncio
     async def test_get_stalls(

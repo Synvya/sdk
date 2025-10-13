@@ -28,7 +28,15 @@ from nostr_sdk import (  # type: ignore
     UnsignedEvent,
 )
 
-from .models import NostrKeys, Product, Profile, ProfileFilter, Stall
+from .models import (
+    ClassifiedListing,
+    Collection,
+    NostrKeys,
+    Product,
+    Profile,
+    ProfileFilter,
+    Stall,
+)
 
 class NostrClient:
     """
@@ -75,6 +83,12 @@ class NostrClient:
         self, event_id: str, reason: Optional[str] = None
     ) -> str: ...
     async def async_get_agents(self, profile_filter: ProfileFilter) -> set[Profile]: ...
+    async def async_get_classified_listings(
+        self, merchant: str, collection: Optional[Collection] = None
+    ) -> List[ClassifiedListing]: ...
+    async def async_get_collections(
+        self, merchant: Optional[str] = None
+    ) -> List[Collection]: ...
     async def async_get_merchants(
         self, profile_filter: Optional[ProfileFilter] = None
     ) -> set[Profile]: ...
@@ -107,6 +121,10 @@ class NostrClient:
     # Sync wrappers for sync users
     def delete_event(self, event_id: str, reason: Optional[str] = None) -> str: ...
     def get_agents(self, profile_filter: ProfileFilter) -> set[Profile]: ...
+    def get_classified_listings(
+        self, merchant: str, collection: Optional[Collection] = None
+    ) -> List[ClassifiedListing]: ...
+    def get_collections(self, merchant: Optional[str] = None) -> List[Collection]: ...
     def get_merchants(
         self, profile_filter: Optional[ProfileFilter] = None
     ) -> set[Profile]: ...

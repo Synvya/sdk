@@ -7,6 +7,8 @@ import logging
 
 # Import main classes to make them available at package level
 from .models import (
+    ClassifiedListing,
+    Collection,
     KeyEncoding,
     Namespace,
     NostrKeys,
@@ -45,4 +47,6 @@ __all__ = [
     "NostrKeys",
     "verify_signature",
     "generate_keys",
+    "ClassifiedListing",
+    "Collection",
 ]

@@ -14,6 +14,8 @@ import coincurve
 import requests
 
 from .models import (
+    ClassifiedListing,
+    Collection,
     KeyEncoding,
     Namespace,
     NostrKeys,
@@ -259,6 +261,146 @@ class NostrClient:
         Synchronous wrapper for async_get_agents
         """
         return asyncio.run(self.async_get_agents(profile_filter))
+
+    async def async_get_classified_listings(
+        self, merchant: str, collection: Optional[Collection] = None
+    ) -> List[ClassifiedListing]:
+        """
+        Retrieve classified listings (kind:30402) for a merchant.
+
+        Args:
+            merchant: Merchant public key (hex or bech32)
+            collection: Optional collection constraint
+
+        Returns:
+            List[ClassifiedListing]: parsed listings
+        """
+
+        try:
+            merchant_key = PublicKey.parse(merchant)
+        except Exception as e:
+            raise RuntimeError(f"Invalid merchant key: {e}") from e
+
+        collection_ref: Optional[str] = None
+        if collection is not None and collection.id:
+            try:
+                author_hex = PublicKey.parse(collection.author).to_hex()
+            except Exception:
+                author_hex = collection.author
+            if author_hex:
+                collection_ref = f"30405:{author_hex}:{collection.id}"
+
+        try:
+            if not self.connected:
+                await self._async_connect()
+
+            events_filter = Filter().kind(Kind(30402)).author(merchant_key)
+            events = await self.client.fetch_events_from(
+                urls=self._get_relay_urls(),
+                filter=events_filter,
+                timeout=timedelta(seconds=2),
+            )
+        except Exception as e:
+            raise RuntimeError(f"Unable to retrieve classified listings: {e}") from e
+
+        listings: List[ClassifiedListing] = []
+        try:
+            events_list = events.to_vec()
+        except Exception as e:
+            self.logger.warning("Failed to get classified listing events: %s", e)
+            return []
+
+        for event in events_list:
+            try:
+                listing = ClassifiedListing.from_event(event)
+            except Exception as exc:
+                self.logger.warning("Failed to parse classified listing: %s", exc)
+                continue
+
+            if collection_ref is not None:
+                raw_collections = getattr(listing, "collections", None)
+                collections_value: List[str]
+                if isinstance(raw_collections, list):
+                    collections_value = raw_collections
+                elif raw_collections is None:
+                    collections_value = []
+                else:
+                    continue
+                if collection_ref not in collections_value:
+                    continue
+            listings.append(listing)
+
+        return listings
+
+    def get_classified_listings(
+        self, merchant: str, collection: Optional[Collection] = None
+    ) -> List[ClassifiedListing]:
+        """
+        Synchronous wrapper for async_get_classified_listings
+        """
+        return asyncio.run(self.async_get_classified_listings(merchant, collection))
+
+    async def async_get_collections(
+        self, merchant: Optional[str] = None
+    ) -> List[Collection]:
+        """
+        Retrieve product collections (kind:30405) for an optional merchant.
+
+        Args:
+            merchant: Optional merchant public key (hex or bech32)
+
+        Returns:
+            List[Collection]: list of collections
+        """
+
+        collections: List[Collection] = []
+
+        if merchant is not None:
+            try:
+                merchant_key = PublicKey.parse(merchant)
+            except Exception as e:
+                raise RuntimeError(f"Invalid merchant key: {e}") from e
+        else:
+            merchant_key = None
+
+        try:
+            if not self.connected:
+                await self._async_connect()
+
+            events_filter = Filter().kind(Kind(30405))
+            if merchant_key is not None:
+                events_filter = events_filter.authors([merchant_key])
+
+            events = await self.client.fetch_events_from(
+                urls=self._get_relay_urls(),
+                filter=events_filter,
+                timeout=timedelta(seconds=5),
+            )
+        except Exception as e:
+            self.logger.warning("Unable to retrieve collections: %s", e)
+            return []
+
+        try:
+            events_list = events.to_vec()
+        except Exception as e:
+            self.logger.warning("Failed to get collections vector: %s", e)
+            return []
+
+        for event in events_list:
+            try:
+                collection = Collection.from_event(event)
+                collections.append(collection)
+            except Exception as exc:
+                self.logger.warning("Failed to parse collection: %s", exc)
+                continue
+
+        return collections
+
+    def get_collections(self, merchant: Optional[str] = None) -> List[Collection]:
+        """
+        Synchronous wrapper for async_get_collections
+        """
+        return asyncio.run(self.async_get_collections(merchant))
 
     async def async_get_merchants(
         self, profile_filter: Optional[ProfileFilter] = None

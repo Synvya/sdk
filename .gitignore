@@ -51,3 +51,7 @@ build/
 
 # OS folders
 .DS_Store
+
+# Internal docs
+.market_spec.md
+.classified_listing_examples.md

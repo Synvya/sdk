@@ -10,6 +10,7 @@ import pytest
 from nostr_sdk import EventId
 
 from synvya_sdk import KeyEncoding, NostrClient, NostrKeys, Product, Profile, Stall
+from synvya_sdk.models import ClassifiedListing
 
 
 # used in test_nostr_mocked.py
@@ -21,6 +22,7 @@ def mock_nostr_client(  # type: ignore[no-untyped-def]
     products: List[Product],
     stalls: List[Stall],
     merchant_profile: Profile,
+    classified_listings: List[ClassifiedListing],
 ) -> Generator[NostrClient, None, None]:
     """
     mock NostrClient instance
@@ -35,6 +37,8 @@ def mock_nostr_client(  # type: ignore[no-untyped-def]
         instance.get_merchants.return_value = [merchant_profile]
         instance.get_stalls.return_value = stalls
         instance.get_profile.return_value = merchant_profile
+        instance.get_classified_listings.return_value = classified_listings
+        instance.async_get_classified_listings.return_value = classified_listings
         yield instance
 
 
@@ -114,6 +118,33 @@ class TestNostrClientMocked:
         """Test get profile"""
         profile = nostr_client.get_profile()
         assert profile is not None
+
+    def test_classified_listings_fixture(
+        self, classified_listings: List[ClassifiedListing]
+    ) -> None:
+        """Validate parsed classified listing examples"""
+        assert len(classified_listings) >= 1
+        for listing in classified_listings:
+            assert isinstance(listing, ClassifiedListing)
+            assert listing.title
+            assert listing.price_currency == "USD"
+        categories = {
+            category
+            for listing in classified_listings
+            for category in listing.categories
+        }
+        assert "gluten-free" in categories
+
+    def test_get_classified_listings(
+        self,
+        nostr_client: NostrClient,
+        merchant_keys: NostrKeys,
+        classified_listings: List[ClassifiedListing],
+    ) -> None:
+        """Test retrieving classified listings via the mocked client"""
+        listings = nostr_client.get_classified_listings(merchant_keys.get_public_key())
+        assert listings == classified_listings
+        assert all(isinstance(listing, ClassifiedListing) for listing in listings)
 
     def test_profile_operations(self, merchant_profile: Profile) -> None:
         """Test profile operations"""
