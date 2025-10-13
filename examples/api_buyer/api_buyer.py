@@ -23,9 +23,10 @@ from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import DeclarativeBase, sessionmaker
 from sqlalchemy.sql import text
 
-from agno.agent import Agent, AgentKnowledge  # type: ignore
-from agno.embedder.openai import OpenAIEmbedder
-from agno.models.openai import OpenAIChat  # type: ignore
+from agno.agent import Agent
+from agno.knowledge.embedder.openai import OpenAIEmbedder
+from agno.knowledge.knowledge import Knowledge
+from agno.models.openai import OpenAIChat
 from agno.vectordb.pgvector import PgVector, SearchType
 from synvya_sdk import KeyEncoding, NostrKeys, Profile, generate_keys
 from synvya_sdk.agno import BuyerTools
@@ -105,7 +106,7 @@ class Seller(Base):
     """
 
     __tablename__ = "sellers"
-    __table_args__ = {"schema": "ai"}  # If the table is inside the 'ai' schema
+    __table_args__ = {"schema": "nostr"}  # If the table is inside the 'ai' schema
 
     id = Column(
         String, primary_key=True, default=lambda: str(uuid.uuid4())
@@ -207,12 +208,12 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     vector_db = PgVector(
         table_name="sellers",
         db_url=db_url,
-        schema="ai",
+        schema="nostr",
         search_type=SearchType.vector,
         embedder=OpenAIEmbedder(),
     )
 
-    knowledge_base = AgentKnowledge(vector_db=vector_db)
+    knowledge_base = Knowledge(vector_db=vector_db)
 
     app.state.buyer_tools = await BuyerTools.create(
         knowledge_base=knowledge_base,
@@ -227,12 +228,10 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         name="Virtual Guide for the Snoqualmie Valley",
         model=OpenAIChat(id="gpt-4o", api_key=OPENAI_API_KEY),
         tools=[app.state.buyer_tools],
-        add_history_to_messages=True,
-        num_history_responses=10,
+        num_history_runs=10,
         read_chat_history=True,
         read_tool_call_history=True,
         knowledge=knowledge_base,
-        show_tool_calls=True,
         debug_mode=False,
         instructions=[INSTRUCTIONS],
     )

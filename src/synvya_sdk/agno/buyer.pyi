@@ -1,8 +1,7 @@
 import logging
-from logging import Logger
-from typing import Any, ClassVar, Dict, List, Optional, Set, Union
+from typing import ClassVar, List, Optional, Set, Union
 
-from agno.agent import AgentKnowledge
+from agno.knowledge.knowledge import Knowledge
 from agno.tools import Toolkit
 from synvya_sdk import NostrClient, Product, Profile, ProfileFilter, Stall
 
@@ -14,7 +13,7 @@ class BuyerTools(Toolkit):
     # Instance variables
     relays: List[str]
     private_key: str
-    knowledge_base: AgentKnowledge
+    knowledge_base: Knowledge
     _nostr_client: Optional[NostrClient]
     profile: Optional[Profile]
     _instance_id: int
@@ -22,7 +21,7 @@ class BuyerTools(Toolkit):
     # Initialization
     def __init__(
         self,
-        knowledge_base: AgentKnowledge,
+        knowledge_base: Knowledge,
         relays: Union[str, List[str]],
         private_key: str,
         _from_create: bool = False,
@@ -31,7 +30,7 @@ class BuyerTools(Toolkit):
     @classmethod
     async def create(
         cls,
-        knowledge_base: AgentKnowledge,
+        knowledge_base: Knowledge,
         relays: Union[str, List[str]],
         private_key: str,
         log_level: Optional[int] = logging.INFO,

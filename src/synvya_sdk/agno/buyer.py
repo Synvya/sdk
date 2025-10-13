@@ -22,8 +22,7 @@ from synvya_sdk import (
 )
 
 try:
-    from agno.agent import AgentKnowledge  # type: ignore
-    from agno.document.base import Document
+    from agno.knowledge.knowledge import Knowledge
     from agno.tools import Toolkit
     from agno.utils.log import logger
 except ImportError as exc:
@@ -81,7 +80,7 @@ class BuyerTools(Toolkit):
 
     def __init__(
         self,
-        knowledge_base: AgentKnowledge,
+        knowledge_base: Knowledge,
         relays: Union[str, List[str]],
         private_key: str,
         _from_create: bool = False,
@@ -110,7 +109,7 @@ class BuyerTools(Toolkit):
         # Convert single relay to list for consistent handling
         self.relays: List[str] = [relays] if isinstance(relays, str) else relays
         self.private_key: str = private_key
-        self.knowledge_base: AgentKnowledge = knowledge_base
+        self.knowledge_base: Knowledge = knowledge_base
         self.profile: Optional[Profile] = None
         self._nostr_client: Optional[NostrClient] = None
         BuyerTools.merchants = set()
@@ -140,7 +139,7 @@ class BuyerTools(Toolkit):
     @classmethod
     async def create(
         cls,
-        knowledge_base: AgentKnowledge,
+        knowledge_base: Knowledge,
         relays: Union[str, List[str]],
         private_key: str,
         log_level: Optional[int] = logging.INFO,
@@ -350,7 +349,7 @@ class BuyerTools(Toolkit):
 
         # Execute search
         documents = self.knowledge_base.search(
-            query=search_query, num_documents=100, filters=search_filters or None
+            query=search_query, max_results=100, filters=search_filters or None
         )
 
         buyer_logger.debug("Found %d merchants in the knowledge base", len(documents))
@@ -474,7 +473,7 @@ class BuyerTools(Toolkit):
             ]
 
         documents = self.knowledge_base.search(
-            query=search_query, num_documents=100, filters=search_filters
+            query=search_query, max_results=100, filters=search_filters
         )
         for doc in documents:
             buyer_logger.debug("Document: %s", doc.to_dict())
@@ -564,7 +563,7 @@ class BuyerTools(Toolkit):
             search_query = ""
 
         documents = self.knowledge_base.search(
-            query=search_query, num_documents=100, filters=[{"type": "stall"}]
+            query=search_query, max_results=100, filters=[{"type": "stall"}]
         )
         for doc in documents:
             buyer_logger.debug("Document: %s", doc.to_dict())
@@ -572,33 +571,6 @@ class BuyerTools(Toolkit):
         stalls_json = [doc.content for doc in documents]
         buyer_logger.debug("Found %d stalls in the knowledge base", len(stalls_json))
         return json.dumps(stalls_json)
-
-    # def get_products_from_knowledge_base_by_category(self, category: str) -> str:
-    #     """
-    #     Get the list of products stored in the knowledge base for a given category.
-
-    #     Returns:
-    #         str: JSON string of products
-    #     """
-    #     logger.debug("Getting products from knowledge base by category: %s", category)
-
-    #     search_filters = [
-    #         {"type": "product"},
-    #         {"categories": [category]},
-    #     ]
-
-    #     documents = self.knowledge_base.search(
-    #         query="",
-    #         num_documents=100,
-    #         filters=search_filters,
-    #     )
-
-    #     logger.debug("Found %d documents with category %s", len(documents), category)
-    #     for doc in documents:
-    #         logger.debug("Document: %s", doc.to_dict())
-
-    #     products_json = [doc.content for doc in documents]
-    #     return json.dumps(products_json)
 
     async def async_listen_for_message(self, timeout: int = 5) -> str:
         """
@@ -801,7 +773,7 @@ class BuyerTools(Toolkit):
         """
         buyer_logger.debug("Getting product from knowledge base: %s", product_name)
         documents = self.knowledge_base.search(
-            query=product_name, num_documents=1, filters=[{"type": "product"}]
+            query=product_name, max_results=1, filters=[{"type": "product"}]
         )
         if len(documents) == 0:
             raise RuntimeError(f"Product {product_name} not found in knowledge base")
@@ -888,14 +860,14 @@ class BuyerTools(Toolkit):
 
         profile_type_str = profile.get_profile_type().value
 
-        doc = Document(
-            content=profile.to_json(),
-            name=profile.get_name(),
-            meta_data={
-                "type": "merchant",
-                "public_key": profile.get_public_key(),
-            },
-        )
+        # doc = Document(
+        #     content=profile.to_json(),
+        #     name=profile.get_name(),
+        #     meta_data={
+        #         "type": "merchant",
+        #         "public_key": profile.get_public_key(),
+        #     },
+        # )
 
         hashtags = profile.get_hashtags()
         filters = {
@@ -907,10 +879,17 @@ class BuyerTools(Toolkit):
             filters[f"hashtag_{self._normalize_hashtag(tag)}"] = True
 
         buyer_logger.debug("_store_profile_in_kb: filters: %s", filters)
-        self.knowledge_base.load_document(
-            document=doc,
-            filters=filters,
+
+        self.knowledge_base.add_content_async(
+            name=profile.get_name(),
+            text_content=profile.to_json(),
+            metadata=filters,
+            topics=hashtags,
         )
+        # self.knowledge_base.load_document(
+        #     document=doc,
+        #     filters=filters,
+        # )
 
     def _store_product_in_kb(self, product: Product) -> None:
         """
@@ -921,16 +900,11 @@ class BuyerTools(Toolkit):
         """
         buyer_logger.debug("Storing product in knowledge base: %s", product.name)
 
-        doc = Document(
-            content=product.to_json(),
-            name=product.name,
-            meta_data={"type": "product"},
-        )
-
         # Store response
-        self.knowledge_base.load_documents(
-            documents=[doc],
-            filters=[{"type": "product"}, {"categories": product.categories}],
+        self.knowledge_base.add_content(
+            name=product.name,
+            text_content=product.to_json(),
+            metadata={"type": "product", "categories": str(product.categories)},
         )
 
     def _store_stall_in_kb(self, stall: Stall) -> None:
@@ -942,14 +916,12 @@ class BuyerTools(Toolkit):
         """
         buyer_logger.debug("Storing stall in knowledge base: %s", stall.name)
 
-        doc = Document(
-            content=stall.to_json(),
-            name=stall.name,
-            meta_data={"type": "stall"},
-        )
-
         # Store response
-        self.knowledge_base.load_documents(documents=[doc], filters=[{"type": "stall"}])
+        self.knowledge_base.add_content(
+            name=stall.name,
+            text_content=stall.to_json(),
+            metadata={"type": "stall"},
+        )
 
     @staticmethod
     def _normalize_hashtag(tag: str) -> str:
