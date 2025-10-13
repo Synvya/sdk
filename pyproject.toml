@@ -13,7 +13,7 @@ authors = [
     {name = "Synvya", email = "synvya@synvya.com"}
 ]
 dependencies = [
-    "agno>=1.6.2,<2.0.0",
+    "agno>=1.6.2,<3.0.0",
     "openai>=1.50.0",
     "nostr_sdk",
     "pydantic>=2.0.0",

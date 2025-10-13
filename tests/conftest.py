@@ -11,7 +11,7 @@ import pytest
 from _pytest.nodes import Item
 from dotenv import load_dotenv
 
-from agno.agent import AgentKnowledge
+from agno.knowledge.knowledge import Knowledge
 from synvya_sdk import (
     KeyEncoding,
     NostrKeys,
@@ -492,7 +492,7 @@ async def merchant_tools_fixture(
 @pytest.fixture(scope="session", name="mock_knowledge_base")
 def mock_knowledge_base_fixture() -> Mock:
     """Fixture to return a mocked AgentKnowledge object."""
-    return Mock(spec=AgentKnowledge)
+    return Mock(spec=Knowledge)
 
 
 @pytest.fixture(scope="function", name="buyer_tools")

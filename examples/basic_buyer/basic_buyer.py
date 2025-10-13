@@ -16,9 +16,10 @@ from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import DeclarativeBase, sessionmaker
 from sqlalchemy.sql import text
 
-from agno.agent import Agent, AgentKnowledge  # type: ignore
-from agno.embedder.openai import OpenAIEmbedder
-from agno.models.openai import OpenAIChat  # type: ignore
+from agno.agent import Agent
+from agno.knowledge.embedder.openai import OpenAIEmbedder
+from agno.knowledge.knowledge import Knowledge
+from agno.models.openai import OpenAIChat
 from agno.vectordb.pgvector import PgVector, SearchType
 from synvya_sdk import (
     KeyEncoding,
@@ -150,14 +151,13 @@ def reset_database() -> None:
 vector_db = PgVector(
     table_name="sellers",
     db_url=DB_URL,
-    # schema="ai",
     schema="nostr",
     search_type=SearchType.vector,
     embedder=OpenAIEmbedder(),
 )
 
 
-knowledge_base = AgentKnowledge(vector_db=vector_db)
+knowledge_base = Knowledge(vector_db=vector_db)
 # json_knowledge_base = AgentKnowledge(vector_db=json_vector_db)
 
 
@@ -182,7 +182,7 @@ asyncio.run(buyer_tools.async_set_profile(profile))
 
 
 async def refresh_knowledge_base() -> None:
-    reset_database()
+    # reset_database()
 
     profile_types = list(ProfileType)
 
@@ -213,17 +213,13 @@ async def query_knowledge_base(search_query: str) -> None:
 # from the marketplace "Historic Downtown Snoqualmie" with the public key
 # "npub1nar4a3vv59qkzdlskcgxrctkw9f0ekjgqaxn8vd0y82f9kdve9rqwjcurn".
 
-buyer = Agent(  # type: ignore[call-arg]
+buyer = Agent(
     name=f"AI Agent for {profile.get_name()}",
     model=OpenAIChat(id="gpt-4o", api_key=OPENAI_API_KEY),
     tools=[buyer_tools],
-    add_history_to_messages=True,
-    num_history_responses=10,
-    read_chat_history=True,
-    read_tool_call_history=True,
+    num_history_runs=10,
     knowledge=knowledge_base,
     search_knowledge=True,
-    show_tool_calls=True,
     debug_mode=False,
     instructions=[
         """

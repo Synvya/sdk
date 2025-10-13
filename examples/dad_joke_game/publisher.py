@@ -100,10 +100,8 @@ publisher = Agent(  # type: ignore[call-arg]
     name=DISPLAY_NAME,
     model=OpenAIChat(id="gpt-3.5-turbo", api_key=OPENAI_API_KEY),
     tools=[publisher_tools],
-    show_tool_calls=True,
     debug_mode=False,
-    add_history_to_messages=True,
-    num_history_responses=5,
+    num_history_runs=10,
     read_chat_history=False,
     read_tool_call_history=False,
     instructions=[
