@@ -563,28 +563,119 @@ async def buyer_tools_fixture(
 @pytest.fixture(scope="session", name="classified_listings")
 def classified_listings_fixture() -> List[ClassifiedListing]:
     """Fixture providing classified listings parsed from examples."""
-    examples_path = script_dir.parent / ".classified_listing_examples.md"
-    raw_text = examples_path.read_text(encoding="utf-8")
-    chunks = [chunk.strip() for chunk in raw_text.split("\n\n") if chunk.strip()]
+    logger = logging.getLogger(__name__)
+
+    raw_examples = [
+        {
+            "id": "f9651dacbd7907b632676de1195aad81241edab2e50a522239cf12b98f5a5f32",  # pragma: allowlist secret
+            "pubkey": "e01e4b0b3677204161b8d13d0a7b88e5d2e7dac2f7d2cc5530a3bc1dca3fbd2f",  # pragma: allowlist secret
+            "created_at": 1760115108,
+            "kind": 30402,
+            "tags": [
+                ["d", "sq-66ba594c38d17f0e"],
+                ["title", "Cinnamon muffin (Regular)"],
+                ["summary", "Delicious and gluten free cinnamon muffin"],
+                ["location", "Pressed on Main"],
+                [
+                    "image",
+                    "https://items-images-sandbox.s3.us-west-2.amazonaws.com/files/6a610d1df174af9720f4aa7014646280803f3799/original.png",
+                    "",
+                ],
+                ["price", "4.99", "USD"],
+                ["published_at", "1760115108"],
+                ["t", "bakery"],
+                ["t", "gluten-free"],
+            ],
+            "content": "**Cinnamon muffin – Regular**\n\nDelicious and gluten free cinnamon muffin\n\nSKU: N/A",
+            "sig": "dabe44335f052bb76d8bb4da7292dfea6faeafa3b8fd0b371a539f7a66cdbd660487a85a335312d1eaf792c4ab0bf34e1db43c6e400786af10518436ab5841e8",  # pragma: allowlist secret
+        },
+        {
+            "id": "c527f06c684edcd74aeba714c31d3ef1b46fad392c5c423d92087f10f29a9a0c",  # pragma: allowlist secret
+            "pubkey": "e01e4b0b3677204161b8d13d0a7b88e5d2e7dac2f7d2cc5530a3bc1dca3fbd2f",  # pragma: allowlist secret
+            "created_at": 1760111814,
+            "kind": 30402,
+            "tags": [
+                ["d", "sq-c5a018329229678c"],
+                ["title", "Detox Smoothie (Default)"],
+                ["summary", "Start your day with a cleansing smoothie."],
+                ["location", "Pressed on Main"],
+                [
+                    "image",
+                    "https://items-images-sandbox.s3.us-west-2.amazonaws.com/files/e7c005df06d36508e5f02f8c13f5a5fecefe40b2/original.png",
+                    "",
+                ],
+                ["price", "7.99", "USD"],
+                ["published_at", "1760111814"],
+                ["t", "smoothies"],
+                ["t", "gluten-free"],
+                ["t", "beverages"],
+            ],
+            "content": "**Detox Smoothie – Default**\n\nStart your day with a cleansing smoothie.\n\nSKU: N/A",
+            "sig": "2997a2f1d338d913f82f9a420a27d78acdb90dcd4ef3fae130dee4d0321cccf307d50fefd3d41922c745af1b72e4f010b4481552ba53794c2d8b12d95e2a5137",  # pragma: allowlist secret
+        },
+        {
+            "id": "402bd2b42f39d6a348d5b79784a05df485b6ddd9da4ae2574357c14023e7dc86",  # pragma: allowlist secret
+            "pubkey": "e01e4b0b3677204161b8d13d0a7b88e5d2e7dac2f7d2cc5530a3bc1dca3fbd2f",  # pragma: allowlist secret
+            "created_at": 1760051195,
+            "kind": 30402,
+            "tags": [
+                ["d", "sq-298906f03c3c909a"],
+                ["title", "Blueberry muffin (Regular)"],
+                ["summary", "Organic, gluten-free blueberry deliciousness"],
+                ["location", "Pressed on Main"],
+                [
+                    "image",
+                    "https://items-images-sandbox.s3.us-west-2.amazonaws.com/files/b5738fd0b07b604f83e344b50184f1d842e36d50/original.png",
+                    "",
+                ],
+                ["price", "4.49", "USD"],
+                ["published_at", "1760051195"],
+                ["t", "bakery"],
+                ["t", "gluten-free"],
+            ],
+            "content": "**Blueberry muffin – Regular**\n\nOrganic, gluten-free blueberry deliciousness\n\nSKU: N/A",
+            "sig": "4249fcde0c824cd0a3ad9f54e63fad5a39b3a26e7edb288c6d8038a7e6717e91bfd383277e353017e19a070b474860b4175519a6376df60c64f20247ca522ec3",  # pragma: allowlist secret
+        },
+        {
+            "id": "7e104f5df5df28166986a0f89d89567092a2587b50055881e63be9ac578787e1",  # pragma: allowlist secret
+            "pubkey": "e01e4b0b3677204161b8d13d0a7b88e5d2e7dac2f7d2cc5530a3bc1dca3fbd2f",  # pragma: allowlist secret
+            "created_at": 1760051195,
+            "kind": 30402,
+            "tags": [
+                ["d", "sq-2dc0d604926af022"],
+                ["title", "Energy Smoothie (Default)"],
+                [
+                    "summary",
+                    "Charge up your day with an energy smoothie. Perfect for a morning charge or mid-day recharge.",
+                ],
+                ["location", "Pressed on Main"],
+                [
+                    "image",
+                    "https://items-images-sandbox.s3.us-west-2.amazonaws.com/files/f452dbe8c7b189220abef728343156bb351dddb6/original.png",
+                    "",
+                ],
+                ["price", "4.99", "USD"],
+                ["published_at", "1760051195"],
+                ["t", "smoothies"],
+                ["t", "gluten-free"],
+                ["t", "beverages"],
+            ],
+            "content": "**Energy Smoothie – Default**\n\nCharge up your day with an energy smoothie. Perfect for a morning charge or mid-day recharge.\n\nSKU: N/A",
+            "sig": "d96b17d981d6e76b71d08f4683c32bd2cf3cbd6294de68672ae969b9462a0c8d15e54fdd65cc03f21c1b2909f989e88f7294490fb45fb251345b1aa4dc94101c",  # pragma: allowlist secret
+        },
+    ]
 
     listings: List[ClassifiedListing] = []
-    for chunk in chunks:
+    for record in raw_examples:
         try:
-            data = json.loads(chunk)
-        except json.JSONDecodeError:
-            continue
-        try:
-            event = Event.from_json(json.dumps(data))
+            event = Event.from_json(json.dumps(record))
             listings.append(ClassifiedListing.from_event(event))
         except (ValueError, TypeError) as exc:
-            logging.getLogger(__name__).warning(
-                "Skipping invalid classified listing example: %s", exc
-            )
-            continue
+            logger.warning("Skipping invalid classified listing example: %s", exc)
 
     if not listings:
         raise RuntimeError(
-            "No classified listing examples parsed from .classified_listing_examples.md"
+            "No classified listing examples available in classified_listings fixture"
         )
 
     return listings
