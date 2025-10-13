@@ -2,6 +2,8 @@
 This module contains the conftest file for the tests.
 """
 
+import json
+import logging
 from os import getenv
 from pathlib import Path
 from typing import List
@@ -10,9 +12,12 @@ from unittest.mock import Mock
 import pytest
 from _pytest.nodes import Item
 from dotenv import load_dotenv
+from nostr_sdk import Event
 
 from agno.knowledge.knowledge import Knowledge
 from synvya_sdk import (
+    ClassifiedListing,
+    Collection,
     KeyEncoding,
     NostrKeys,
     Product,
@@ -36,7 +41,6 @@ def pytest_collection_modifyitems(items: List[Item]) -> None:
     """Define the desired execution order of test files"""
     # Define the desired execution order of test files
     ordered_files = [
-        "tests/test_delegation.py",
         "tests/test_nostr_integration.py",
         "tests/test_nostr_mocked.py",
         "tests/agno/test_seller.py",
@@ -90,6 +94,18 @@ def merchant_keys_fixture() -> NostrKeys:
     nsec = getenv("TEST_MERCHANT_KEY")
     if nsec is None:
         return generate_keys(env_var="TEST_MERCHANT_KEY", env_path=script_dir / ".env")
+
+    return NostrKeys(private_key=nsec)
+
+
+@pytest.fixture(scope="session", name="classified_merchant_keys")
+def classified_merchant_keys_fixture() -> NostrKeys:
+    """Fixture providing the test keys for a merchant with classified listings"""
+    nsec = getenv("TEST_CLASSIFIED_MERCHANT_KEY")
+    if nsec is None:
+        return generate_keys(
+            env_var="TEST_CLASSIFIED_MERCHANT_KEY", env_path=script_dir / ".env"
+        )
 
     return NostrKeys(private_key=nsec)
 
@@ -537,3 +553,38 @@ async def buyer_tools_fixture(
         buyer_tools._nostr_client = mock_client
 
         return buyer_tools
+
+
+# --------------------------------------------------------------------------- #
+# Classified listings fixtures
+# --------------------------------------------------------------------------- #
+
+
+@pytest.fixture(scope="session", name="classified_listings")
+def classified_listings_fixture() -> List[ClassifiedListing]:
+    """Fixture providing classified listings parsed from examples."""
+    examples_path = script_dir.parent / ".classified_listing_examples.md"
+    raw_text = examples_path.read_text(encoding="utf-8")
+    chunks = [chunk.strip() for chunk in raw_text.split("\n\n") if chunk.strip()]
+
+    listings: List[ClassifiedListing] = []
+    for chunk in chunks:
+        try:
+            data = json.loads(chunk)
+        except json.JSONDecodeError:
+            continue
+        try:
+            event = Event.from_json(json.dumps(data))
+            listings.append(ClassifiedListing.from_event(event))
+        except (ValueError, TypeError) as exc:
+            logging.getLogger(__name__).warning(
+                "Skipping invalid classified listing example: %s", exc
+            )
+            continue
+
+    if not listings:
+        raise RuntimeError(
+            "No classified listing examples parsed from .classified_listing_examples.md"
+        )
+
+    return listings

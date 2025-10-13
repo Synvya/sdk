@@ -5,7 +5,7 @@ import warnings
 from datetime import datetime, timezone
 from enum import Enum
 from functools import wraps
-from typing import ClassVar, List, Literal, Optional, Set
+from typing import ClassVar, Dict, List, Literal, Optional, Set
 
 import httpx
 from nostr_sdk import (
@@ -911,6 +911,355 @@ class NostrKeys(BaseModel):
                 return Keys.parse(private_key).public_key().to_bech32()
             case KeyEncoding.HEX:
                 return Keys.parse(private_key).public_key().to_hex()
+
+
+def _extract_nostr_tags(event: "Event") -> List[List[str]]:
+    """
+    Extract the raw tag arrays from a nostr_sdk Event.
+    """
+    tags_data: List[List[str]] = []
+
+    as_json = getattr(event, "as_json", None)
+    if callable(as_json):
+        try:
+            raw_event = as_json()
+            event_dict = (
+                json.loads(raw_event) if isinstance(raw_event, str) else raw_event
+            )
+            raw_tags = event_dict.get("tags", [])
+            for tag in raw_tags:
+                if isinstance(tag, list):
+                    tags_data.append([str(item) for item in tag])
+            if tags_data:
+                return tags_data
+        except Exception:
+            tags_data = []
+
+    try:
+        tags_obj = event.tags()
+        to_vec = getattr(tags_obj, "to_vec", None)
+        if callable(to_vec):
+            for tag in to_vec():
+                tag_values = None
+                as_vec = getattr(tag, "as_vec", None)
+                if callable(as_vec):
+                    tag_values = as_vec()
+                elif hasattr(tag, "as_json"):
+                    try:
+                        maybe_json = tag.as_json()
+                        tag_values = (
+                            json.loads(maybe_json)
+                            if isinstance(maybe_json, str)
+                            else maybe_json
+                        )
+                    except Exception:
+                        tag_values = None
+                if not tag_values or not isinstance(tag_values, list):
+                    continue
+                tags_data.append([str(item) for item in tag_values])
+    except Exception:
+        return tags_data
+
+    return tags_data
+
+
+class ClassifiedListing(BaseModel):
+    """
+    Represents a marketplace classified listing (kind 30402).
+    """
+
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
+    id: str
+    title: str
+    description: str = ""
+    price_amount: Optional[float] = None
+    price_currency: Optional[str] = None
+    price_frequency: Optional[str] = None
+    listing_type: str = "simple"
+    listing_format: str = "digital"
+    visibility: str = "on-sale"
+    stock: Optional[int] = None
+    summary: Optional[str] = None
+    images: List[Dict[str, Optional[str]]] = Field(default_factory=list)
+    specs: List[List[str]] = Field(default_factory=list)
+    weight_value: Optional[str] = None
+    weight_unit: Optional[str] = None
+    dimensions_value: Optional[str] = None
+    dimensions_unit: Optional[str] = None
+    location: Optional[str] = None
+    geohash: Optional[str] = None
+    categories: List[str] = Field(default_factory=list)
+    shipping_options: List[Dict[str, Optional[str]]] = Field(default_factory=list)
+    collections: List[str] = Field(default_factory=list)
+    seller: str = ""
+
+    def set_seller(self, seller: str) -> None:
+        self.seller = seller
+
+    def get_seller(self) -> str:
+        return self.seller
+
+    def to_dict(self) -> dict:
+        return {
+            "id": self.id,
+            "title": self.title,
+            "description": self.description,
+            "price": {
+                "amount": self.price_amount,
+                "currency": self.price_currency,
+                "frequency": self.price_frequency,
+            },
+            "listing_type": self.listing_type,
+            "listing_format": self.listing_format,
+            "visibility": self.visibility,
+            "stock": self.stock,
+            "summary": self.summary,
+            "images": self.images,
+            "specs": self.specs,
+            "weight": {"value": self.weight_value, "unit": self.weight_unit},
+            "dimensions": {
+                "value": self.dimensions_value,
+                "unit": self.dimensions_unit,
+            },
+            "location": self.location,
+            "geohash": self.geohash,
+            "categories": self.categories,
+            "shipping_options": self.shipping_options,
+            "collections": self.collections,
+            "seller": self.seller,
+        }
+
+    def to_json(self) -> str:
+        return json.dumps(self.to_dict())
+
+    @classmethod
+    def from_event(cls, event: "Event") -> "ClassifiedListing":
+        tags_data = _extract_nostr_tags(event)
+
+        def find_first(name: str) -> Optional[List[str]]:
+            for tag in tags_data:
+                if tag and tag[0] == name:
+                    return tag
+            return None
+
+        def find_all(name: str) -> List[List[str]]:
+            return [tag for tag in tags_data if tag and tag[0] == name]
+
+        id_tag = find_first("d")
+        title_tag = find_first("title")
+        price_tag = find_first("price")
+        type_tag = find_first("type")
+        visibility_tag = find_first("visibility")
+        stock_tag = find_first("stock")
+        summary_tag = find_first("summary")
+        weight_tag = find_first("weight")
+        dim_tag = find_first("dim")
+        location_tag = find_first("location")
+        geohash_tag = find_first("g")
+
+        identifier = id_tag[1] if id_tag and len(id_tag) > 1 else ""
+        title = title_tag[1] if title_tag and len(title_tag) > 1 else ""
+
+        price_amount: Optional[float] = None
+        price_currency: Optional[str] = None
+        price_frequency: Optional[str] = None
+        if price_tag and len(price_tag) > 2:
+            try:
+                price_amount = float(price_tag[1])
+            except (TypeError, ValueError):
+                price_amount = None
+            price_currency = price_tag[2]
+            if len(price_tag) > 3:
+                price_frequency = price_tag[3]
+
+        listing_type = type_tag[1] if type_tag and len(type_tag) > 1 else "simple"
+        listing_format = type_tag[2] if type_tag and len(type_tag) > 2 else "digital"
+        visibility = (
+            visibility_tag[1]
+            if visibility_tag and len(visibility_tag) > 1
+            else "on-sale"
+        )
+
+        stock: Optional[int] = None
+        if stock_tag and len(stock_tag) > 1:
+            try:
+                stock = int(stock_tag[1])
+            except (TypeError, ValueError):
+                stock = None
+
+        summary = summary_tag[1] if summary_tag and len(summary_tag) > 1 else None
+        weight_value = weight_tag[1] if weight_tag and len(weight_tag) > 1 else None
+        weight_unit = weight_tag[2] if weight_tag and len(weight_tag) > 2 else None
+        dimensions_value = dim_tag[1] if dim_tag and len(dim_tag) > 1 else None
+        dimensions_unit = dim_tag[2] if dim_tag and len(dim_tag) > 2 else None
+        location = location_tag[1] if location_tag and len(location_tag) > 1 else None
+        geohash = geohash_tag[1] if geohash_tag and len(geohash_tag) > 1 else None
+
+        images: List[Dict[str, Optional[str]]] = []
+        for image_tag in find_all("image"):
+            image_entry: Dict[str, Optional[str]] = {}
+            if len(image_tag) > 1:
+                image_entry["url"] = image_tag[1]
+            if len(image_tag) > 2:
+                image_entry["dimensions"] = image_tag[2]
+            if len(image_tag) > 3:
+                image_entry["order"] = image_tag[3]
+            images.append(image_entry)
+
+        specs = [
+            [spec_tag[1], spec_tag[2]]
+            for spec_tag in find_all("spec")
+            if len(spec_tag) > 2
+        ]
+
+        categories = [cat_tag[1] for cat_tag in find_all("t") if len(cat_tag) > 1]
+
+        shipping_options = []
+        for opt_tag in find_all("shipping_option"):
+            entry: Dict[str, Optional[str]] = {}
+            if len(opt_tag) > 1:
+                entry["reference"] = opt_tag[1]
+            if len(opt_tag) > 2:
+                entry["extra_cost"] = opt_tag[2]
+            shipping_options.append(entry)
+
+        collections = [
+            col_tag[1]
+            for col_tag in find_all("a")
+            if len(col_tag) > 1 and col_tag[1].startswith("30405:")
+        ]
+
+        try:
+            seller = event.author().to_bech32()
+        except Exception:
+            seller = event.author().to_hex()
+
+        return cls(
+            id=identifier,
+            title=title,
+            description=event.content() or "",
+            price_amount=price_amount,
+            price_currency=price_currency,
+            price_frequency=price_frequency,
+            listing_type=listing_type,
+            listing_format=listing_format,
+            visibility=visibility,
+            stock=stock,
+            summary=summary,
+            images=images,
+            specs=specs,
+            weight_value=weight_value,
+            weight_unit=weight_unit,
+            dimensions_value=dimensions_value,
+            dimensions_unit=dimensions_unit,
+            location=location,
+            geohash=geohash,
+            categories=categories,
+            shipping_options=shipping_options,
+            collections=collections,
+            seller=seller,
+        )
+
+
+class Collection(BaseModel):
+    """
+    Represents a product collection (kind 30405).
+    """
+
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
+    id: str
+    title: str
+    description: str = ""
+    product_references: List[str] = Field(default_factory=list)
+    image: Optional[str] = None
+    summary: Optional[str] = None
+    location: Optional[str] = None
+    geohash: Optional[str] = None
+    shipping_options: List[Dict[str, Optional[str]]] = Field(default_factory=list)
+    author: str = ""
+
+    def set_author(self, author: str) -> None:
+        self.author = author
+
+    def get_author(self) -> str:
+        return self.author
+
+    def to_dict(self) -> dict:
+        return {
+            "id": self.id,
+            "title": self.title,
+            "description": self.description,
+            "product_references": self.product_references,
+            "image": self.image,
+            "summary": self.summary,
+            "location": self.location,
+            "geohash": self.geohash,
+            "shipping_options": self.shipping_options,
+            "author": self.author,
+        }
+
+    def to_json(self) -> str:
+        return json.dumps(self.to_dict())
+
+    @classmethod
+    def from_event(cls, event: "Event") -> "Collection":
+        tags_data = _extract_nostr_tags(event)
+
+        def find_first(name: str) -> Optional[List[str]]:
+            for tag in tags_data:
+                if tag and tag[0] == name:
+                    return tag
+            return None
+
+        def find_all(name: str) -> List[List[str]]:
+            return [tag for tag in tags_data if tag and tag[0] == name]
+
+        id_tag = find_first("d")
+        title_tag = find_first("title")
+        image_tag = find_first("image")
+        summary_tag = find_first("summary")
+        location_tag = find_first("location")
+        geohash_tag = find_first("g")
+
+        identifier = id_tag[1] if id_tag and len(id_tag) > 1 else ""
+        title = title_tag[1] if title_tag and len(title_tag) > 1 else ""
+
+        product_references = [
+            prod_tag[1]
+            for prod_tag in find_all("a")
+            if len(prod_tag) > 1 and prod_tag[1].startswith("30402:")
+        ]
+
+        shipping_options = []
+        for opt_tag in find_all("shipping_option"):
+            entry: Dict[str, Optional[str]] = {}
+            if len(opt_tag) > 1:
+                entry["reference"] = opt_tag[1]
+            if len(opt_tag) > 2:
+                entry["extra_cost"] = opt_tag[2]
+            shipping_options.append(entry)
+
+        try:
+            author = event.author().to_bech32()
+        except Exception:
+            author = event.author().to_hex()
+
+        return cls(
+            id=identifier,
+            title=title,
+            description=event.content() or "",
+            product_references=product_references,
+            image=image_tag[1] if image_tag and len(image_tag) > 1 else None,
+            summary=summary_tag[1] if summary_tag and len(summary_tag) > 1 else None,
+            location=(
+                location_tag[1] if location_tag and len(location_tag) > 1 else None
+            ),
+            geohash=geohash_tag[1] if geohash_tag and len(geohash_tag) > 1 else None,
+            shipping_options=shipping_options,
+            author=author,
+        )
 
 
 class ProductShippingCost(BaseModel):

@@ -193,6 +193,71 @@ class NostrKeys(BaseModel):
         cls, private_key: str, encoding: KeyEncoding = KeyEncoding.BECH32
     ) -> str: ...
 
+def _extract_nostr_tags(event: Event) -> List[List[str]]: ...
+
+class ClassifiedListing(BaseModel):
+    """
+    Represents a marketplace classified listing (kind 30402).
+    """
+
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
+    id: str
+    title: str
+    description: str
+    price_amount: Optional[float]
+    price_currency: Optional[str]
+    price_frequency: Optional[str]
+    listing_type: str
+    listing_format: str
+    visibility: str
+    stock: Optional[int]
+    summary: Optional[str]
+    images: List[Dict[str, Optional[str]]]
+    specs: List[List[str]]
+    weight_value: Optional[str]
+    weight_unit: Optional[str]
+    dimensions_value: Optional[str]
+    dimensions_unit: Optional[str]
+    location: Optional[str]
+    geohash: Optional[str]
+    categories: List[str]
+    shipping_options: List[Dict[str, Optional[str]]]
+    collections: List[str]
+    seller: str
+
+    def set_seller(self, seller: str) -> None: ...
+    def get_seller(self) -> str: ...
+    def to_dict(self) -> dict: ...
+    def to_json(self) -> str: ...
+    @classmethod
+    def from_event(cls, event: Event) -> "ClassifiedListing": ...
+
+class Collection(BaseModel):
+    """
+    Represents a product collection (kind 30405).
+    """
+
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
+    id: str
+    title: str
+    description: str
+    product_references: List[str]
+    image: Optional[str]
+    summary: Optional[str]
+    location: Optional[str]
+    geohash: Optional[str]
+    shipping_options: List[Dict[str, Optional[str]]]
+    author: str
+
+    def set_author(self, author: str) -> None: ...
+    def get_author(self) -> str: ...
+    def to_dict(self) -> dict: ...
+    def to_json(self) -> str: ...
+    @classmethod
+    def from_event(cls, event: Event) -> "Collection": ...
+
 class ProductShippingCost(BaseModel):
     psc_id: str
     psc_cost: float
