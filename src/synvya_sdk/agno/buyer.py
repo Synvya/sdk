@@ -13,6 +13,8 @@ from typing import Any, List, Optional, Union, cast
 from pydantic import ConfigDict
 
 from synvya_sdk import (
+    ClassifiedListing,
+    KeyEncoding,
     Namespace,
     NostrClient,
     Product,
@@ -136,7 +138,9 @@ class BuyerTools(Toolkit):
         self.register(self.get_merchants_from_knowledge_base)
         self.register(self.async_get_merchants_in_marketplace)
         self.register(self.async_get_products)
+        self.register(self.async_get_classified_listings)
         self.register(self.get_products_from_knowledge_base)
+        self.register(self.get_classified_listings_from_knowledge_base)
         # self.register(self.get_products_from_knowledge_base_by_category)
         self.register(self.get_profile)
         self.register(self.get_relay)
@@ -456,6 +460,97 @@ class BuyerTools(Toolkit):
 
         return response
 
+    async def async_get_classified_listings(
+        self, profile_filter_json: Optional[str | dict] = None
+    ) -> str:
+        """
+        Download classified listings for merchants that match the optional
+        profile filter and store them in the knowledge base.
+
+        Args:
+            profile_filter_json: JSON string or dict representing the merchant profile filter.
+
+        Returns:
+            str: JSON string containing the downloaded classified listings.
+        """
+        buyer_logger.debug(
+            "Downloading classified listings with profile filter: %s",
+            profile_filter_json,
+        )
+
+        if self._nostr_client is None:
+            buyer_logger.error("Nostr client not initialized")
+            return json.dumps(
+                {
+                    "status": "error",
+                    "message": "Nostr client not initialized",
+                }
+            )
+
+        merchants_response_str = await self.async_get_merchants(profile_filter_json)
+        try:
+            merchants_response = json.loads(merchants_response_str)
+        except json.JSONDecodeError as exc:
+            buyer_logger.error(
+                "Invalid response when retrieving merchants for classifieds: %s",
+                exc,
+            )
+            return json.dumps(
+                {
+                    "status": "error",
+                    "message": "Unable to decode merchants response",
+                }
+            )
+
+        if (
+            isinstance(merchants_response, dict)
+            and merchants_response.get("status") == "error"
+        ):
+            buyer_logger.error(
+                "Failed to download merchants before fetching classifieds: %s",
+                merchants_response.get("message"),
+            )
+            return json.dumps(merchants_response)
+
+        listings_payload: List[dict[str, Any]] = []
+        error_merchants: List[str] = []
+
+        for merchant in getattr(self, "merchants", set()):
+            merchant_key = merchant.get_public_key()
+            try:
+                listings = await self._nostr_client.async_get_classified_listings(
+                    merchant_key
+                )
+            except RuntimeError as err:
+                buyer_logger.error(
+                    "Error downloading classified listings from merchant %s: %s",
+                    merchant_key,
+                    err,
+                )
+                error_merchants.append(merchant_key)
+                continue
+
+            for listing in listings:
+                if not listing.get_seller():
+                    listing.set_seller(merchant_key)
+
+                self._store_classified_listing_in_kb(listing)
+                listings_payload.append(listing.to_dict())
+
+        if error_merchants:
+            buyer_logger.debug(
+                "Failed to download classified listings for merchants: %s",
+                ", ".join(error_merchants),
+            )
+
+        buyer_logger.debug(
+            "Retrieved %d classified listings for profile filter %s",
+            len(listings_payload),
+            profile_filter_json,
+        )
+
+        return json.dumps(listings_payload)
+
     def get_products_from_knowledge_base(
         self,
         merchant_public_key: Optional[str] = None,
@@ -500,6 +595,48 @@ class BuyerTools(Toolkit):
             "Found %d products in the knowledge base", len(products_json)
         )
         return json.dumps(products_json)
+
+    def get_classified_listings_from_knowledge_base(
+        self,
+        merchant_public_key: Optional[str] = None,
+        categories: Optional[List[str]] = None,
+    ) -> str:
+        """
+        Retrieve classified listings stored in the knowledge base, optionally
+        filtered by merchant or categories.
+
+        Args:
+            merchant_public_key: Optional merchant public key to filter by.
+            categories: Optional list of categories to filter by.
+
+        Returns:
+            str: JSON string of classified listings.
+        """
+        buyer_logger.debug("Getting classified listings from knowledge base")
+
+        search_query = merchant_public_key if merchant_public_key is not None else ""
+
+        if categories is not None:
+            search_filters = [
+                {"type": "classified_listing"},
+                {"categories": categories},
+            ]
+        else:
+            search_filters = [
+                {"type": "classified_listing"},
+            ]
+
+        documents = self.knowledge_base.search(
+            query=search_query, max_results=100, filters=search_filters
+        )
+        for doc in documents:
+            buyer_logger.debug("Classified document: %s", doc.to_dict())
+
+        listings_json = [doc.content for doc in documents]
+        buyer_logger.debug(
+            "Found %d classified listings in the knowledge base", len(listings_json)
+        )
+        return json.dumps(listings_json)
 
     def get_profile(self) -> str:
         """
@@ -901,7 +1038,7 @@ class BuyerTools(Toolkit):
             )
             return
 
-        document_id = profile.get_public_key()
+        document_id = profile.get_public_key(KeyEncoding.HEX)
         document = Document(
             id=document_id,
             name=profile.get_name(),
@@ -980,6 +1117,81 @@ class BuyerTools(Toolkit):
         except Exception as err:
             buyer_logger.error(
                 "Failed to upsert product %s into vector DB: %s", product.id, err
+            )
+            return
+
+        self.knowledge_base.add_filters(metadata)
+
+    def _store_classified_listing_in_kb(self, listing: ClassifiedListing) -> None:
+        """
+        Store a classified listing in the knowledge base.
+
+        Args:
+            listing: Classified listing to store.
+        """
+        buyer_logger.debug(
+            "Storing classified listing in knowledge base: %s", listing.title
+        )
+
+        vector_db = _get_vector_db(self.knowledge_base)
+        if vector_db is None:
+            buyer_logger.warning(
+                "Vector DB not configured; skipping classified listing storage"
+            )
+            return
+
+        if listing.location and not listing.geohash:
+            computed_geohash = _map_location_to_geohash(listing.location)
+            if computed_geohash:
+                listing.geohash = computed_geohash
+
+        listing_json = listing.to_json()
+        if not listing_json:
+            buyer_logger.warning(
+                "Classified listing serialization returned empty payload for %s",
+                listing.title,
+            )
+            return
+
+        seller = listing.get_seller()
+        metadata: dict[str, Any] = {
+            "type": "classified_listing",
+            "seller": seller,
+            "listing_type": listing.listing_type,
+            "listing_format": listing.listing_format,
+            "visibility": listing.visibility,
+            "categories": listing.categories,
+        }
+        if listing.location:
+            metadata["location"] = listing.location
+        if listing.geohash:
+            metadata["geohash"] = listing.geohash
+        if listing.collections:
+            metadata["collections"] = listing.collections
+        if listing.price_currency:
+            metadata["price_currency"] = listing.price_currency
+        for category in listing.categories:
+            metadata[f"category_{self._normalize_hashtag(category)}"] = True
+
+        document_id = f"classified_listing:{seller}:{listing.id}"
+        document = Document(
+            id=document_id,
+            name=listing.title,
+            content=listing_json,
+            meta_data=metadata.copy(),
+        )
+        document.content_id = document_id
+        content_hash = hashlib.sha256(
+            document_id.encode("utf-8", errors="ignore")
+        ).hexdigest()
+
+        try:
+            vector_db.upsert(content_hash, [document], metadata)
+        except Exception as err:
+            buyer_logger.error(
+                "Failed to upsert classified listing %s into vector DB: %s",
+                listing.id,
+                err,
             )
             return
 

@@ -173,7 +173,7 @@ buyer_tools = asyncio.run(
         knowledge_base=knowledge_base,
         relays=RELAY,
         private_key=keys.get_private_key(KeyEncoding.BECH32),
-        log_level=logging.DEBUG,
+        log_level=logging.INFO,
     )
 )
 
@@ -181,7 +181,7 @@ asyncio.run(buyer_tools.async_set_profile(profile))
 
 
 async def refresh_knowledge_base() -> None:
-    reset_database()
+    # reset_database()
 
     profile_types = list(ProfileType)
 
@@ -283,4 +283,13 @@ if __name__ == "__main__":
 
     # asyncio.run(query_knowledge_base("find me an indian restaurant"))
     # asyncio.run(refresh_knowledge_base())
-    asyncio.run(buyer_cli())
+    profile_filter_json = {
+        "namespace": Namespace.BUSINESS_TYPE.value,
+        "profile_type": ProfileType.RETAIL.value,
+    }
+
+    response = asyncio.run(
+        buyer_tools.async_get_classified_listings(profile_filter_json)
+    )
+    print(json.dumps(response, indent=2))
+    # asyncio.run(buyer_cli())

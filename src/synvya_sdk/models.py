@@ -285,12 +285,12 @@ class Profile(BaseModel):
     def get_profile_url(self) -> str:
         return self.profile_url
 
-    def get_public_key(self, encoding: KeyEncoding = KeyEncoding.BECH32) -> str:
+    def get_public_key(self, encoding: KeyEncoding = KeyEncoding.HEX) -> str:
         """Get the public key of the Nostr profile.
 
         Args:
             encoding: encoding to use for the public key.
-            Must be 'bech32' or 'hex'. Default is 'bech32'.
+            Must be 'bech32' or 'hex'. Default is 'hex'.
 
         Returns:
             str: public key of the Nostr profile in the specified encoding
@@ -557,48 +557,6 @@ class Profile(BaseModel):
             profile.set_environment(json_environment.s)
         else:
             profile.set_environment("production")
-
-        # json_city = metadata.get_custom_field("city")
-        # if isinstance(json_city, JsonValue.STR):
-        #     profile.set_city(json_city.s)
-        # else:
-        #     profile.set_city("")
-
-        # json_country = metadata.get_custom_field("country")
-        # if isinstance(json_country, JsonValue.STR):
-        #     profile.set_country(json_country.s)
-        # else:
-        #     profile.set_country("")
-
-        # json_email = metadata.get_custom_field("email")
-        # if isinstance(json_email, JsonValue.STR):
-        #     profile.set_email(json_email.s)
-        # else:
-        #     profile.set_email("")
-
-        # json_phone = metadata.get_custom_field("phone")
-        # if isinstance(json_phone, JsonValue.STR):
-        #     profile.set_phone(json_phone.s)
-        # else:
-        #     profile.set_phone("")
-
-        # json_state = metadata.get_custom_field("state")
-        # if isinstance(json_state, JsonValue.STR):
-        #     profile.set_state(json_state.s)
-        # else:
-        #     profile.set_state("")
-
-        # json_street = metadata.get_custom_field("street")
-        # if isinstance(json_street, JsonValue.STR):
-        #     profile.set_street(json_street.s)
-        # else:
-        #     profile.set_street("")
-
-        # json_zip_code = metadata.get_custom_field("zip_code")
-        # if isinstance(json_zip_code, JsonValue.STR):
-        #     profile.set_zip_code(json_zip_code.s)
-        # else:
-        #     profile.set_zip_code("")
 
         try:
             profile.nip05_validated = await profile._validate_profile_nip05()
@@ -992,10 +950,10 @@ class ClassifiedListing(BaseModel):
     categories: List[str] = Field(default_factory=list)
     shipping_options: List[Dict[str, Optional[str]]] = Field(default_factory=list)
     collections: List[str] = Field(default_factory=list)
-    seller: str = ""
+    seller: str = ""  # hex format
 
     def set_seller(self, seller: str) -> None:
-        self.seller = seller
+        self.seller = PublicKey.parse(seller).to_hex()
 
     def get_seller(self) -> str:
         return self.seller
@@ -1131,9 +1089,9 @@ class ClassifiedListing(BaseModel):
         ]
 
         try:
-            seller = event.author().to_bech32()
-        except Exception:
             seller = event.author().to_hex()
+        except Exception:
+            seller = ""
 
         return cls(
             id=identifier,
@@ -1380,7 +1338,7 @@ class Product(BaseModel):
     shipping: List[ProductShippingCost]
     categories: List[str] = Field(default_factory=list)
     specs: List[List[str]] = Field(default_factory=list)
-    seller: str
+    seller: str  # hex
 
     def set_seller(self, seller: str) -> None:
         """
@@ -1390,7 +1348,7 @@ class Product(BaseModel):
         the seller's public key.
 
         Args:
-            seller: str in bech32 format
+            seller: str in hex format
         """
         self.seller = seller
 
@@ -1398,7 +1356,7 @@ class Product(BaseModel):
         """Get the seller of the product.
 
         Returns:
-            str: seller of the product in bech32 format
+            str: seller of the product in hex format
         """
         return self.seller
 
