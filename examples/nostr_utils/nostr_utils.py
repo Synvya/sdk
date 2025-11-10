@@ -105,7 +105,7 @@ async def main() -> None:
     PICTURE = "https://i.nostr.build/eZvrJNK9kFni5QR3.jpg"
     WEBSITE = "https://trainmuseum.org"
     CATEGORY = ProfileType.RETAIL
-    NAMESPACE = Namespace.BUSINESS_TYPE
+    NAMESPACE = Namespace.MERCHANT
     HASHTAGS = ["railway", "museum", "history"]
 
     profile = Profile(keys.get_public_key(encoding=KeyEncoding.BECH32))
@@ -126,6 +126,7 @@ async def main() -> None:
     profile.set_street("38625 SE King Street")
     profile.set_email("info@TrainMuseum.org")
     profile.set_phone("425-888-3030 ext. 7202")
+    profile.set_geohash("c23q7u338")
     for hashtag in HASHTAGS:
         profile.add_hashtag(hashtag)
     profile.set_environment("demo")
