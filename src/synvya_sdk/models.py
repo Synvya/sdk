@@ -210,6 +210,7 @@ class Profile(BaseModel):
     street: str = ""
     website: str = ""
     zip_code: str = ""
+    geohash: str = ""
     environment: Literal["production", "demo"] = "production"
 
     def __init__(self, public_key: str, **data) -> None:
@@ -317,6 +318,9 @@ class Profile(BaseModel):
     def get_zip_code(self) -> str:
         return self.zip_code
 
+    def get_geohash(self) -> str:
+        return self.geohash
+
     def is_bot(self) -> bool:
         return self.bot
 
@@ -399,6 +403,9 @@ class Profile(BaseModel):
     def set_zip_code(self, zip_code: str) -> None:
         self.zip_code = zip_code
 
+    def set_geohash(self, geohash: str) -> None:
+        self.geohash = geohash
+
     def to_dict(self) -> dict:
         return {
             "about": self.about,
@@ -410,6 +417,7 @@ class Profile(BaseModel):
             "display_name": self.display_name,
             "environment": self.environment,
             "email": self.email,
+            "geohash": self.geohash,
             "hashtags": self.hashtags,
             "locations": list(self.locations),  # Convert set to list
             "name": self.name,
@@ -437,6 +445,7 @@ class Profile(BaseModel):
             "display_name": self.display_name,
             "environment": self.environment,
             "email": self.email,
+            "geohash": self.geohash,
             "hashtags": self.hashtags,
             "locations": (list(self.locations) if self.locations else []),
             "name": self.name,
@@ -646,6 +655,12 @@ class Profile(BaseModel):
         for hashtag in hashtag_list:
             profile.add_hashtag(hashtag)
 
+        geohash_tag = tags.find(
+            TagKind.SINGLE_LETTER(SingleLetterTag.lowercase(Alphabet.G))
+        )
+        if geohash_tag is not None:
+            profile.set_geohash(geohash_tag.content())
+
         namespace_tag = tags.find(
             TagKind.SINGLE_LETTER(SingleLetterTag.uppercase(Alphabet.L))
         )
@@ -688,6 +703,7 @@ class Profile(BaseModel):
         profile.set_display_name(data.get("display_name", ""))
         profile.set_environment(data.get("environment", "production"))
         profile.set_email(data.get("email", ""))
+        profile.set_geohash(data.get("geohash", ""))
         for hashtag in data.get("hashtags", []):
             profile.add_hashtag(hashtag)
         profile.locations = set(data.get("locations", []))

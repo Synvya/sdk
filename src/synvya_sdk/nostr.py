@@ -1335,6 +1335,16 @@ class NostrClient:
                 ]
             )
 
+        if (geohash := profile.get_geohash()) != "":
+            event_builder = event_builder.tags(
+                [
+                    Tag.custom(
+                        TagKind.SINGLE_LETTER(SingleLetterTag.lowercase(Alphabet.G)),
+                        [geohash],
+                    ),
+                ]
+            )
+
         event_builder = event_builder.tags(
             [Tag.hashtag(hashtag) for hashtag in profile.get_hashtags()]
         )
