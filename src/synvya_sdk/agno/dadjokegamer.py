@@ -293,7 +293,7 @@ class DadJokeGamerTools(Toolkit):
                 sender = message_dict.get("sender")
                 profile = await self.nostr_client.async_get_profile(sender)
                 if (
-                    profile.get_namespace() == Namespace.GAMER
+                    Namespace.GAMER.value in profile.get_namespaces()
                     and profile.get_profile_type() == ProfileType.GAMER_DADJOKE
                     and "publisher" in profile.get_hashtags()
                 ):

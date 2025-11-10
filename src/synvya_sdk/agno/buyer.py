@@ -337,10 +337,11 @@ class BuyerTools(Toolkit):
                     else profile_filter_json
                 )
 
-                # Add namespace filter (exact match)
+                # Add namespace filter - check if any profile namespace matches
                 namespace = filter_data.get("namespace")
                 if namespace:
-                    search_filters["namespace"] = namespace
+                    # Use the new namespace filter format
+                    search_filters[f"namespace_{namespace}"] = True
 
                 # Add profile_type filter (exact match)
                 profile_type = filter_data.get("profile_type")
@@ -1017,13 +1018,17 @@ class BuyerTools(Toolkit):
             buyer_logger.warning("Vector DB not configured; skipping profile storage")
             return
 
-        namespace = profile.get_namespace()
+        namespaces = profile.get_namespaces()
         profile_type = (
             profile.get_profile_type().value if profile.get_profile_type() else None
         )
         filters: dict[str, Any] = {}
-        if namespace:
-            filters["namespace"] = namespace
+        # Store all namespaces so profiles can be found by any of their namespaces
+        if namespaces:
+            filters["namespaces"] = namespaces
+            # Also store each namespace individually for filtering
+            for namespace in namespaces:
+                filters[f"namespace_{namespace}"] = True
         if profile_type:
             filters["profile_type"] = profile_type
 
