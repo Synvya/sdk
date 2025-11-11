@@ -38,9 +38,9 @@ class Namespace(str, Enum):
     """Configuration for Pydantic models to use enum values directly."""
     model_config = ConfigDict(use_enum_values=True)
 
-class ProfileType(str, Enum):
+class Label(str, Enum):
     """
-    Represents a profile type.
+    Represents a label per NIP-32 labeling specification.
     """
 
     RETAIL = "retail"
@@ -61,13 +61,13 @@ class ProfileFilter(BaseModel):
     """
 
     namespace: str
-    profile_type: ProfileType
+    profile_type: Label
     hashtags: List[str]
 
     def __init__(
         self,
         namespace: str,
-        profile_type: ProfileType,
+        profile_type: Label,
         hashtags: Optional[List[str]] = None,
     ) -> None: ...
     def to_json(self) -> str: ...
@@ -104,7 +104,7 @@ class Profile(BaseModel):
     nip05_validated: bool = False
     picture: str = ""
     phone: str = ""
-    profile_type: ProfileType = ProfileType.OTHER_OTHER
+    profile_type: Label = Label.OTHER_OTHER
     profile_url: str = ""
     state: str = ""
     street: str = ""
@@ -137,7 +137,7 @@ class Profile(BaseModel):
     def get_nip05(self) -> str: ...
     def get_phone(self) -> str: ...
     def get_picture(self) -> str: ...
-    def get_profile_type(self, namespace: Optional[str] = None) -> ProfileType: ...
+    def get_profile_type(self, namespace: Optional[str] = None) -> Label: ...
     def get_profile_url(self) -> str: ...
     def get_public_key(self, encoding: KeyEncoding = KeyEncoding.BECH32) -> str: ...
     def get_state(self) -> str: ...
@@ -164,7 +164,7 @@ class Profile(BaseModel):
     def set_phone(self, phone: str) -> None: ...
     def set_picture(self, picture: str) -> None: ...
     def set_profile_type(
-        self, profile_type: Union[ProfileType, str], namespace: Optional[str] = None
+        self, profile_type: Union[Label, str], namespace: Optional[str] = None
     ) -> None: ...
     def set_state(self, state: str) -> None: ...
     def set_street(self, street: str) -> None: ...

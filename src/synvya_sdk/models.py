@@ -107,9 +107,9 @@ class Namespace(str, Enum):
     model_config = ConfigDict(use_enum_values=True)
 
 
-class ProfileType(str, Enum):
+class Label(str, Enum):
     """
-    Represents a profile type.
+    Represents a label per NIP-32 labeling specification.
     """
 
     RETAIL = "retail"
@@ -131,13 +131,13 @@ class ProfileFilter(BaseModel):
     """
 
     namespace: str
-    profile_type: ProfileType
+    profile_type: Label
     hashtags: List[str]
 
     def __init__(
         self,
         namespace: str,
-        profile_type: ProfileType,
+        profile_type: Label,
         hashtags: Optional[List[str]] = None,
     ) -> None:
         """
@@ -205,7 +205,7 @@ class Profile(BaseModel):
     nip05_validated: bool = False
     picture: str = ""
     phone: str = ""
-    profile_type: ProfileType = ProfileType.OTHER_OTHER
+    profile_type: Label = Label.OTHER_OTHER
     profile_url: str = ""
     state: str = ""
     street: str = ""
@@ -346,7 +346,7 @@ class Profile(BaseModel):
     def get_picture(self) -> str:
         return self.picture
 
-    def get_profile_type(self, namespace: Optional[str] = None) -> ProfileType:
+    def get_profile_type(self, namespace: Optional[str] = None) -> Label:
         """
         Get profile type for a specific namespace or the primary profile type.
 
@@ -354,14 +354,14 @@ class Profile(BaseModel):
             namespace: Optional namespace to get profile type for. If None, returns primary profile type.
 
         Returns:
-            ProfileType: The profile type for the specified namespace or primary profile type
+            Label: The profile type for the specified namespace or primary profile type
         """
         if namespace and namespace in self.namespace_profile_types:
             profile_type_str = self.namespace_profile_types[namespace]
             try:
-                return ProfileType(profile_type_str)
+                return Label(profile_type_str)
             except ValueError:
-                # If not a valid ProfileType enum, return primary
+                # If not a valid Label enum, return primary
                 return self.profile_type
         return self.profile_type
 
@@ -499,22 +499,22 @@ class Profile(BaseModel):
         self.phone = phone
 
     def set_profile_type(
-        self, profile_type: ProfileType | str, namespace: Optional[str] = None
+        self, profile_type: Label | str, namespace: Optional[str] = None
     ) -> None:
         """
         Set profile type for a specific namespace or the primary profile type.
 
         Args:
-            profile_type: ProfileType enum or string to set
+            profile_type: Label enum or string to set
             namespace: Optional namespace to set profile type for. If None, sets primary profile type.
         """
         if isinstance(profile_type, str):
-            # Try to convert string to ProfileType enum, but allow invalid values for namespace-specific types
+            # Try to convert string to Label enum, but allow invalid values for namespace-specific types
             try:
-                profile_type_enum = ProfileType(profile_type)
+                profile_type_enum = Label(profile_type)
                 profile_type_str = profile_type
             except ValueError:
-                # Invalid ProfileType enum value - only allow for namespace-specific types
+                # Invalid Label enum value - only allow for namespace-specific types
                 if namespace:
                     profile_type_str = profile_type
                     # Don't set enum for invalid values
@@ -522,7 +522,7 @@ class Profile(BaseModel):
                 else:
                     # For primary profile type, must be valid enum
                     raise ValueError(
-                        f"Invalid profile type: '{profile_type}'. Must be a valid ProfileType enum value."
+                        f"Invalid profile type: '{profile_type}'. Must be a valid Label enum value."
                     )
         else:
             profile_type_enum = profile_type
@@ -533,15 +533,13 @@ class Profile(BaseModel):
             self.namespace_profile_types[namespace] = profile_type_str
             # Also update primary if this is the first namespace and we have a valid enum
             if profile_type_enum and (
-                not self.profile_type or self.profile_type == ProfileType.OTHER_OTHER
+                not self.profile_type or self.profile_type == Label.OTHER_OTHER
             ):
                 self.profile_type = profile_type_enum
         else:
             # Set primary profile type (must be valid enum)
             if profile_type_enum is None:
-                raise ValueError(
-                    "Primary profile type must be a valid ProfileType enum"
-                )
+                raise ValueError("Primary profile type must be a valid Label enum")
             self.profile_type = profile_type_enum
 
     def set_state(self, state: str) -> None:
@@ -929,7 +927,7 @@ class Profile(BaseModel):
         profile.set_nip05(data.get("nip05", ""))
         profile.set_picture(data.get("picture", ""))
         profile.set_phone(data.get("phone", ""))
-        profile.set_profile_type(data.get("profile_type", ProfileType.OTHER_OTHER))
+        profile.set_profile_type(data.get("profile_type", Label.OTHER_OTHER))
         profile.set_state(data.get("state", ""))
         profile.set_street(data.get("street", ""))
         profile.set_website(data.get("website", ""))
