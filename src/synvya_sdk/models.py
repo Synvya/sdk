@@ -213,6 +213,7 @@ class Profile(BaseModel):
     zip_code: str = ""
     geohash: str = ""
     environment: Literal["production", "demo"] = "production"
+    external_identities: List[Dict[str, str]] = Field(default_factory=list)
 
     def __init__(self, public_key: str, **data) -> None:
         """
@@ -259,6 +260,38 @@ class Profile(BaseModel):
 
     def get_email(self) -> str:
         return self.email
+
+    def get_external_identities(self) -> List[Dict[str, str]]:
+        """
+        Get all external identity verifications (NIP-39).
+
+        Returns:
+            List[Dict[str, str]]: List of external identities, each with keys:
+                - platform: The platform identifier (e.g., "com.synvya.chamber")
+                - identity: The identity on that platform (e.g., "snovalley")
+                - proof: The proof/verification string (may be empty)
+        """
+        return self.external_identities
+
+    def add_external_identity(
+        self, platform: str, identity: str, proof: str = ""
+    ) -> None:
+        """
+        Add an external identity verification (NIP-39).
+
+        Args:
+            platform: The platform identifier (e.g., "com.synvya.chamber")
+            identity: The identity on that platform (e.g., "snovalley")
+            proof: The proof/verification string (optional, defaults to empty string)
+        """
+        external_identity = {
+            "platform": platform,
+            "identity": identity,
+            "proof": proof,
+        }
+        # Avoid duplicates
+        if external_identity not in self.external_identities:
+            self.external_identities.append(external_identity)
 
     def get_hashtags(self) -> List[str]:
         return self.hashtags
@@ -537,6 +570,7 @@ class Profile(BaseModel):
             "display_name": self.display_name,
             "environment": self.environment,
             "email": self.email,
+            "external_identities": self.external_identities,
             "geohash": self.geohash,
             "hashtags": self.hashtags,
             "locations": list(self.locations),  # Convert set to list
@@ -566,6 +600,7 @@ class Profile(BaseModel):
             "display_name": self.display_name,
             "environment": self.environment,
             "email": self.email,
+            "external_identities": self.external_identities,
             "geohash": self.geohash,
             "hashtags": self.hashtags,
             "locations": (list(self.locations) if self.locations else []),
@@ -747,31 +782,49 @@ class Profile(BaseModel):
             if tag.kind() == TagKind.SINGLE_LETTER(
                 SingleLetterTag.lowercase(Alphabet.I)
             ):
-                # Extract identity claims from i-tags
-                tag_content = tag.content()
-                if ":" in tag_content:
-                    claim_type, identity = tag_content.split(":", 1)
+                # Get all elements of the tag
+                tag_as_vec = tag.as_vec()
 
-                    if claim_type == "email":
-                        profile.set_email(identity)
-                    elif claim_type == "phone":
-                        profile.set_phone(identity)
-                    elif claim_type == "location":
-                        # Parse location string into components
-                        # Expected format: street, city, state, country, zip_code
-                        # Modify expected format to: street, city, state, zip_code, country
-                        location_parts = [part.strip() for part in identity.split(",")]
+                if len(tag_as_vec) >= 2:
+                    tag_content = tag_as_vec[1]
+                    if ":" in tag_content:
+                        claim_type, identity = tag_content.split(":", 1)
 
-                        if len(location_parts) >= 1:
-                            profile.set_street(location_parts[0])
-                        if len(location_parts) >= 2:
-                            profile.set_city(location_parts[1])
-                        if len(location_parts) >= 3:
-                            profile.set_state(location_parts[2])
-                        if len(location_parts) >= 4:
-                            profile.set_zip_code(location_parts[3])
-                        if len(location_parts) >= 5:
-                            profile.set_country(location_parts[4])
+                        # Check if this is a legacy claim type (email, phone, location)
+                        if claim_type == "email":
+                            profile.set_email(identity)
+                        elif claim_type == "phone":
+                            profile.set_phone(identity)
+                        elif claim_type == "location":
+                            # Parse location string into components
+                            # Expected format: street, city, state, country, zip_code
+                            # Modify expected format to: street, city, state, zip_code, country
+                            location_parts = [
+                                part.strip() for part in identity.split(",")
+                            ]
+
+                            if len(location_parts) >= 1:
+                                profile.set_street(location_parts[0])
+                            if len(location_parts) >= 2:
+                                profile.set_city(location_parts[1])
+                            if len(location_parts) >= 3:
+                                profile.set_state(location_parts[2])
+                            if len(location_parts) >= 4:
+                                profile.set_zip_code(location_parts[3])
+                            if len(location_parts) >= 5:
+                                profile.set_country(location_parts[4])
+                        else:
+                            # Not a legacy claim type - treat as NIP-39 external identity
+                            # Check if this is a NIP-39 format tag: ["i", "platform:identity", "proof"]
+                            if len(tag_as_vec) >= 3:
+                                # NIP-39 format with proof
+                                proof = tag_as_vec[2] if len(tag_as_vec) > 2 else ""
+                                profile.add_external_identity(
+                                    claim_type, identity, proof
+                                )
+                            else:
+                                # NIP-39 format without proof (2 elements)
+                                profile.add_external_identity(claim_type, identity, "")
 
         hashtag_list = tags.hashtags()
         for hashtag in hashtag_list:
@@ -843,6 +896,16 @@ class Profile(BaseModel):
         profile.set_display_name(data.get("display_name", ""))
         profile.set_environment(data.get("environment", "production"))
         profile.set_email(data.get("email", ""))
+        # Load external_identities
+        external_identities = data.get("external_identities", [])
+        if isinstance(external_identities, list):
+            for ext_id in external_identities:
+                if isinstance(ext_id, dict):
+                    platform = ext_id.get("platform", "")
+                    identity = ext_id.get("identity", "")
+                    proof = ext_id.get("proof", "")
+                    if platform and identity:
+                        profile.add_external_identity(platform, identity, proof)
         profile.set_geohash(data.get("geohash", ""))
         for hashtag in data.get("hashtags", []):
             profile.add_hashtag(hashtag)
