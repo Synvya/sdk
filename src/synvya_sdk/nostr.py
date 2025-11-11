@@ -1273,21 +1273,40 @@ class NostrClient:
 
         event_builder = EventBuilder.metadata(metadata_content)
 
-        event_builder = event_builder.tags(
-            [
+        # Build tags list with all namespaces and profile type
+        tags_list = []
+
+        # Add all namespace tags (uppercase L)
+        for namespace in profile.get_namespaces():
+            tags_list.append(
                 Tag.custom(
                     TagKind.SINGLE_LETTER(SingleLetterTag.uppercase(Alphabet.L)),
-                    [profile.get_namespace()],
-                ),
+                    [namespace],
+                )
+            )
+
+        # Add profile type tag (lowercase l) with primary namespace
+        primary_namespace = profile.get_primary_namespace()
+        if primary_namespace:
+            tags_list.append(
                 Tag.custom(
                     TagKind.SINGLE_LETTER(SingleLetterTag.lowercase(Alphabet.L)),
                     [
                         profile.get_profile_type(),
-                        profile.get_namespace(),
+                        primary_namespace,
                     ],
-                ),
-            ]
-        )
+                )
+            )
+        else:
+            # If no namespace, just add profile type
+            tags_list.append(
+                Tag.custom(
+                    TagKind.SINGLE_LETTER(SingleLetterTag.lowercase(Alphabet.L)),
+                    [profile.get_profile_type()],
+                )
+            )
+
+        event_builder = event_builder.tags(tags_list)
 
         if (email := profile.get_email()) != "":
             event_builder = event_builder.tags(

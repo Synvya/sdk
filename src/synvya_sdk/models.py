@@ -199,7 +199,8 @@ class Profile(BaseModel):
     hashtags: List[str] = []
     locations: Set[str] = Field(default_factory=set)
     name: str = ""
-    namespace: str = ""
+    namespaces: List[str] = Field(default_factory=list)
+    namespace_profile_types: Dict[str, str] = Field(default_factory=dict)
     nip05: str = ""
     nip05_validated: bool = False
     picture: str = ""
@@ -269,7 +270,39 @@ class Profile(BaseModel):
         return self.name
 
     def get_namespace(self) -> str:
-        return self.namespace
+        """
+        Get the primary (first) namespace for backward compatibility.
+
+        .. deprecated:: 2.0.0
+            Use :meth:`get_primary_namespace` or :meth:`get_namespaces` instead.
+
+        Returns:
+            str: The first namespace or empty string if no namespaces exist
+        """
+        warnings.warn(
+            "get_namespace() is deprecated. Use get_primary_namespace() or get_namespaces() instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return self.get_primary_namespace()
+
+    def get_namespaces(self) -> List[str]:
+        """
+        Get all namespaces for this profile.
+
+        Returns:
+            List[str]: List of all namespaces
+        """
+        return self.namespaces
+
+    def get_primary_namespace(self) -> str:
+        """
+        Get the primary (first) namespace.
+
+        Returns:
+            str: The first namespace or empty string if no namespaces exist
+        """
+        return self.namespaces[0] if self.namespaces else ""
 
     def get_nip05(self) -> str:
         return self.nip05
@@ -280,7 +313,23 @@ class Profile(BaseModel):
     def get_picture(self) -> str:
         return self.picture
 
-    def get_profile_type(self) -> ProfileType:
+    def get_profile_type(self, namespace: Optional[str] = None) -> ProfileType:
+        """
+        Get profile type for a specific namespace or the primary profile type.
+
+        Args:
+            namespace: Optional namespace to get profile type for. If None, returns primary profile type.
+
+        Returns:
+            ProfileType: The profile type for the specified namespace or primary profile type
+        """
+        if namespace and namespace in self.namespace_profile_types:
+            profile_type_str = self.namespace_profile_types[namespace]
+            try:
+                return ProfileType(profile_type_str)
+            except ValueError:
+                # If not a valid ProfileType enum, return primary
+                return self.profile_type
         return self.profile_type
 
     def get_profile_url(self) -> str:
@@ -328,9 +377,9 @@ class Profile(BaseModel):
         return self.nip05_validated
 
     def matches_filter(self, profile_filter: ProfileFilter) -> bool:
-        if self.namespace != profile_filter.namespace:
+        if profile_filter.namespace not in self.namespaces:
             return False
-        if self.profile_type != profile_filter.type:
+        if self.profile_type != profile_filter.profile_type:
             return False
         if not all(hashtag in self.hashtags for hashtag in profile_filter.hashtags):
             return False
@@ -366,15 +415,46 @@ class Profile(BaseModel):
     def set_name(self, name: str) -> None:
         self.name = name
 
-    def set_namespace(self, namespace: Namespace | str) -> None:
-        if isinstance(namespace, str):
-            # Handle empty string by not setting any namespace
+    def set_namespace(self, namespace: Namespace | str | List[str]) -> None:
+        """
+        Set namespace(s). Accepts a single namespace or a list of namespaces.
+        If a list is provided, it replaces all existing namespaces.
+        If a single namespace is provided, it replaces all existing namespaces with just that one.
+
+        Args:
+            namespace: Single namespace (Namespace enum, str) or list of namespace strings
+        """
+        if isinstance(namespace, list):
+            # Handle list of namespaces
+            self.namespaces = [str(ns) for ns in namespace if ns]
+        elif isinstance(namespace, str):
+            # Handle empty string by clearing namespaces
             if not namespace:
-                self.namespace = ""
+                self.namespaces = []
                 return
-            # Convert string to Namespace enum safely
-            namespace = Namespace(namespace)
-        self.namespace = namespace
+            # Convert string to namespace value
+            self.namespaces = [namespace]
+        else:
+            # Handle Namespace enum
+            self.namespaces = [namespace.value]
+
+    def add_namespace(self, namespace: Namespace | str) -> None:
+        """
+        Add a namespace to the existing list of namespaces.
+        Does not add duplicates.
+
+        Args:
+            namespace: Namespace enum or string to add
+        """
+        if isinstance(namespace, str):
+            if not namespace:
+                return
+            namespace_str = namespace
+        else:
+            namespace_str = namespace.value
+
+        if namespace_str not in self.namespaces:
+            self.namespaces.append(namespace_str)
 
     def set_nip05(self, nip05: str) -> None:
         self.nip05 = nip05
@@ -385,11 +465,51 @@ class Profile(BaseModel):
     def set_phone(self, phone: str) -> None:
         self.phone = phone
 
-    def set_profile_type(self, profile_type: ProfileType | str) -> None:
+    def set_profile_type(
+        self, profile_type: ProfileType | str, namespace: Optional[str] = None
+    ) -> None:
+        """
+        Set profile type for a specific namespace or the primary profile type.
+
+        Args:
+            profile_type: ProfileType enum or string to set
+            namespace: Optional namespace to set profile type for. If None, sets primary profile type.
+        """
         if isinstance(profile_type, str):
-            # Convert string to ProfileType enum safely
-            profile_type = ProfileType(profile_type)
-        self.profile_type = profile_type
+            # Try to convert string to ProfileType enum, but allow invalid values for namespace-specific types
+            try:
+                profile_type_enum = ProfileType(profile_type)
+                profile_type_str = profile_type
+            except ValueError:
+                # Invalid ProfileType enum value - only allow for namespace-specific types
+                if namespace:
+                    profile_type_str = profile_type
+                    # Don't set enum for invalid values
+                    profile_type_enum = None
+                else:
+                    # For primary profile type, must be valid enum
+                    raise ValueError(
+                        f"Invalid profile type: '{profile_type}'. Must be a valid ProfileType enum value."
+                    )
+        else:
+            profile_type_enum = profile_type
+            profile_type_str = profile_type.value
+
+        if namespace:
+            # Set profile type for specific namespace (can be any string)
+            self.namespace_profile_types[namespace] = profile_type_str
+            # Also update primary if this is the first namespace and we have a valid enum
+            if profile_type_enum and (
+                not self.profile_type or self.profile_type == ProfileType.OTHER_OTHER
+            ):
+                self.profile_type = profile_type_enum
+        else:
+            # Set primary profile type (must be valid enum)
+            if profile_type_enum is None:
+                raise ValueError(
+                    "Primary profile type must be a valid ProfileType enum"
+                )
+            self.profile_type = profile_type_enum
 
     def set_state(self, state: str) -> None:
         self.state = state
@@ -421,7 +541,8 @@ class Profile(BaseModel):
             "hashtags": self.hashtags,
             "locations": list(self.locations),  # Convert set to list
             "name": self.name,
-            "namespace": self.namespace,
+            "namespaces": self.namespaces,
+            "namespace_profile_types": self.namespace_profile_types,
             "nip05": self.nip05,
             "picture": self.picture,
             "phone": self.phone,
@@ -449,7 +570,8 @@ class Profile(BaseModel):
             "hashtags": self.hashtags,
             "locations": (list(self.locations) if self.locations else []),
             "name": self.name,
-            "namespace": self.namespace,
+            "namespaces": self.namespaces,
+            "namespace_profile_types": self.namespace_profile_types,
             "nip05": self.nip05,
             "picture": self.picture,
             "phone": self.phone,
@@ -661,17 +783,35 @@ class Profile(BaseModel):
         if geohash_tag is not None:
             profile.set_geohash(geohash_tag.content())
 
-        namespace_tag = tags.find(
-            TagKind.SINGLE_LETTER(SingleLetterTag.uppercase(Alphabet.L))
-        )
-        if namespace_tag is not None:
-            profile.set_namespace(namespace_tag.content())
+        # Collect ALL uppercase L tags (namespaces)
+        namespaces: List[str] = []
+        for tag in tag_vector:
+            if tag.kind() == TagKind.SINGLE_LETTER(
+                SingleLetterTag.uppercase(Alphabet.L)
+            ):
+                namespace_content = tag.content()
+                if namespace_content and namespace_content not in namespaces:
+                    namespaces.append(namespace_content)
+        if namespaces:
+            profile.set_namespace(namespaces)
 
-        profile_type_tag = tags.find(
-            TagKind.SINGLE_LETTER(SingleLetterTag.lowercase(Alphabet.L))
-        )
-        if profile_type_tag is not None:
-            profile.set_profile_type(profile_type_tag.content())
+        # Collect ALL lowercase l tags (profile types with optional namespace)
+        # Format: ["l", "profile_type"] or ["l", "profile_type", "namespace"]
+        for tag in tag_vector:
+            if tag.kind() == TagKind.SINGLE_LETTER(
+                SingleLetterTag.lowercase(Alphabet.L)
+            ):
+                tag_as_vec = tag.as_vec()
+                if len(tag_as_vec) >= 2:
+                    profile_type_str = tag_as_vec[1]
+                    # If there's a third element, it's the namespace
+                    if len(tag_as_vec) >= 3:
+                        namespace = tag_as_vec[2]
+                        # Store namespace-specific profile type
+                        profile.set_profile_type(profile_type_str, namespace=namespace)
+                    else:
+                        # No namespace specified, set as primary profile type
+                        profile.set_profile_type(profile_type_str)
 
         try:
             profile.nip05_validated = await profile._validate_profile_nip05()
@@ -707,7 +847,21 @@ class Profile(BaseModel):
         for hashtag in data.get("hashtags", []):
             profile.add_hashtag(hashtag)
         profile.locations = set(data.get("locations", []))
-        profile.set_namespace(data.get("namespace", ""))
+        # Handle backward compatibility: support both "namespace" (old) and "namespaces" (new)
+        if "namespaces" in data:
+            profile.set_namespace(data.get("namespaces", []))
+        elif "namespace" in data:
+            # Old format: single namespace string
+            namespace_value = data.get("namespace", "")
+            if namespace_value:
+                profile.set_namespace([namespace_value])
+            else:
+                profile.set_namespace([])
+        # Load namespace_profile_types
+        namespace_profile_types = data.get("namespace_profile_types", {})
+        if isinstance(namespace_profile_types, dict):
+            for namespace, profile_type_str in namespace_profile_types.items():
+                profile.set_profile_type(profile_type_str, namespace=namespace)
         profile.set_name(data.get("name", ""))
         profile.set_nip05(data.get("nip05", ""))
         profile.set_picture(data.get("picture", ""))
