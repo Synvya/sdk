@@ -1032,6 +1032,29 @@ class BuyerTools(Toolkit):
         if profile_type:
             filters["profile_type"] = profile_type
 
+        # Store namespace_profile_types mapping in metadata
+        namespace_profile_types = profile.namespace_profile_types
+        if namespace_profile_types:
+            filters["namespace_profile_types"] = namespace_profile_types
+            # Add boolean filters for each namespace→profile_type mapping
+            for namespace, profile_type_str in namespace_profile_types.items():
+                # Format: profile_type_com.synvya.merchant:restaurant
+                filter_key = f"profile_type_{namespace}:{profile_type_str}"
+                filters[filter_key] = True
+
+        # Store external_identities list in metadata
+        external_identities = profile.get_external_identities()
+        if external_identities:
+            filters["external_identities"] = external_identities
+            # Add boolean filters for each external identity
+            for ext_id in external_identities:
+                platform = ext_id.get("platform", "")
+                identity = ext_id.get("identity", "")
+                if platform and identity:
+                    # Format: external_identity_com.synvya.chamber:snovalley
+                    filter_key = f"external_identity_{platform}:{identity}"
+                    filters[filter_key] = True
+
         for tag in profile.get_hashtags():
             filters[f"hashtag_{self._normalize_hashtag(tag)}"] = True
 
