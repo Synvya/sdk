@@ -112,7 +112,7 @@ async def main() -> None:
     profile.add_label(CATEGORY, NAMESPACE)
     profile.set_city("Snoqualmie")
     profile.set_state("WA")
-    profile.set_country("USA")
+    profile.set_country("US")
     profile.set_zip_code("98065")
     profile.set_street("38625 SE King Street")
     profile.set_email("info@TrainMuseum.org")

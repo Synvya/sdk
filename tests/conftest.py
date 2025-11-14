@@ -167,7 +167,7 @@ def merchant_city_fixture() -> str:
 @pytest.fixture(scope="session", name="merchant_country")
 def merchant_country_fixture() -> str:
     """Fixture providing the test profile country"""
-    return "USA"
+    return "US"
 
 
 @pytest.fixture(scope="session", name="merchant_email")

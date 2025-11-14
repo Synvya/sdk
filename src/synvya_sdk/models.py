@@ -495,7 +495,20 @@ class Profile(BaseModel):
         self.city = city
 
     def set_country(self, country: str) -> None:
-        self.country = country
+        """
+        Set the country code using ISO 3166-1 alpha-2 format.
+
+        Args:
+            country: 2-letter ISO 3166-1 alpha-2 country code (e.g., "US", "GB", "FR")
+
+        Raises:
+            ValueError: if the country code is not a valid ISO 3166-1 alpha-2 format
+        """
+        if country and not self._validate_country_code(country):
+            raise ValueError(
+                f"Country code must be a valid ISO 3166-1 alpha-2 format (2 uppercase letters), got: {country}"
+            )
+        self.country = country.upper() if country else ""
 
     def set_created_at(self, created_at: int) -> None:
         self.created_at = created_at
@@ -673,6 +686,22 @@ class Profile(BaseModel):
             return ""
         return url
 
+    @staticmethod
+    def _validate_country_code(country: str) -> bool:
+        """
+        Validate that a country code is in ISO 3166-1 alpha-2 format.
+
+        Args:
+            country: Country code to validate
+
+        Returns:
+            bool: True if the country code is valid ISO 3166-1 alpha-2 format, False otherwise
+        """
+        if not country:
+            return True  # Empty string is allowed
+        # ISO 3166-1 alpha-2 codes are exactly 2 uppercase letters
+        return bool(re.match(r"^[A-Z]{2}$", country.upper()))
+
     @classmethod
     @deprecated(
         reason="Method is incomplete and lacks namespace/type/hashtags logic",
@@ -767,31 +796,30 @@ class Profile(BaseModel):
                 if len(tag_as_vec) >= 2:
                     tag_content = tag_as_vec[1]
                     if ":" in tag_content:
+                        parts = tag_content.split(":", 2)
+                        if len(parts) >= 3 and parts[0] == "postalAddress":
+                            # Handle schema.org PostalAddress format (NIP-73)
+                            address_type = parts[1]
+                            address_value = parts[2]
+                            if address_type == "streetAddress":
+                                profile.set_street(address_value)
+                            elif address_type == "addressLocality":
+                                profile.set_city(address_value)
+                            elif address_type == "addressRegion":
+                                profile.set_state(address_value)
+                            elif address_type == "postalCode":
+                                profile.set_zip_code(address_value)
+                            elif address_type == "addressCountry":
+                                profile.set_country(address_value)
+                            continue
+
                         claim_type, identity = tag_content.split(":", 1)
 
-                        # Check if this is a legacy claim type (email, phone, location)
+                        # Check if this is a legacy claim type (email, phone)
                         if claim_type == "email":
                             profile.set_email(identity)
                         elif claim_type == "phone":
                             profile.set_phone(identity)
-                        elif claim_type == "location":
-                            # Parse location string into components
-                            # Expected format: street, city, state, country, zip_code
-                            # Modify expected format to: street, city, state, zip_code, country
-                            location_parts = [
-                                part.strip() for part in identity.split(",")
-                            ]
-
-                            if len(location_parts) >= 1:
-                                profile.set_street(location_parts[0])
-                            if len(location_parts) >= 2:
-                                profile.set_city(location_parts[1])
-                            if len(location_parts) >= 3:
-                                profile.set_state(location_parts[2])
-                            if len(location_parts) >= 4:
-                                profile.set_zip_code(location_parts[3])
-                            if len(location_parts) >= 5:
-                                profile.set_country(location_parts[4])
                         else:
                             # Not a legacy claim type - treat as NIP-39 external identity
                             # Check if this is a NIP-39 format tag: ["i", "platform:identity", "proof"]

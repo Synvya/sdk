@@ -1310,28 +1310,61 @@ class NostrClient:
                 ]
             )
 
-        # Location tag construction
-        locationt = ""
+        # Address tags using schema.org PostalAddress format (NIP-73)
+        address_tags = []
         if (street := profile.get_street()) != "":
-            locationt = f"{street}"
-        if (city := profile.get_city()) != "":
-            locationt += f", {city}"
-        if (state := profile.get_state()) != "":
-            locationt += f", {state}"
-        if (zip_code := profile.get_zip_code()) != "":
-            locationt += f", {zip_code}"
-        if (country := profile.get_country()) != "":
-            locationt += f", {country}"
-
-        if locationt != "":
-            event_builder = event_builder.tags(
-                [
-                    Tag.custom(
-                        TagKind.SINGLE_LETTER(SingleLetterTag.lowercase(Alphabet.I)),
-                        [f"location:{locationt}", ""],
-                    ),
-                ]
+            address_tags.append(
+                Tag.custom(
+                    TagKind.SINGLE_LETTER(SingleLetterTag.lowercase(Alphabet.I)),
+                    [
+                        f"postalAddress:streetAddress:{street}",
+                        "https://schema.org/streetAddress",
+                    ],
+                )
             )
+        if (city := profile.get_city()) != "":
+            address_tags.append(
+                Tag.custom(
+                    TagKind.SINGLE_LETTER(SingleLetterTag.lowercase(Alphabet.I)),
+                    [
+                        f"postalAddress:addressLocality:{city}",
+                        "https://schema.org/addressLocality",
+                    ],
+                )
+            )
+        if (state := profile.get_state()) != "":
+            address_tags.append(
+                Tag.custom(
+                    TagKind.SINGLE_LETTER(SingleLetterTag.lowercase(Alphabet.I)),
+                    [
+                        f"postalAddress:addressRegion:{state}",
+                        "https://schema.org/addressRegion",
+                    ],
+                )
+            )
+        if (zip_code := profile.get_zip_code()) != "":
+            address_tags.append(
+                Tag.custom(
+                    TagKind.SINGLE_LETTER(SingleLetterTag.lowercase(Alphabet.I)),
+                    [
+                        f"postalAddress:postalCode:{zip_code}",
+                        "https://schema.org/postalCode",
+                    ],
+                )
+            )
+        if (country := profile.get_country()) != "":
+            address_tags.append(
+                Tag.custom(
+                    TagKind.SINGLE_LETTER(SingleLetterTag.lowercase(Alphabet.I)),
+                    [
+                        f"postalAddress:addressCountry:{country}",
+                        "https://schema.org/addressCountry",
+                    ],
+                )
+            )
+
+        if address_tags:
+            event_builder = event_builder.tags(address_tags)
 
         if (geohash := profile.get_geohash()) != "":
             event_builder = event_builder.tags(
