@@ -1269,26 +1269,19 @@ class NostrClient:
 
         event_builder = EventBuilder.metadata(metadata_content)
 
-        # Build tags list with all namespaces and profile type
+        # Build tags list with qualified labels
         tags_list = []
 
-        # Add all namespace tags (uppercase L)
-        for namespace in profile.get_namespaces():
-            tags_list.append(
-                Tag.custom(
-                    TagKind.SINGLE_LETTER(SingleLetterTag.uppercase(Alphabet.L)),
-                    [namespace],
-                )
-            )
-
-        # Add label tags (lowercase l) for each (label, namespace) pair
+        # Add label tags (lowercase l) as qualified labels: ["l", "<namespace:label>"]
+        # This minimizes search load by fully qualifying labels
         labels = profile.labels
         for namespace, labels_list in labels.items():
             for label in labels_list:
+                qualified_label = f"{namespace}:{label}"
                 tags_list.append(
                     Tag.custom(
                         TagKind.SINGLE_LETTER(SingleLetterTag.lowercase(Alphabet.L)),
-                        [label, namespace],
+                        [qualified_label],
                     )
                 )
 

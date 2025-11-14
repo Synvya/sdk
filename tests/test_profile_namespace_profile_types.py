@@ -134,6 +134,49 @@ class TestProfileLabels:
         # Should use 'ugc' namespace
         assert profile.has_label("restaurant", "ugc")
 
+    async def test_profile_from_event_with_qualified_labels(self) -> None:
+        """Test that Profile.from_event() correctly parses qualified labels format"""
+        keys = Keys.generate()
+
+        metadata_record = MetadataRecord(
+            name="Test Profile",
+            about="Test about",
+        )
+        metadata = Metadata.from_record(metadata_record)
+
+        # Build event with qualified labels: ["l", "namespace:label"]
+        # This is the preferred format that minimizes search load
+        event_builder = EventBuilder.metadata(metadata).tags(
+            [
+                Tag.custom(
+                    TagKind.SINGLE_LETTER(SingleLetterTag.lowercase(Alphabet.L)),
+                    ["com.synvya.merchant:restaurant"],
+                ),
+                Tag.custom(
+                    TagKind.SINGLE_LETTER(SingleLetterTag.lowercase(Alphabet.L)),
+                    ["com.synvya.merchant:reservations"],
+                ),
+                Tag.custom(
+                    TagKind.SINGLE_LETTER(SingleLetterTag.lowercase(Alphabet.L)),
+                    ["com.synvya.chamber:retail"],
+                ),
+            ]
+        )
+
+        event = event_builder.sign_with_keys(keys)
+        profile = await Profile.from_event(event)
+
+        # Should correctly parse qualified labels
+        assert profile.has_label("restaurant", "com.synvya.merchant")
+        assert profile.has_label("reservations", "com.synvya.merchant")
+        assert profile.has_label("retail", "com.synvya.chamber")
+
+        # Verify namespaces are derived from labels
+        namespaces = profile.get_namespaces()
+        assert "com.synvya.merchant" in namespaces
+        assert "com.synvya.chamber" in namespaces
+        assert len(namespaces) == 2
+
     def test_profile_add_label(self, test_keys: NostrKeys) -> None:
         """Test add_label() method"""
         profile = Profile(public_key=test_keys.get_public_key(KeyEncoding.HEX))

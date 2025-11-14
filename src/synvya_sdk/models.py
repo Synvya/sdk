@@ -800,11 +800,14 @@ class Profile(BaseModel):
                     namespaces.append(namespace_content)
 
         # Collect ALL lowercase l tags (labels with optional namespace)
-        # Format: ["l", "label"] or ["l", "label", "namespace"]
+        # Supported formats:
+        # - Qualified: ["l", "namespace:label"] (preferred, minimizes search load)
+        # - Unqualified with namespace: ["l", "label", "namespace"]
+        # - Unqualified: ["l", "label"] (uses default namespace)
         # Per NIP-32:
         # - If multiple L tags exist, each l tag must specify which namespace it belongs to
         # - If no namespace specified and no L tags, use "ugc" namespace
-        # - Support qualified labels like ["l", "com.example.vocabulary:my-label"]
+        # - Qualified labels are preferred for efficiency
         default_namespace = "ugc" if not namespaces else None
         for tag in tag_vector:
             if tag.kind() == TagKind.SINGLE_LETTER(
