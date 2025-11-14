@@ -80,7 +80,6 @@ joker_profile.set_display_name(DISPLAY_NAME)
 joker_profile.set_nip05(NIP05)
 joker_profile.set_picture(PICTURE)
 joker_profile.set_website(WEBSITE)
-joker_profile.set_namespace(NAMESPACE)
 joker_profile.add_label(PROFILE_LABEL, PROFILE_NAMESPACE)
 joker_profile.add_hashtag(HASHTAG)
 

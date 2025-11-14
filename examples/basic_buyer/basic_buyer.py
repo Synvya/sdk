@@ -186,9 +186,6 @@ async def refresh_knowledge_base() -> None:
     labels = [
         Label.RETAIL,
         Label.RESTAURANT,
-        Label.SERVICE,
-        Label.BUSINESS,
-        Label.ENTERTAINMENT,
         Label.OTHER,
     ]
 

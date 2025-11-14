@@ -81,7 +81,6 @@ publisher_profile.set_display_name(DISPLAY_NAME)
 publisher_profile.set_nip05(NIP05)
 publisher_profile.set_picture(PICTURE)
 publisher_profile.set_website(WEBSITE)
-publisher_profile.set_namespace(NAMESPACE)
 publisher_profile.add_label(PROFILE_LABEL, PROFILE_NAMESPACE)
 publisher_profile.add_hashtag(HASHTAG)
 
