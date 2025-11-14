@@ -20,7 +20,7 @@ from typing import List, Optional, Union
 
 from pydantic import ConfigDict
 
-from synvya_sdk import Namespace, NostrClient, Profile, ProfileFilter, ProfileType
+from synvya_sdk import Label, Namespace, NostrClient, Profile, ProfileFilter
 
 try:
     from agno.tools import Toolkit
@@ -139,8 +139,8 @@ class DadJokeGamerTools(Toolkit):
 
         NostrClient.logger.info("Finding jokers")
         joker_filter = ProfileFilter(
-            namespace=Namespace.GAMER,
-            profile_type=ProfileType.GAMER_DADJOKE,
+            namespace=Namespace.GAMER.value,
+            label=Label.GAMER_DADJOKE.value,
             hashtags=["joker"],
         )
 
@@ -294,7 +294,9 @@ class DadJokeGamerTools(Toolkit):
                 profile = await self.nostr_client.async_get_profile(sender)
                 if (
                     Namespace.GAMER.value in profile.get_namespaces()
-                    and profile.get_profile_type() == ProfileType.GAMER_DADJOKE
+                    and profile.has_label(
+                        Label.GAMER_DADJOKE.value, Namespace.GAMER.value
+                    )
                     and "publisher" in profile.get_hashtags()
                 ):
                     message_content = json.loads(message_dict.get("content"))

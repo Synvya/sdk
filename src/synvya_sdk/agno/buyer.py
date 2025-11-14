@@ -15,12 +15,12 @@ from pydantic import ConfigDict
 from synvya_sdk import (
     ClassifiedListing,
     KeyEncoding,
+    Label,
     Namespace,
     NostrClient,
     Product,
     Profile,
     ProfileFilter,
-    ProfileType,
     Stall,
 )
 
@@ -205,7 +205,7 @@ class BuyerTools(Toolkit):
 
         Args:
             profile_filter_json: JSON string or dictionary representing a filter to apply to merchants.
-                                Format: {"namespace": "MERCHANT", "profile_type": "restaurant", "hashtags": ["pizza"]}
+                                Format: {"namespace": "com.synvya.merchant", "label": "restaurant", "hashtags": ["pizza"]}
 
         Returns:
             str: JSON string with status and count of merchants refreshed
@@ -241,46 +241,22 @@ class BuyerTools(Toolkit):
 
         # Extract the values
         namespace_str = filter_data.get("namespace")
-        profile_type_str = filter_data.get("profile_type")
+        label_str = filter_data.get("label")
         hashtags = filter_data.get("hashtags", [])
 
-        # Convert namespace string to Namespace enum
-        namespace = None
-        if namespace_str:
-            try:
-                namespace = getattr(Namespace, namespace_str)
-            except AttributeError as e:
-                if namespace_str in [n.value for n in Namespace]:
-                    # If the string is the value rather than the name
-                    namespace = [n for n in Namespace if n.value == namespace_str][0]
-                else:
-                    raise ValueError(f"Invalid namespace: {namespace_str}") from e
+        # Convert namespace string to namespace string (can be any string per NIP-32)
+        namespace = namespace_str if namespace_str else None
 
-        # Convert profile_type string to ProfileType enum
-        profile_type = None
-        if profile_type_str:
-            # Try to match by direct enum name first
-            try:
-                profile_type = getattr(
-                    ProfileType, f"MERCHANT_{profile_type_str.upper()}"
-                )
-            except AttributeError as e:
-                # Try to match by enum value
-                matching_types = [
-                    pt for pt in ProfileType if pt.value == profile_type_str
-                ]
-                if matching_types:
-                    profile_type = matching_types[0]
-                else:
-                    raise ValueError(
-                        f"Invalid profile_type: {profile_type_str}. "
-                        f"Valid values are: {[pt.value for pt in ProfileType]}"
-                    ) from e
+        # Label is just a string (can be any string per NIP-32)
+        label = label_str if label_str else None
+
+        if not namespace or not label:
+            raise ValueError("Both 'namespace' and 'label' are required in filter")
 
         # Create the ProfileFilter
         profile_filter = ProfileFilter(
             namespace=namespace,
-            profile_type=profile_type,
+            label=label,
             hashtags=hashtags,
         )
         buyer_logger.debug("Created ProfileFilter: %s", profile_filter)
@@ -343,10 +319,11 @@ class BuyerTools(Toolkit):
                     # Use the new namespace filter format
                     search_filters[f"namespace_{namespace}"] = True
 
-                # Add profile_type filter (exact match)
-                profile_type = filter_data.get("profile_type")
-                if profile_type:
-                    search_filters["profile_type"] = profile_type
+                # Add label filter (exact match for namespace:label pair)
+                label = filter_data.get("label")
+                if namespace and label:
+                    # Use the label_{namespace}:{label} format
+                    search_filters[f"label_{namespace}:{label}"] = True
 
                 # Add hashtag filters (boolean match per hashtag)
                 hashtags = filter_data.get("hashtags", [])

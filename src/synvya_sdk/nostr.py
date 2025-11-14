@@ -227,9 +227,7 @@ class NostrClient:
             Filter()
             .kind(Kind(0))
             .custom_tag(SingleLetterTag.uppercase(Alphabet.L), profile_filter.namespace)
-            .custom_tag(
-                SingleLetterTag.lowercase(Alphabet.L), profile_filter.profile_type
-            )
+            .custom_tag(SingleLetterTag.lowercase(Alphabet.L), profile_filter.label)
         )
         # hashtags don't work on filters :(
         # events_filter = events_filter.hashtags(["joker"])
@@ -431,9 +429,7 @@ class NostrClient:
                 .custom_tag(
                     SingleLetterTag.uppercase(Alphabet.L), profile_filter.namespace
                 )
-                .custom_tag(
-                    SingleLetterTag.lowercase(Alphabet.L), profile_filter.profile_type
-                )
+                .custom_tag(SingleLetterTag.lowercase(Alphabet.L), profile_filter.label)
             )
 
             NostrClient.logger.debug("Events filter: %s", events_filter)
@@ -1285,26 +1281,16 @@ class NostrClient:
                 )
             )
 
-        # Add profile type tag (lowercase l) with primary namespace
-        primary_namespace = profile.get_primary_namespace()
-        if primary_namespace:
-            tags_list.append(
-                Tag.custom(
-                    TagKind.SINGLE_LETTER(SingleLetterTag.lowercase(Alphabet.L)),
-                    [
-                        profile.get_profile_type(),
-                        primary_namespace,
-                    ],
+        # Add label tags (lowercase l) for each (label, namespace) pair
+        labels = profile.labels
+        for namespace, labels_list in labels.items():
+            for label in labels_list:
+                tags_list.append(
+                    Tag.custom(
+                        TagKind.SINGLE_LETTER(SingleLetterTag.lowercase(Alphabet.L)),
+                        [label, namespace],
+                    )
                 )
-            )
-        else:
-            # If no namespace, just add profile type
-            tags_list.append(
-                Tag.custom(
-                    TagKind.SINGLE_LETTER(SingleLetterTag.lowercase(Alphabet.L)),
-                    [profile.get_profile_type()],
-                )
-            )
 
         event_builder = event_builder.tags(tags_list)
 
