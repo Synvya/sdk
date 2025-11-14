@@ -17,14 +17,7 @@ from nostr_sdk import (
     TagKind,
 )
 
-from synvya_sdk import (
-    KeyEncoding,
-    Label,
-    Namespace,
-    NostrKeys,
-    Profile,
-    ProfileFilter,
-)
+from synvya_sdk import KeyEncoding, Label, Namespace, NostrKeys, Profile, ProfileFilter
 
 
 @pytest.fixture(scope="function", name="test_keys")
