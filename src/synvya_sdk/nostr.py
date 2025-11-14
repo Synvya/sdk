@@ -1293,8 +1293,8 @@ class NostrClient:
                     Tag.custom(
                         TagKind.SINGLE_LETTER(SingleLetterTag.lowercase(Alphabet.I)),
                         [
-                            f"email:{email}",
-                            "",
+                            f"email:mailto:{email}",
+                            "https://schema.org/email",
                         ],
                     ),
                 ]

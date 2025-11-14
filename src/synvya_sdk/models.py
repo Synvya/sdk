@@ -937,7 +937,14 @@ class Profile(BaseModel):
 
                         # Check if this is a legacy claim type (email, phone, telephone)
                         if claim_type == "email":
-                            profile.set_email(identity)
+                            # Handle both email:mailto:<email> and email:<email> formats
+                            if identity.startswith("mailto:"):
+                                # Remove mailto: prefix
+                                email_address = identity[7:]  # len("mailto:") = 7
+                                profile.set_email(email_address)
+                            else:
+                                # Legacy format: email:<email>
+                                profile.set_email(identity)
                         elif claim_type == "phone":
                             # Legacy phone format, convert to E.164
                             profile.set_phone(identity)
