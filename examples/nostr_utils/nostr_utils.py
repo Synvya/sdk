@@ -10,14 +10,7 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
-from synvya_sdk import (
-    KeyEncoding,
-    Label,
-    Namespace,
-    NostrClient,
-    NostrKeys,
-    Profile,
-)
+from synvya_sdk import KeyEncoding, Label, Namespace, NostrClient, NostrKeys, Profile
 
 
 async def test_nip96_upload(nostr_client: NostrClient) -> None:

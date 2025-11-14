@@ -5,7 +5,7 @@ import warnings
 from datetime import datetime, timezone
 from enum import Enum
 from functools import wraps
-from typing import ClassVar, Dict, List, Literal, Optional, Set
+from typing import ClassVar, Dict, List, Literal, Optional, Set, Tuple, Union
 
 import httpx
 from nostr_sdk import (
@@ -203,7 +203,6 @@ class Profile(BaseModel):
     hashtags: List[str] = []
     locations: Set[str] = Field(default_factory=set)
     name: str = ""
-    namespaces: List[str] = Field(default_factory=list)
     labels: Dict[str, List[str]] = Field(default_factory=dict)
     nip05: str = ""
     nip05_validated: bool = False
@@ -305,40 +304,15 @@ class Profile(BaseModel):
     def get_name(self) -> str:
         return self.name
 
-    def get_namespace(self) -> str:
-        """
-        Get the primary (first) namespace for backward compatibility.
-
-        .. deprecated:: 2.0.0
-            Use :meth:`get_primary_namespace` or :meth:`get_namespaces` instead.
-
-        Returns:
-            str: The first namespace or empty string if no namespaces exist
-        """
-        warnings.warn(
-            "get_namespace() is deprecated. Use get_primary_namespace() or get_namespaces() instead.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        return self.get_primary_namespace()
-
     def get_namespaces(self) -> List[str]:
         """
         Get all namespaces for this profile.
+        Namespaces are derived from the keys in the labels dictionary.
 
         Returns:
-            List[str]: List of all namespaces
+            List[str]: List of all namespaces that have labels
         """
-        return self.namespaces
-
-    def get_primary_namespace(self) -> str:
-        """
-        Get the primary (first) namespace.
-
-        Returns:
-            str: The first namespace or empty string if no namespaces exist
-        """
-        return self.namespaces[0] if self.namespaces else ""
+        return list(self.labels.keys())
 
     def get_nip05(self) -> str:
         return self.nip05
@@ -376,23 +350,27 @@ class Profile(BaseModel):
             if not self.labels[namespace]:
                 del self.labels[namespace]
 
-    def get_labels(self, namespace: Optional[str] = None) -> List[str]:
+    def get_labels(
+        self, namespace: Optional[str] = None
+    ) -> Union[List[str], List[Tuple[str, str]]]:
         """
         Get all labels for a namespace or all labels across all namespaces.
 
         Args:
-            namespace: Optional namespace to get labels for. If None, returns all labels across all namespaces.
+            namespace: Optional namespace to get labels for. If None, returns all (label, namespace) pairs.
 
         Returns:
-            List[str]: List of labels for the specified namespace, or all labels if namespace is None
+            List[str]: List of labels for the specified namespace
+            List[Tuple[str, str]]: List of (label, namespace) tuples if namespace is None
         """
         if namespace:
             return self.labels.get(namespace, [])
-        # Return all labels across all namespaces
-        all_labels = []
-        for labels_list in self.labels.values():
-            all_labels.extend(labels_list)
-        return all_labels
+        # Return all labels as (label, namespace) pairs
+        all_label_pairs = []
+        for namespace_key, labels_list in self.labels.items():
+            for label in labels_list:
+                all_label_pairs.append((label, namespace_key))
+        return all_label_pairs
 
     def has_label(self, label: str, namespace: str) -> bool:
         """
@@ -468,7 +446,7 @@ class Profile(BaseModel):
         return self.nip05_validated
 
     def matches_filter(self, profile_filter: ProfileFilter) -> bool:
-        if profile_filter.namespace not in self.namespaces:
+        if profile_filter.namespace not in self.labels:
             return False
         if not self.has_label(profile_filter.label, profile_filter.namespace):
             return False
@@ -505,47 +483,6 @@ class Profile(BaseModel):
 
     def set_name(self, name: str) -> None:
         self.name = name
-
-    def set_namespace(self, namespace: Namespace | str | List[str]) -> None:
-        """
-        Set namespace(s). Accepts a single namespace or a list of namespaces.
-        If a list is provided, it replaces all existing namespaces.
-        If a single namespace is provided, it replaces all existing namespaces with just that one.
-
-        Args:
-            namespace: Single namespace (Namespace enum, str) or list of namespace strings
-        """
-        if isinstance(namespace, list):
-            # Handle list of namespaces
-            self.namespaces = [str(ns) for ns in namespace if ns]
-        elif isinstance(namespace, str):
-            # Handle empty string by clearing namespaces
-            if not namespace:
-                self.namespaces = []
-                return
-            # Convert string to namespace value
-            self.namespaces = [namespace]
-        else:
-            # Handle Namespace enum
-            self.namespaces = [namespace.value]
-
-    def add_namespace(self, namespace: Namespace | str) -> None:
-        """
-        Add a namespace to the existing list of namespaces.
-        Does not add duplicates.
-
-        Args:
-            namespace: Namespace enum or string to add
-        """
-        if isinstance(namespace, str):
-            if not namespace:
-                return
-            namespace_str = namespace
-        else:
-            namespace_str = namespace.value
-
-        if namespace_str not in self.namespaces:
-            self.namespaces.append(namespace_str)
 
     def set_nip05(self, nip05: str) -> None:
         self.nip05 = nip05
@@ -587,7 +524,9 @@ class Profile(BaseModel):
             "hashtags": self.hashtags,
             "locations": list(self.locations),  # Convert set to list
             "name": self.name,
-            "namespaces": self.namespaces,
+            "namespaces": list(
+                self.labels.keys()
+            ),  # Derived from labels for backward compatibility
             "labels": self.labels,
             "nip05": self.nip05,
             "picture": self.picture,
@@ -616,7 +555,9 @@ class Profile(BaseModel):
             "hashtags": self.hashtags,
             "locations": (list(self.locations) if self.locations else []),
             "name": self.name,
-            "namespaces": self.namespaces,
+            "namespaces": list(
+                self.labels.keys()
+            ),  # Derived from labels for backward compatibility
             "labels": self.labels,
             "nip05": self.nip05,
             "picture": self.picture,
@@ -846,7 +787,9 @@ class Profile(BaseModel):
         if geohash_tag is not None:
             profile.set_geohash(geohash_tag.content())
 
-        # Collect ALL uppercase L tags (namespaces)
+        # Collect ALL uppercase L tags (namespaces) for reference
+        # Note: Namespaces are now derived from labels, so we collect L tags
+        # to help determine default namespace for l tags without explicit namespace
         namespaces: List[str] = []
         for tag in tag_vector:
             if tag.kind() == TagKind.SINGLE_LETTER(
@@ -855,8 +798,6 @@ class Profile(BaseModel):
                 namespace_content = tag.content()
                 if namespace_content and namespace_content not in namespaces:
                     namespaces.append(namespace_content)
-        if namespaces:
-            profile.set_namespace(namespaces)
 
         # Collect ALL lowercase l tags (labels with optional namespace)
         # Format: ["l", "label"] or ["l", "label", "namespace"]
@@ -944,17 +885,9 @@ class Profile(BaseModel):
         for hashtag in data.get("hashtags", []):
             profile.add_hashtag(hashtag)
         profile.locations = set(data.get("locations", []))
-        # Handle backward compatibility: support both "namespace" (old) and "namespaces" (new)
-        if "namespaces" in data:
-            profile.set_namespace(data.get("namespaces", []))
-        elif "namespace" in data:
-            # Old format: single namespace string
-            namespace_value = data.get("namespace", "")
-            if namespace_value:
-                profile.set_namespace([namespace_value])
-            else:
-                profile.set_namespace([])
-        # Load labels
+        # Load labels - namespaces will be automatically derived from labels
+        # Note: "namespaces" and "namespace" fields in JSON are ignored
+        # as namespaces are now derived from the labels dictionary
         labels = data.get("labels", {})
         if isinstance(labels, dict):
             for namespace, labels_list in labels.items():

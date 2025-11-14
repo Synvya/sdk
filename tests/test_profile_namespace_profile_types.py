@@ -187,9 +187,10 @@ class TestProfileLabels:
         # Get all labels
         all_labels = profile.get_labels()
         assert len(all_labels) == 3
-        assert "restaurant" in all_labels
-        assert "reservations" in all_labels
-        assert "retail" in all_labels
+        # Now returns list of (label, namespace) tuples
+        assert ("restaurant", "com.synvya.merchant") in all_labels
+        assert ("reservations", "com.synvya.merchant") in all_labels
+        assert ("retail", "com.synvya.chamber") in all_labels
 
     def test_profile_get_namespaces_for_label(self, test_keys: NostrKeys) -> None:
         """Test get_namespaces_for_label() method"""

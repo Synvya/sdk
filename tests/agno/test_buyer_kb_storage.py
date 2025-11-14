@@ -46,7 +46,6 @@ async def test_store_profile_in_kb_with_labels(
     # Create a profile with labels
     profile = Profile(public_key=test_keys.get_public_key(KeyEncoding.HEX))
     profile.set_name("Test Merchant")
-    profile.set_namespace(["com.synvya.merchant", "com.synvya.chamber"])
     profile.add_label("restaurant", "com.synvya.merchant")
     profile.add_label("reservations", "com.synvya.merchant")
     profile.add_label("test-chamber", "com.synvya.chamber")
@@ -164,7 +163,6 @@ async def test_store_profile_in_kb_with_both_labels_and_external_identities(
     # Create a profile with both labels and external identities
     profile = Profile(public_key=test_keys.get_public_key(KeyEncoding.HEX))
     profile.set_name("Test Merchant")
-    profile.set_namespace(["com.synvya.merchant"])
     profile.add_label("restaurant", "com.synvya.merchant")
     profile.add_external_identity("com.synvya.chamber", "snovalley", "1234")
 
@@ -223,7 +221,6 @@ async def test_store_profile_in_kb_without_labels_or_external_identities(
     # Create a profile without labels or external identities
     profile = Profile(public_key=test_keys.get_public_key(KeyEncoding.HEX))
     profile.set_name("Test Merchant")
-    profile.set_namespace(["com.synvya.merchant"])
 
     # Create BuyerTools with mocked dependencies
     with patch("synvya_sdk.NostrClient.create") as mock_create:

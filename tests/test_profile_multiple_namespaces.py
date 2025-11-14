@@ -30,10 +30,10 @@ class TestProfileMultipleNamespaces:
     """Test Profile multiple namespaces functionality"""
 
     async def test_profile_from_event_with_multiple_namespaces(self) -> None:
-        """Test that Profile.from_event() collects all namespace tags"""
+        """Test that Profile.from_event() collects namespaces from labels"""
         keys = Keys.generate()
 
-        # Create a kind:0 event with multiple namespace tags
+        # Create a kind:0 event with multiple namespace tags and labels
         metadata_record = MetadataRecord(
             name="Test Profile",
             about="Test about",
@@ -41,7 +41,7 @@ class TestProfileMultipleNamespaces:
         )
         metadata = Metadata.from_record(metadata_record)
 
-        # Build event with multiple L tags (namespaces)
+        # Build event with multiple L tags (namespaces) and l tags (labels)
         event_builder = EventBuilder.metadata(metadata).tags(
             [
                 Tag.custom(
@@ -56,6 +56,10 @@ class TestProfileMultipleNamespaces:
                     TagKind.SINGLE_LETTER(SingleLetterTag.lowercase(Alphabet.L)),
                     ["restaurant", "com.synvya.merchant"],
                 ),
+                Tag.custom(
+                    TagKind.SINGLE_LETTER(SingleLetterTag.lowercase(Alphabet.L)),
+                    ["retail", "com.synvya.chamber"],
+                ),
             ]
         )
 
@@ -64,14 +68,14 @@ class TestProfileMultipleNamespaces:
         # Parse event to Profile
         profile = await Profile.from_event(event)
 
-        # Should have both namespaces
+        # Should have both namespaces (derived from labels)
         namespaces = profile.get_namespaces()
         assert len(namespaces) == 2
         assert "com.synvya.merchant" in namespaces
         assert "com.synvya.chamber" in namespaces
 
     async def test_profile_from_event_with_single_namespace(self) -> None:
-        """Test that Profile.from_event() works with single namespace"""
+        """Test that Profile.from_event() works with single namespace from labels"""
         keys = Keys.generate()
 
         metadata_record = MetadataRecord(
@@ -86,6 +90,10 @@ class TestProfileMultipleNamespaces:
                     TagKind.SINGLE_LETTER(SingleLetterTag.uppercase(Alphabet.L)),
                     ["com.synvya.merchant"],
                 ),
+                Tag.custom(
+                    TagKind.SINGLE_LETTER(SingleLetterTag.lowercase(Alphabet.L)),
+                    ["restaurant", "com.synvya.merchant"],
+                ),
             ]
         )
 
@@ -97,7 +105,7 @@ class TestProfileMultipleNamespaces:
         assert "com.synvya.merchant" in namespaces
 
     async def test_profile_from_event_with_no_namespace(self) -> None:
-        """Test that Profile.from_event() handles no namespace tags"""
+        """Test that Profile.from_event() handles no namespace/label tags"""
         keys = Keys.generate()
 
         metadata_record = MetadataRecord(
@@ -111,43 +119,25 @@ class TestProfileMultipleNamespaces:
 
         namespaces = profile.get_namespaces()
         assert len(namespaces) == 0
-        assert profile.get_primary_namespace() == ""
 
-    def test_profile_get_primary_namespace(self, test_keys: NostrKeys) -> None:
-        """Test get_primary_namespace() returns first namespace"""
+    def test_profile_get_namespaces_derived_from_labels(
+        self, test_keys: NostrKeys
+    ) -> None:
+        """Test that get_namespaces() returns namespaces derived from labels"""
         profile = Profile(public_key=test_keys.get_public_key(KeyEncoding.HEX))
-        profile.set_namespace(["com.synvya.merchant", "com.synvya.chamber"])
-
-        assert profile.get_primary_namespace() == "com.synvya.merchant"
-        assert profile.get_namespaces() == ["com.synvya.merchant", "com.synvya.chamber"]
-
-    def test_profile_add_namespace(self, test_keys: NostrKeys) -> None:
-        """Test add_namespace() method"""
-        profile = Profile(public_key=test_keys.get_public_key(KeyEncoding.HEX))
-        profile.set_namespace("com.synvya.merchant")
-        profile.add_namespace("com.synvya.chamber")
+        profile.add_label("restaurant", "com.synvya.merchant")
+        profile.add_label("retail", "com.synvya.chamber")
 
         namespaces = profile.get_namespaces()
         assert len(namespaces) == 2
         assert "com.synvya.merchant" in namespaces
         assert "com.synvya.chamber" in namespaces
 
-    def test_profile_add_namespace_no_duplicates(self, test_keys: NostrKeys) -> None:
-        """Test that add_namespace() doesn't add duplicates"""
-        profile = Profile(public_key=test_keys.get_public_key(KeyEncoding.HEX))
-        profile.set_namespace("com.synvya.merchant")
-        profile.add_namespace("com.synvya.merchant")
-
-        namespaces = profile.get_namespaces()
-        assert len(namespaces) == 1
-        assert "com.synvya.merchant" in namespaces
-
     def test_profile_matches_filter_with_multiple_namespaces(
         self, test_keys: NostrKeys
     ) -> None:
         """Test that matches_filter() works with multiple namespaces"""
         profile = Profile(public_key=test_keys.get_public_key(KeyEncoding.HEX))
-        profile.set_namespace(["com.synvya.merchant", "com.synvya.chamber"])
         profile.add_label(Label.RESTAURANT.value, "com.synvya.merchant")
         profile.add_label(Label.RESTAURANT.value, "com.synvya.chamber")
 
@@ -176,9 +166,10 @@ class TestProfileMultipleNamespaces:
     def test_profile_to_json_with_multiple_namespaces(
         self, test_keys: NostrKeys
     ) -> None:
-        """Test that to_json() serializes namespaces as list"""
+        """Test that to_json() serializes namespaces derived from labels"""
         profile = Profile(public_key=test_keys.get_public_key(KeyEncoding.HEX))
-        profile.set_namespace(["com.synvya.merchant", "com.synvya.chamber"])
+        profile.add_label("restaurant", "com.synvya.merchant")
+        profile.add_label("retail", "com.synvya.chamber")
 
         json_str = profile.to_json()
         data = json.loads(json_str)
@@ -192,11 +183,14 @@ class TestProfileMultipleNamespaces:
     def test_profile_from_json_with_multiple_namespaces(
         self, test_keys: NostrKeys
     ) -> None:
-        """Test that from_json() deserializes namespaces list"""
+        """Test that from_json() deserializes labels and derives namespaces"""
         public_key = test_keys.get_public_key(KeyEncoding.HEX)
         json_data = {
             "public_key": public_key,
-            "namespaces": ["com.synvya.merchant", "com.synvya.chamber"],
+            "labels": {
+                "com.synvya.merchant": ["restaurant"],
+                "com.synvya.chamber": ["retail"],
+            },
         }
 
         profile = Profile.from_json(json.dumps(json_data))
@@ -209,26 +203,20 @@ class TestProfileMultipleNamespaces:
     def test_profile_from_json_backward_compatibility(
         self, test_keys: NostrKeys
     ) -> None:
-        """Test that from_json() handles old format (single namespace string)"""
+        """Test that from_json() ignores old namespace fields, only uses labels"""
         public_key = test_keys.get_public_key(KeyEncoding.HEX)
         json_data = {
             "public_key": public_key,
-            "namespace": "com.synvya.merchant",  # Old format
+            "namespace": "com.synvya.merchant",  # Old format - should be ignored
+            "labels": {
+                "com.synvya.chamber": ["retail"],  # Only labels create namespaces
+            },
         }
 
         profile = Profile.from_json(json.dumps(json_data))
 
         namespaces = profile.get_namespaces()
+        # Should only have namespace from labels, not from old namespace field
         assert len(namespaces) == 1
-        assert "com.synvya.merchant" in namespaces
-
-    def test_profile_get_namespace_deprecated(self, test_keys: NostrKeys) -> None:
-        """Test that get_namespace() still works but is deprecated"""
-        profile = Profile(public_key=test_keys.get_public_key(KeyEncoding.HEX))
-        profile.set_namespace(["com.synvya.merchant", "com.synvya.chamber"])
-
-        # Should return first namespace with deprecation warning
-        with pytest.warns(DeprecationWarning):
-            namespace = profile.get_namespace()
-
-        assert namespace == "com.synvya.merchant"
+        assert "com.synvya.chamber" in namespaces
+        assert "com.synvya.merchant" not in namespaces
