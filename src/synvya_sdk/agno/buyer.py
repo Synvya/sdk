@@ -1019,9 +1019,6 @@ class BuyerTools(Toolkit):
             return
 
         namespaces = profile.get_namespaces()
-        profile_type = (
-            profile.get_profile_type().value if profile.get_profile_type() else None
-        )
         filters: dict[str, Any] = {}
         # Store all namespaces so profiles can be found by any of their namespaces
         if namespaces:
@@ -1029,18 +1026,17 @@ class BuyerTools(Toolkit):
             # Also store each namespace individually for filtering
             for namespace in namespaces:
                 filters[f"namespace_{namespace}"] = True
-        if profile_type:
-            filters["profile_type"] = profile_type
 
-        # Store namespace_profile_types mapping in metadata
-        namespace_profile_types = profile.namespace_profile_types
-        if namespace_profile_types:
-            filters["namespace_profile_types"] = namespace_profile_types
-            # Add boolean filters for each namespace→profile_type mapping
-            for namespace, profile_type_str in namespace_profile_types.items():
-                # Format: profile_type_com.synvya.merchant:restaurant
-                filter_key = f"profile_type_{namespace}:{profile_type_str}"
-                filters[filter_key] = True
+        # Store labels mapping in metadata
+        labels = profile.labels
+        if labels:
+            filters["labels"] = labels
+            # Add boolean filters for each (namespace, label) pair
+            for namespace, labels_list in labels.items():
+                for label in labels_list:
+                    # Format: label_com.synvya.merchant:restaurant
+                    filter_key = f"label_{namespace}:{label}"
+                    filters[filter_key] = True
 
         # Store external_identities list in metadata
         external_identities = profile.get_external_identities()
