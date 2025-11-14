@@ -786,6 +786,11 @@ class Profile(BaseModel):
 
         tag_vector: List[Tag] = tags.to_vec()
 
+        # Variables for geo tag processing
+        geohash_found = False
+        latitude: Optional[float] = None
+        longitude: Optional[float] = None
+
         for tag in tag_vector:
             if tag.kind() == TagKind.SINGLE_LETTER(
                 SingleLetterTag.lowercase(Alphabet.I)
@@ -813,6 +818,43 @@ class Profile(BaseModel):
                                 profile.set_country(address_value)
                             continue
 
+                        # Handle geo tags (NIP-73)
+                        if tag_content.startswith("geo:"):
+                            geo_parts = tag_content.split(":", 2)
+                            if len(geo_parts) == 2 and geo_parts[1]:
+                                # Found geo:<geohash> tag
+                                profile.set_geohash(geo_parts[1])
+                                geohash_found = True
+                            elif len(geo_parts) == 3:
+                                # Check for geo:latitude: or geo:longitude:
+                                if geo_parts[1] == "latitude":
+                                    try:
+                                        latitude = float(geo_parts[2])
+                                    except (ValueError, TypeError):
+                                        pass
+                                elif geo_parts[1] == "longitude":
+                                    try:
+                                        longitude = float(geo_parts[2])
+                                    except (ValueError, TypeError):
+                                        pass
+                            continue
+
+                        if tag_content.startswith("geoCoordinates:"):
+                            # Alternative format: geoCoordinates:latitude: or geoCoordinates:longitude:
+                            geo_coord_parts = tag_content.split(":", 2)
+                            if len(geo_coord_parts) == 3:
+                                if geo_coord_parts[1] == "latitude":
+                                    try:
+                                        latitude = float(geo_coord_parts[2])
+                                    except (ValueError, TypeError):
+                                        pass
+                                elif geo_coord_parts[1] == "longitude":
+                                    try:
+                                        longitude = float(geo_coord_parts[2])
+                                    except (ValueError, TypeError):
+                                        pass
+                            continue
+
                         claim_type, identity = tag_content.split(":", 1)
 
                         # Check if this is a legacy claim type (email, phone)
@@ -837,11 +879,22 @@ class Profile(BaseModel):
         for hashtag in hashtag_list:
             profile.add_hashtag(hashtag)
 
-        geohash_tag = tags.find(
-            TagKind.SINGLE_LETTER(SingleLetterTag.lowercase(Alphabet.G))
-        )
-        if geohash_tag is not None:
-            profile.set_geohash(geohash_tag.content())
+        # Priority 2: If no geohash found, calculate from latitude/longitude
+        if not geohash_found and latitude is not None and longitude is not None:
+            try:
+                import pygeohash as pgh
+
+                calculated_geohash = pgh.encode(latitude, longitude)
+                profile.set_geohash(calculated_geohash)
+            except ImportError:
+                # pygeohash not available, cannot calculate geohash
+                profile.logger.warning(
+                    "pygeohash library not available. Cannot calculate geohash from latitude/longitude."
+                )
+            except Exception as e:
+                profile.logger.warning(
+                    "Failed to calculate geohash from latitude/longitude: %s", e
+                )
 
         # Collect ALL uppercase L tags (namespaces) for reference
         # Note: Namespaces are now derived from labels, so we collect L tags

@@ -1366,15 +1366,49 @@ class NostrClient:
         if address_tags:
             event_builder = event_builder.tags(address_tags)
 
+        # Geohash tags using NIP-73 format
         if (geohash := profile.get_geohash()) != "":
-            event_builder = event_builder.tags(
-                [
+            geo_tags = [
+                Tag.custom(
+                    TagKind.SINGLE_LETTER(SingleLetterTag.lowercase(Alphabet.I)),
+                    [f"geo:{geohash.lower()}", "https://geohash.org"],
+                ),
+            ]
+            # Try to decode geohash to get latitude and longitude
+            try:
+                import pygeohash as pgh
+
+                lat, lon = pgh.decode(geohash)
+                geo_tags.append(
                     Tag.custom(
-                        TagKind.SINGLE_LETTER(SingleLetterTag.lowercase(Alphabet.G)),
-                        [geohash],
-                    ),
-                ]
-            )
+                        TagKind.SINGLE_LETTER(SingleLetterTag.lowercase(Alphabet.I)),
+                        [
+                            f"geo:latitude:{lat}",
+                            "https://schema.org/latitude",
+                        ],
+                    )
+                )
+                geo_tags.append(
+                    Tag.custom(
+                        TagKind.SINGLE_LETTER(SingleLetterTag.lowercase(Alphabet.I)),
+                        [
+                            f"geo:longitude:{lon}",
+                            "https://schema.org/longitude",
+                        ],
+                    )
+                )
+            except ImportError:
+                # pygeohash not available, skip lat/lon encoding
+                NostrClient.logger.debug(
+                    "pygeohash library not available. Skipping latitude/longitude encoding."
+                )
+            except Exception as e:
+                # Failed to decode geohash, skip lat/lon encoding
+                NostrClient.logger.warning(
+                    "Failed to decode geohash to latitude/longitude: %s", e
+                )
+
+            event_builder = event_builder.tags(geo_tags)
 
         event_builder = event_builder.tags(
             [Tag.hashtag(hashtag) for hashtag in profile.get_hashtags()]
