@@ -137,24 +137,30 @@ class ProfileFilter(BaseModel):
 
     def __init__(
         self,
-        namespace: str,
-        label: str,
+        namespace: str | Namespace,
+        label: str | Label,
         hashtags: Optional[List[str]] = None,
     ) -> None:
         """
         Initialize a ProfileFilter instance.
 
         Args:
-            namespace: Namespace to filter by
-            label: Label to filter by
+            namespace: Namespace string or Namespace enum to filter by
+            label: Label string or Label enum to filter by
             hashtags: Optional list of hashtags to filter by
         """
+        # Convert label to string if it's an enum
+        label_str = label.value if isinstance(label, Label) else label
+        # Convert namespace to string if it's an enum
+        namespace_str = (
+            namespace.value if isinstance(namespace, Namespace) else namespace
+        )
         normalized_hashtags = (
             [self._normalize_hashtag(tag) for tag in hashtags] if hashtags else []
         )
-        super().__init__(namespace=namespace, label=label, hashtags=normalized_hashtags)
-        self.namespace = namespace
-        self.label = label
+        super().__init__(
+            namespace=namespace_str, label=label_str, hashtags=normalized_hashtags
+        )
         self.hashtags = normalized_hashtags
 
     def to_json(self) -> str:
@@ -323,48 +329,62 @@ class Profile(BaseModel):
     def get_picture(self) -> str:
         return self.picture
 
-    def add_label(self, label: str, namespace: str) -> None:
+    def add_label(self, label: str | Label, namespace: str | Namespace) -> None:
         """
         Add a (label, namespace) pair to the profile.
 
         Args:
-            label: Label string to add
-            namespace: Namespace string for the label
+            label: Label string or Label enum to add
+            namespace: Namespace string or Namespace enum for the label
         """
-        if namespace not in self.labels:
-            self.labels[namespace] = []
-        if label not in self.labels[namespace]:
-            self.labels[namespace].append(label)
+        # Convert label to string if it's an enum
+        label_str = label.value if isinstance(label, Label) else label
+        # Convert namespace to string if it's an enum
+        namespace_str = (
+            namespace.value if isinstance(namespace, Namespace) else namespace
+        )
+        if namespace_str not in self.labels:
+            self.labels[namespace_str] = []
+        if label_str not in self.labels[namespace_str]:
+            self.labels[namespace_str].append(label_str)
 
-    def remove_label(self, label: str, namespace: str) -> None:
+    def remove_label(self, label: str | Label, namespace: str | Namespace) -> None:
         """
         Remove a (label, namespace) pair from the profile.
 
         Args:
-            label: Label string to remove
-            namespace: Namespace string for the label
+            label: Label string or Label enum to remove
+            namespace: Namespace string or Namespace enum for the label
         """
-        if namespace in self.labels:
-            if label in self.labels[namespace]:
-                self.labels[namespace].remove(label)
-            if not self.labels[namespace]:
-                del self.labels[namespace]
+        # Convert label to string if it's an enum
+        label_str = label.value if isinstance(label, Label) else label
+        # Convert namespace to string if it's an enum
+        namespace_str = (
+            namespace.value if isinstance(namespace, Namespace) else namespace
+        )
+        if namespace_str in self.labels:
+            if label_str in self.labels[namespace_str]:
+                self.labels[namespace_str].remove(label_str)
+            if not self.labels[namespace_str]:
+                del self.labels[namespace_str]
 
     def get_labels(
-        self, namespace: Optional[str] = None
+        self, namespace: Optional[str | Namespace] = None
     ) -> Union[List[str], List[Tuple[str, str]]]:
         """
         Get all labels for a namespace or all labels across all namespaces.
 
         Args:
-            namespace: Optional namespace to get labels for. If None, returns all (label, namespace) pairs.
+            namespace: Optional namespace (string or Namespace enum) to get labels for. If None, returns all (label, namespace) pairs.
 
         Returns:
             List[str]: List of labels for the specified namespace
             List[Tuple[str, str]]: List of (label, namespace) tuples if namespace is None
         """
         if namespace:
-            return self.labels.get(namespace, [])
+            # Convert namespace to string if it's an enum
+            namespace_str = namespace if isinstance(namespace, str) else namespace.value
+            return self.labels.get(namespace_str, [])
         # Return all labels as (label, namespace) pairs
         all_label_pairs = []
         for namespace_key, labels_list in self.labels.items():
@@ -372,32 +392,40 @@ class Profile(BaseModel):
                 all_label_pairs.append((label, namespace_key))
         return all_label_pairs
 
-    def has_label(self, label: str, namespace: str) -> bool:
+    def has_label(self, label: str | Label, namespace: str | Namespace) -> bool:
         """
         Check if profile has a specific (label, namespace) pair.
 
         Args:
-            label: Label string to check
-            namespace: Namespace string to check
+            label: Label string or Label enum to check
+            namespace: Namespace string or Namespace enum to check
 
         Returns:
             bool: True if the profile has the (label, namespace) pair, False otherwise
         """
-        return namespace in self.labels and label in self.labels[namespace]
+        # Convert label to string if it's an enum
+        label_str = label.value if isinstance(label, Label) else label
+        # Convert namespace to string if it's an enum
+        namespace_str = (
+            namespace.value if isinstance(namespace, Namespace) else namespace
+        )
+        return namespace_str in self.labels and label_str in self.labels[namespace_str]
 
-    def get_namespaces_for_label(self, label: str) -> List[str]:
+    def get_namespaces_for_label(self, label: str | Label) -> List[str]:
         """
         Get all namespaces that have a specific label.
 
         Args:
-            label: Label string to search for
+            label: Label string or Label enum to search for
 
         Returns:
             List[str]: List of namespaces that have this label
         """
+        # Convert label to string if it's an enum
+        label_str = label.value if isinstance(label, Label) else label
         namespaces = []
         for namespace, labels_list in self.labels.items():
-            if label in labels_list:
+            if label_str in labels_list:
                 namespaces.append(namespace)
         return namespaces
 
