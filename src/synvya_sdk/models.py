@@ -200,12 +200,11 @@ class Profile(BaseModel):
     locations: Set[str] = Field(default_factory=set)
     name: str = ""
     namespaces: List[str] = Field(default_factory=list)
-    namespace_profile_types: Dict[str, str] = Field(default_factory=dict)
+    labels: Dict[str, List[str]] = Field(default_factory=dict)
     nip05: str = ""
     nip05_validated: bool = False
     picture: str = ""
     phone: str = ""
-    profile_type: Label = Label.OTHER_OTHER
     profile_url: str = ""
     state: str = ""
     street: str = ""
@@ -346,24 +345,79 @@ class Profile(BaseModel):
     def get_picture(self) -> str:
         return self.picture
 
-    def get_profile_type(self, namespace: Optional[str] = None) -> Label:
+    def add_label(self, label: str, namespace: str) -> None:
         """
-        Get profile type for a specific namespace or the primary profile type.
+        Add a (label, namespace) pair to the profile.
 
         Args:
-            namespace: Optional namespace to get profile type for. If None, returns primary profile type.
+            label: Label string to add
+            namespace: Namespace string for the label
+        """
+        if namespace not in self.labels:
+            self.labels[namespace] = []
+        if label not in self.labels[namespace]:
+            self.labels[namespace].append(label)
+
+    def remove_label(self, label: str, namespace: str) -> None:
+        """
+        Remove a (label, namespace) pair from the profile.
+
+        Args:
+            label: Label string to remove
+            namespace: Namespace string for the label
+        """
+        if namespace in self.labels:
+            if label in self.labels[namespace]:
+                self.labels[namespace].remove(label)
+            if not self.labels[namespace]:
+                del self.labels[namespace]
+
+    def get_labels(self, namespace: Optional[str] = None) -> List[str]:
+        """
+        Get all labels for a namespace or all labels across all namespaces.
+
+        Args:
+            namespace: Optional namespace to get labels for. If None, returns all labels across all namespaces.
 
         Returns:
-            Label: The profile type for the specified namespace or primary profile type
+            List[str]: List of labels for the specified namespace, or all labels if namespace is None
         """
-        if namespace and namespace in self.namespace_profile_types:
-            profile_type_str = self.namespace_profile_types[namespace]
-            try:
-                return Label(profile_type_str)
-            except ValueError:
-                # If not a valid Label enum, return primary
-                return self.profile_type
-        return self.profile_type
+        if namespace:
+            return self.labels.get(namespace, [])
+        # Return all labels across all namespaces
+        all_labels = []
+        for labels_list in self.labels.values():
+            all_labels.extend(labels_list)
+        return all_labels
+
+    def has_label(self, label: str, namespace: str) -> bool:
+        """
+        Check if profile has a specific (label, namespace) pair.
+
+        Args:
+            label: Label string to check
+            namespace: Namespace string to check
+
+        Returns:
+            bool: True if the profile has the (label, namespace) pair, False otherwise
+        """
+        return namespace in self.labels and label in self.labels[namespace]
+
+    def get_namespaces_for_label(self, label: str) -> List[str]:
+        """
+        Get all namespaces that have a specific label.
+
+        Args:
+            label: Label string to search for
+
+        Returns:
+            List[str]: List of namespaces that have this label
+        """
+        namespaces = []
+        for namespace, labels_list in self.labels.items():
+            if label in labels_list:
+                namespaces.append(namespace)
+        return namespaces
 
     def get_profile_url(self) -> str:
         return self.profile_url
@@ -412,7 +466,7 @@ class Profile(BaseModel):
     def matches_filter(self, profile_filter: ProfileFilter) -> bool:
         if profile_filter.namespace not in self.namespaces:
             return False
-        if self.profile_type != profile_filter.profile_type:
+        if not self.has_label(profile_filter.profile_type, profile_filter.namespace):
             return False
         if not all(hashtag in self.hashtags for hashtag in profile_filter.hashtags):
             return False
@@ -498,50 +552,6 @@ class Profile(BaseModel):
     def set_phone(self, phone: str) -> None:
         self.phone = phone
 
-    def set_profile_type(
-        self, profile_type: Label | str, namespace: Optional[str] = None
-    ) -> None:
-        """
-        Set profile type for a specific namespace or the primary profile type.
-
-        Args:
-            profile_type: Label enum or string to set
-            namespace: Optional namespace to set profile type for. If None, sets primary profile type.
-        """
-        if isinstance(profile_type, str):
-            # Try to convert string to Label enum, but allow invalid values for namespace-specific types
-            try:
-                profile_type_enum = Label(profile_type)
-                profile_type_str = profile_type
-            except ValueError:
-                # Invalid Label enum value - only allow for namespace-specific types
-                if namespace:
-                    profile_type_str = profile_type
-                    # Don't set enum for invalid values
-                    profile_type_enum = None
-                else:
-                    # For primary profile type, must be valid enum
-                    raise ValueError(
-                        f"Invalid profile type: '{profile_type}'. Must be a valid Label enum value."
-                    )
-        else:
-            profile_type_enum = profile_type
-            profile_type_str = profile_type.value
-
-        if namespace:
-            # Set profile type for specific namespace (can be any string)
-            self.namespace_profile_types[namespace] = profile_type_str
-            # Also update primary if this is the first namespace and we have a valid enum
-            if profile_type_enum and (
-                not self.profile_type or self.profile_type == Label.OTHER_OTHER
-            ):
-                self.profile_type = profile_type_enum
-        else:
-            # Set primary profile type (must be valid enum)
-            if profile_type_enum is None:
-                raise ValueError("Primary profile type must be a valid Label enum")
-            self.profile_type = profile_type_enum
-
     def set_state(self, state: str) -> None:
         self.state = state
 
@@ -574,13 +584,12 @@ class Profile(BaseModel):
             "locations": list(self.locations),  # Convert set to list
             "name": self.name,
             "namespaces": self.namespaces,
-            "namespace_profile_types": self.namespace_profile_types,
+            "labels": self.labels,
             "nip05": self.nip05,
             "picture": self.picture,
             "phone": self.phone,
             "profile_url": self.profile_url,
             "public_key": self.public_key,
-            "profile_type": self.profile_type,
             "state": self.state,
             "street": self.street,
             "website": self.website,
@@ -604,13 +613,12 @@ class Profile(BaseModel):
             "locations": (list(self.locations) if self.locations else []),
             "name": self.name,
             "namespaces": self.namespaces,
-            "namespace_profile_types": self.namespace_profile_types,
+            "labels": self.labels,
             "nip05": self.nip05,
             "picture": self.picture,
             "phone": self.phone,
             "profile_url": self.profile_url,
             "public_key": self.public_key,
-            "profile_type": self.profile_type.value,
             "state": self.state,
             "street": self.street,
             "website": self.website,
@@ -846,23 +854,25 @@ class Profile(BaseModel):
         if namespaces:
             profile.set_namespace(namespaces)
 
-        # Collect ALL lowercase l tags (profile types with optional namespace)
-        # Format: ["l", "profile_type"] or ["l", "profile_type", "namespace"]
+        # Collect ALL lowercase l tags (labels with optional namespace)
+        # Format: ["l", "label"] or ["l", "label", "namespace"]
+        # If no namespace specified and no L tags, use "ugc" namespace per NIP-32
+        default_namespace = "ugc" if not namespaces else namespaces[0]
         for tag in tag_vector:
             if tag.kind() == TagKind.SINGLE_LETTER(
                 SingleLetterTag.lowercase(Alphabet.L)
             ):
                 tag_as_vec = tag.as_vec()
                 if len(tag_as_vec) >= 2:
-                    profile_type_str = tag_as_vec[1]
+                    label_str = tag_as_vec[1]
                     # If there's a third element, it's the namespace
                     if len(tag_as_vec) >= 3:
                         namespace = tag_as_vec[2]
-                        # Store namespace-specific profile type
-                        profile.set_profile_type(profile_type_str, namespace=namespace)
+                        # Store label with namespace
+                        profile.add_label(label_str, namespace)
                     else:
-                        # No namespace specified, set as primary profile type
-                        profile.set_profile_type(profile_type_str)
+                        # No namespace specified, use default
+                        profile.add_label(label_str, default_namespace)
 
         try:
             profile.nip05_validated = await profile._validate_profile_nip05()
@@ -918,16 +928,17 @@ class Profile(BaseModel):
                 profile.set_namespace([namespace_value])
             else:
                 profile.set_namespace([])
-        # Load namespace_profile_types
-        namespace_profile_types = data.get("namespace_profile_types", {})
-        if isinstance(namespace_profile_types, dict):
-            for namespace, profile_type_str in namespace_profile_types.items():
-                profile.set_profile_type(profile_type_str, namespace=namespace)
+        # Load labels
+        labels = data.get("labels", {})
+        if isinstance(labels, dict):
+            for namespace, labels_list in labels.items():
+                if isinstance(labels_list, list):
+                    for label in labels_list:
+                        profile.add_label(label, namespace)
         profile.set_name(data.get("name", ""))
         profile.set_nip05(data.get("nip05", ""))
         profile.set_picture(data.get("picture", ""))
         profile.set_phone(data.get("phone", ""))
-        profile.set_profile_type(data.get("profile_type", Label.OTHER_OTHER))
         profile.set_state(data.get("state", ""))
         profile.set_street(data.get("street", ""))
         profile.set_website(data.get("website", ""))
