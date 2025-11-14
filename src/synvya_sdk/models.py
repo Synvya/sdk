@@ -532,7 +532,85 @@ class Profile(BaseModel):
         self.picture = self._validate_url(picture) if picture else ""
 
     def set_phone(self, phone: str) -> None:
-        self.phone = phone
+        """
+        Set the phone number, converting to E.164 format with RFC 3966 extension format if possible.
+
+        Args:
+            phone: Phone number in any format. Will be converted to E.164 format
+                   using the country code if available. Extensions will be preserved
+                   in RFC 3966 format (e.g., "+14258883030;ext=7202").
+        """
+        if not phone:
+            self.phone = ""
+            return
+
+        # Extract extension from phone number (handle various formats)
+        extension = None
+        phone_without_ext = phone
+
+        # Common extension patterns: "ext.", "ext", "extension", "x", "x."
+        extension_patterns = [
+            r"\s+ext\.?\s*(\d+)",
+            r"\s+extension\s+(\d+)",
+            r"\s+x\.?\s*(\d+)",
+            r";ext=(\d+)",  # RFC 3966 format
+        ]
+
+        for pattern in extension_patterns:
+            match = re.search(pattern, phone, re.IGNORECASE)
+            if match:
+                extension = match.group(1)
+                phone_without_ext = re.sub(
+                    pattern, "", phone, flags=re.IGNORECASE
+                ).strip()
+                break
+
+        # Try to convert to E.164 format using phonenumbers library
+        try:
+            import phonenumbers
+            from phonenumbers import NumberParseException
+
+            # If phone already starts with +, assume it's already in E.164 or close
+            if phone_without_ext.startswith("+"):
+                parsed = phonenumbers.parse(phone_without_ext, None)
+            elif self.country:
+                # Use country code to parse the phone number
+                parsed = phonenumbers.parse(phone_without_ext, self.country)
+            else:
+                # No country code available, try to parse as-is
+                parsed = phonenumbers.parse(phone_without_ext, None)
+
+            # Format as E.164 (international format with +)
+            e164_number = phonenumbers.format_number(
+                parsed, phonenumbers.PhoneNumberFormat.E164
+            )
+
+            # Append extension in RFC 3966 format if present
+            if extension:
+                self.phone = f"{e164_number};ext={extension}"
+            else:
+                self.phone = e164_number
+        except ImportError:
+            # phonenumbers library not available, store as-is
+            self.logger.warning(
+                "phonenumbers library not available. Phone number stored as-is without E.164 conversion."
+            )
+            self.phone = phone
+        except NumberParseException:
+            # Failed to parse phone number, store as-is
+            self.logger.warning(
+                "Failed to parse phone number '%s' to E.164 format. Storing as-is.",
+                phone,
+            )
+            self.phone = phone
+        except Exception as e:
+            # Other error, store as-is
+            self.logger.warning(
+                "Error converting phone number '%s' to E.164 format: %s. Storing as-is.",
+                phone,
+                e,
+            )
+            self.phone = phone
 
     def set_state(self, state: str) -> None:
         self.state = state
@@ -857,10 +935,14 @@ class Profile(BaseModel):
 
                         claim_type, identity = tag_content.split(":", 1)
 
-                        # Check if this is a legacy claim type (email, phone)
+                        # Check if this is a legacy claim type (email, phone, telephone)
                         if claim_type == "email":
                             profile.set_email(identity)
                         elif claim_type == "phone":
+                            # Legacy phone format, convert to E.164
+                            profile.set_phone(identity)
+                        elif claim_type == "telephone":
+                            # New telephone format (E.164)
                             profile.set_phone(identity)
                         else:
                             # Not a legacy claim type - treat as NIP-39 external identity

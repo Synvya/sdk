@@ -1305,7 +1305,10 @@ class NostrClient:
                 [
                     Tag.custom(
                         TagKind.SINGLE_LETTER(SingleLetterTag.lowercase(Alphabet.I)),
-                        [f"phone:{phone}", ""],
+                        [
+                            f"telephone:{phone}",
+                            "https://datatracker.ietf.org/doc/html/rfc3966#section-3",
+                        ],
                     ),
                 ]
             )
