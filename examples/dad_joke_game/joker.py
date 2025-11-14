@@ -15,10 +15,10 @@ from agno.agent import Agent  # type: ignore
 from agno.models.openai import OpenAIChat  # type: ignore
 from synvya_sdk import (
     KeyEncoding,
+    Label,
     Namespace,
     NostrKeys,
     Profile,
-    ProfileType,
     generate_keys,
 )
 from synvya_sdk.agno import DadJokeGamerTools
@@ -67,7 +67,8 @@ NIP05 = "joker@synvya.com"
 PICTURE = "https://i.nostr.build/TRzCCrLTjrbSvhtP.png"
 WEBSITE = "https://synvya.com"
 NAMESPACE = Namespace.GAMER
-PROFILE_TYPE = ProfileType.GAMER_DADJOKE
+PROFILE_LABEL = Label.GAMER_DADJOKE.value
+PROFILE_NAMESPACE = Namespace.GAMER.value
 HASHTAG = "joker"
 
 joker_profile = Profile(keys.get_public_key(KeyEncoding.BECH32))
@@ -80,7 +81,7 @@ joker_profile.set_nip05(NIP05)
 joker_profile.set_picture(PICTURE)
 joker_profile.set_website(WEBSITE)
 joker_profile.set_namespace(NAMESPACE)
-joker_profile.set_profile_type(PROFILE_TYPE)
+joker_profile.add_label(PROFILE_LABEL, PROFILE_NAMESPACE)
 joker_profile.add_hashtag(HASHTAG)
 
 

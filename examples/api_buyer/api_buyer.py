@@ -151,7 +151,7 @@ INSTRUCTIONS = """
     When asked to find merchants, you will use the tool `async_get_merchants` with a profile
     filter to find the merchants.
     Here is an example profile filter:
-    {"namespace": "com.synvya.merchant", "profile_type": "restaurant", "hashtags": ["pizza"]}
+    {"namespace": "com.synvya.merchant", "label": "restaurant", "hashtags": ["pizza"]}
 
     namespace is always "com.synvya.merchant".
 
