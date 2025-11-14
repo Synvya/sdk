@@ -9,12 +9,12 @@ from dotenv import load_dotenv
 
 from synvya_sdk import (
     KeyEncoding,
+    Label,
     Namespace,
     NostrKeys,
     Product,
     ProductShippingCost,
     Profile,
-    ProfileType,
     Stall,
     StallShippingMethod,
     generate_keys,
@@ -145,7 +145,7 @@ profile.set_picture(PICTURE)
 profile.set_website(WEBSITE)
 profile.set_nip05(NIP05)
 profile.set_bot(False)
-profile.set_profile_type(ProfileType.RETAIL)
+profile.add_label(Label.RETAIL.value, Namespace.BUSINESS_TYPE.value)
 profile.set_namespace(Namespace.MERCHANT)
 profile.add_hashtag("hardware")
 profile.add_hashtag("tools")

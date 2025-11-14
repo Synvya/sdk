@@ -12,11 +12,11 @@ from dotenv import load_dotenv
 
 from synvya_sdk import (
     KeyEncoding,
+    Label,
     Namespace,
     NostrClient,
     NostrKeys,
     Profile,
-    ProfileType,
 )
 
 
@@ -104,7 +104,8 @@ async def main() -> None:
     NIP05 = "nrm@synvya.com"
     PICTURE = "https://i.nostr.build/eZvrJNK9kFni5QR3.jpg"
     WEBSITE = "https://trainmuseum.org"
-    CATEGORY = ProfileType.RETAIL
+    CATEGORY = Label.RETAIL.value
+    CATEGORY_NAMESPACE = Namespace.BUSINESS_TYPE.value
     NAMESPACE = Namespace.MERCHANT
     HASHTAGS = ["railway", "museum", "history"]
 
@@ -116,9 +117,9 @@ async def main() -> None:
     profile.set_nip05(NIP05)
     profile.set_picture(PICTURE)
     profile.set_website(WEBSITE)
-    profile.set_profile_type(CATEGORY)
+    profile.add_label(CATEGORY, CATEGORY_NAMESPACE)
     profile.set_namespace(NAMESPACE)
-    profile.set_profile_type(ProfileType.ENTERTAINMENT)
+    profile.add_label(Label.ENTERTAINMENT.value, Namespace.BUSINESS_TYPE.value)
     profile.set_city("Snoqualmie")
     profile.set_state("WA")
     profile.set_country("USA")

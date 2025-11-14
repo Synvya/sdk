@@ -24,10 +24,10 @@ from agno.models.openai import OpenAIChat
 from agno.vectordb.pgvector import PgVector, SearchType
 from synvya_sdk import (
     KeyEncoding,
+    Label,
     Namespace,
     NostrKeys,
     Profile,
-    ProfileType,
     generate_keys,
 )
 from synvya_sdk.agno import BuyerTools
@@ -183,15 +183,22 @@ asyncio.run(buyer_tools.async_set_profile(profile))
 async def refresh_knowledge_base() -> None:
     # reset_database()
 
-    profile_types = list(ProfileType)
+    labels = [
+        Label.RETAIL,
+        Label.RESTAURANT,
+        Label.SERVICE,
+        Label.BUSINESS,
+        Label.ENTERTAINMENT,
+        Label.OTHER,
+    ]
 
-    for profile_type in profile_types:
+    for label in labels:
         profile_filter_json = {
             "namespace": Namespace.BUSINESS_TYPE.value,
-            "profile_type": profile_type.value,
+            "label": label.value,
         }
 
-        print(f"Fetching merchants for profile_type='{profile_type.value}'")
+        print(f"Fetching merchants for label='{label.value}'")
         response = await buyer_tools.async_get_merchants(profile_filter_json)
         print(response)
 
@@ -199,7 +206,7 @@ async def refresh_knowledge_base() -> None:
 async def query_knowledge_base(search_query: str) -> None:
     profile_filter_json = {
         "namespace": Namespace.BUSINESS_TYPE.value,
-        "profile_type": ProfileType.RESTAURANT.value,
+        "label": Label.RESTAURANT.value,
     }
 
     response = buyer_tools.get_merchants_from_knowledge_base(
@@ -232,12 +239,12 @@ buyer = Agent(
         Here is an example profile filter:
         {
            "namespace": "business.type",
-           "profile_type": "restaurant",
+           "label": "restaurant",
         }
 
         namespace is always "business.type".
 
-        Here is the list of valid profile types:
+        Here is the list of valid labels:
         - "retail"
         - "restaurant"
         - "service"
@@ -245,7 +252,7 @@ buyer = Agent(
         - "entertainment"
         - "other"
 
-        Select the most relevant profile type based on the user's query.
+        Select the most relevant label based on the user's query.
 
         Include pictures of the businesses in your response when possible.
         """.strip(),
@@ -285,7 +292,7 @@ if __name__ == "__main__":
     # asyncio.run(refresh_knowledge_base())
     profile_filter_json = {
         "namespace": Namespace.BUSINESS_TYPE.value,
-        "profile_type": ProfileType.RETAIL.value,
+        "label": Label.RETAIL.value,
     }
 
     response = asyncio.run(
