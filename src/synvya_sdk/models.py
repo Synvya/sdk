@@ -128,29 +128,33 @@ class Label(str, Enum):
 class ProfileFilter(BaseModel):
     """
     Represents a profile filter.
+    Filters by single label + single namespace + multiple hashtags.
     """
 
     namespace: str
-    profile_type: Label
+    label: str
     hashtags: List[str]
 
     def __init__(
         self,
         namespace: str,
-        profile_type: Label,
+        label: str,
         hashtags: Optional[List[str]] = None,
     ) -> None:
         """
         Initialize a ProfileFilter instance.
+
+        Args:
+            namespace: Namespace to filter by
+            label: Label to filter by
+            hashtags: Optional list of hashtags to filter by
         """
         normalized_hashtags = (
             [self._normalize_hashtag(tag) for tag in hashtags] if hashtags else []
         )
-        super().__init__(
-            namespace=namespace, profile_type=profile_type, hashtags=normalized_hashtags
-        )
+        super().__init__(namespace=namespace, label=label, hashtags=normalized_hashtags)
         self.namespace = namespace
-        self.profile_type = profile_type
+        self.label = label
         self.hashtags = normalized_hashtags
 
     def to_json(self) -> str:
@@ -466,7 +470,7 @@ class Profile(BaseModel):
     def matches_filter(self, profile_filter: ProfileFilter) -> bool:
         if profile_filter.namespace not in self.namespaces:
             return False
-        if not self.has_label(profile_filter.profile_type, profile_filter.namespace):
+        if not self.has_label(profile_filter.label, profile_filter.namespace):
             return False
         if not all(hashtag in self.hashtags for hashtag in profile_filter.hashtags):
             return False
