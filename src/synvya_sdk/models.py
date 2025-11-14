@@ -860,8 +860,11 @@ class Profile(BaseModel):
 
         # Collect ALL lowercase l tags (labels with optional namespace)
         # Format: ["l", "label"] or ["l", "label", "namespace"]
-        # If no namespace specified and no L tags, use "ugc" namespace per NIP-32
-        default_namespace = "ugc" if not namespaces else namespaces[0]
+        # Per NIP-32:
+        # - If multiple L tags exist, each l tag must specify which namespace it belongs to
+        # - If no namespace specified and no L tags, use "ugc" namespace
+        # - Support qualified labels like ["l", "com.example.vocabulary:my-label"]
+        default_namespace = "ugc" if not namespaces else None
         for tag in tag_vector:
             if tag.kind() == TagKind.SINGLE_LETTER(
                 SingleLetterTag.lowercase(Alphabet.L)
@@ -869,14 +872,33 @@ class Profile(BaseModel):
                 tag_as_vec = tag.as_vec()
                 if len(tag_as_vec) >= 2:
                     label_str = tag_as_vec[1]
+                    # Check for qualified label (namespace:label format)
+                    if ":" in label_str:
+                        qualified_parts = label_str.split(":", 1)
+                        if len(qualified_parts) == 2:
+                            namespace = qualified_parts[0]
+                            label_str = qualified_parts[1]
+                            profile.add_label(label_str, namespace)
+                            continue
                     # If there's a third element, it's the namespace
                     if len(tag_as_vec) >= 3:
                         namespace = tag_as_vec[2]
                         # Store label with namespace
                         profile.add_label(label_str, namespace)
                     else:
-                        # No namespace specified, use default
-                        profile.add_label(label_str, default_namespace)
+                        # No namespace specified
+                        if default_namespace:
+                            # Use "ugc" if no L tags, or first namespace if only one L tag
+                            profile.add_label(label_str, default_namespace)
+                        elif len(namespaces) == 1:
+                            # Only one namespace, use it
+                            profile.add_label(label_str, namespaces[0])
+                        else:
+                            # Multiple L tags but l tag doesn't specify namespace - skip per NIP-32
+                            profile.logger.warning(
+                                "l tag '%s' has no namespace mark but multiple L tags exist. Skipping.",
+                                label_str,
+                            )
 
         try:
             profile.nip05_validated = await profile._validate_profile_nip05()
