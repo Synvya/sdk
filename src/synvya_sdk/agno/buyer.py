@@ -289,7 +289,7 @@ class BuyerTools(Toolkit):
 
         Args:
             profile_filter_json: JSON string or dictionary representing a filter to apply to merchants.
-                             Format: {"namespace": "com.synvya.merchant", "profile_type": "restaurant", "hashtags": ["pizza"]}
+                             Format: {"namespace": "com.synvya.merchant", "label": "restaurant", "hashtags": ["pizza"]}
 
         Returns:
             str: JSON string of merchants
