@@ -1,12 +1,12 @@
 """
-Tests for BuyerTools knowledge base storage of namespace profile types and external identities.
+Tests for BuyerTools knowledge base storage of labels and external identities.
 """
 
 from unittest.mock import AsyncMock, Mock, call
 
 import pytest
 
-from synvya_sdk import KeyEncoding, Namespace, NostrKeys, Profile, ProfileType
+from synvya_sdk import KeyEncoding, Namespace, NostrKeys, Profile
 from synvya_sdk.agno import BuyerTools
 
 
@@ -35,20 +35,21 @@ def mock_knowledge_base_with_vector_db_fixture(mock_vector_db: Mock) -> Mock:
 
 
 @pytest.mark.asyncio
-async def test_store_profile_in_kb_with_namespace_profile_types(
+async def test_store_profile_in_kb_with_labels(
     mock_knowledge_base_with_vector_db: Mock,
     mock_vector_db: Mock,
     test_keys: NostrKeys,
 ) -> None:
-    """Test that _store_profile_in_kb stores namespace_profile_types in metadata and filters"""
+    """Test that _store_profile_in_kb stores labels in metadata and filters"""
     from unittest.mock import patch
 
-    # Create a profile with namespace-specific profile types
+    # Create a profile with labels
     profile = Profile(public_key=test_keys.get_public_key(KeyEncoding.HEX))
     profile.set_name("Test Merchant")
     profile.set_namespace(["com.synvya.merchant", "com.synvya.chamber"])
-    profile.set_profile_type("restaurant", namespace="com.synvya.merchant")
-    profile.set_profile_type("test-chamber", namespace="com.synvya.chamber")
+    profile.add_label("restaurant", "com.synvya.merchant")
+    profile.add_label("reservations", "com.synvya.merchant")
+    profile.add_label("test-chamber", "com.synvya.chamber")
 
     # Create BuyerTools with mocked dependencies
     with patch("synvya_sdk.NostrClient.create") as mock_create:
@@ -77,16 +78,17 @@ async def test_store_profile_in_kb_with_namespace_profile_types(
             else call_args[1].get("filters", {})
         )
 
-        # Verify namespace_profile_types is in metadata
-        assert "namespace_profile_types" in filters
-        assert filters["namespace_profile_types"] == {
-            "com.synvya.merchant": "restaurant",
-            "com.synvya.chamber": "test-chamber",
+        # Verify labels is in metadata
+        assert "labels" in filters
+        assert filters["labels"] == {
+            "com.synvya.merchant": ["restaurant", "reservations"],
+            "com.synvya.chamber": ["test-chamber"],
         }
 
-        # Verify boolean filters for each namespace→profile_type mapping
-        assert filters["profile_type_com.synvya.merchant:restaurant"] is True
-        assert filters["profile_type_com.synvya.chamber:test-chamber"] is True
+        # Verify boolean filters for each (namespace, label) pair
+        assert filters["label_com.synvya.merchant:restaurant"] is True
+        assert filters["label_com.synvya.merchant:reservations"] is True
+        assert filters["label_com.synvya.chamber:test-chamber"] is True
 
 
 @pytest.mark.asyncio
@@ -151,19 +153,19 @@ async def test_store_profile_in_kb_with_external_identities(
 
 
 @pytest.mark.asyncio
-async def test_store_profile_in_kb_with_both_namespace_types_and_external_identities(
+async def test_store_profile_in_kb_with_both_labels_and_external_identities(
     mock_knowledge_base_with_vector_db: Mock,
     mock_vector_db: Mock,
     test_keys: NostrKeys,
 ) -> None:
-    """Test that _store_profile_in_kb stores both namespace_profile_types and external_identities"""
+    """Test that _store_profile_in_kb stores both labels and external_identities"""
     from unittest.mock import patch
 
-    # Create a profile with both namespace-specific profile types and external identities
+    # Create a profile with both labels and external identities
     profile = Profile(public_key=test_keys.get_public_key(KeyEncoding.HEX))
     profile.set_name("Test Merchant")
     profile.set_namespace(["com.synvya.merchant"])
-    profile.set_profile_type("restaurant", namespace="com.synvya.merchant")
+    profile.add_label("restaurant", "com.synvya.merchant")
     profile.add_external_identity("com.synvya.chamber", "snovalley", "1234")
 
     # Create BuyerTools with mocked dependencies
@@ -194,14 +196,12 @@ async def test_store_profile_in_kb_with_both_namespace_types_and_external_identi
         )
 
         # Verify both are stored
-        assert "namespace_profile_types" in filters
+        assert "labels" in filters
         assert "external_identities" in filters
 
-        # Verify namespace_profile_types
-        assert filters["namespace_profile_types"] == {
-            "com.synvya.merchant": "restaurant"
-        }
-        assert filters["profile_type_com.synvya.merchant:restaurant"] is True
+        # Verify labels
+        assert filters["labels"] == {"com.synvya.merchant": ["restaurant"]}
+        assert filters["label_com.synvya.merchant:restaurant"] is True
 
         # Verify external_identities
         external_identities = filters["external_identities"]
@@ -212,15 +212,15 @@ async def test_store_profile_in_kb_with_both_namespace_types_and_external_identi
 
 
 @pytest.mark.asyncio
-async def test_store_profile_in_kb_without_namespace_types_or_external_identities(
+async def test_store_profile_in_kb_without_labels_or_external_identities(
     mock_knowledge_base_with_vector_db: Mock,
     mock_vector_db: Mock,
     test_keys: NostrKeys,
 ) -> None:
-    """Test that _store_profile_in_kb works correctly when no namespace types or external identities"""
+    """Test that _store_profile_in_kb works correctly when no labels or external identities"""
     from unittest.mock import patch
 
-    # Create a profile without namespace-specific profile types or external identities
+    # Create a profile without labels or external identities
     profile = Profile(public_key=test_keys.get_public_key(KeyEncoding.HEX))
     profile.set_name("Test Merchant")
     profile.set_namespace(["com.synvya.merchant"])
@@ -252,9 +252,8 @@ async def test_store_profile_in_kb_without_namespace_types_or_external_identitie
             else call_args[1].get("filters", {})
         )
 
-        # Verify namespace_profile_types and external_identities are not in filters
-        # (or are empty/None)
-        if "namespace_profile_types" in filters:
-            assert not filters["namespace_profile_types"]
+        # Verify labels and external_identities are not in filters (or are empty/None)
+        if "labels" in filters:
+            assert not filters["labels"]
         if "external_identities" in filters:
             assert not filters["external_identities"]

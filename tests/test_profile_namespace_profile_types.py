@@ -1,5 +1,5 @@
 """
-Tests for Profile namespace-specific profile types support.
+Tests for Profile labels per NIP-32 labeling specification.
 """
 
 import json
@@ -16,7 +16,7 @@ from nostr_sdk import (
     TagKind,
 )
 
-from synvya_sdk import KeyEncoding, Namespace, NostrKeys, Profile, ProfileType
+from synvya_sdk import KeyEncoding, Label, Namespace, NostrKeys, Profile
 
 
 @pytest.fixture(scope="function", name="test_keys")
@@ -25,11 +25,11 @@ def test_keys_fixture() -> NostrKeys:
     return NostrKeys()
 
 
-class TestProfileNamespaceProfileTypes:
-    """Test Profile namespace-specific profile types functionality"""
+class TestProfileLabels:
+    """Test Profile labels functionality per NIP-32"""
 
-    async def test_profile_from_event_with_namespace_profile_types(self) -> None:
-        """Test that Profile.from_event() collects namespace-specific profile types"""
+    async def test_profile_from_event_with_multiple_labels_per_namespace(self) -> None:
+        """Test that Profile.from_event() collects multiple labels per namespace"""
         keys = Keys.generate()
 
         metadata_record = MetadataRecord(
@@ -38,7 +38,44 @@ class TestProfileNamespaceProfileTypes:
         )
         metadata = Metadata.from_record(metadata_record)
 
-        # Build event with lowercase l tags that include namespaces
+        # Build event with multiple labels per namespace
+        event_builder = EventBuilder.metadata(metadata).tags(
+            [
+                Tag.custom(
+                    TagKind.SINGLE_LETTER(SingleLetterTag.uppercase(Alphabet.L)),
+                    ["com.synvya.merchant"],
+                ),
+                Tag.custom(
+                    TagKind.SINGLE_LETTER(SingleLetterTag.lowercase(Alphabet.L)),
+                    ["restaurant", "com.synvya.merchant"],
+                ),
+                Tag.custom(
+                    TagKind.SINGLE_LETTER(SingleLetterTag.lowercase(Alphabet.L)),
+                    ["reservations", "com.synvya.merchant"],
+                ),
+            ]
+        )
+
+        event = event_builder.sign_with_keys(keys)
+        profile = await Profile.from_event(event)
+
+        # Should have multiple labels for the namespace
+        labels = profile.get_labels("com.synvya.merchant")
+        assert "restaurant" in labels
+        assert "reservations" in labels
+        assert len(labels) == 2
+
+    async def test_profile_from_event_with_same_label_multiple_namespaces(self) -> None:
+        """Test that Profile.from_event() handles same label in multiple namespaces"""
+        keys = Keys.generate()
+
+        metadata_record = MetadataRecord(
+            name="Test Profile",
+            about="Test about",
+        )
+        metadata = Metadata.from_record(metadata_record)
+
+        # Build event with same label in different namespaces
         event_builder = EventBuilder.metadata(metadata).tags(
             [
                 Tag.custom(
@@ -55,7 +92,7 @@ class TestProfileNamespaceProfileTypes:
                 ),
                 Tag.custom(
                     TagKind.SINGLE_LETTER(SingleLetterTag.lowercase(Alphabet.L)),
-                    ["test-chamber", "com.synvya.chamber"],
+                    ["restaurant", "com.synvya.chamber"],
                 ),
             ]
         )
@@ -63,15 +100,16 @@ class TestProfileNamespaceProfileTypes:
         event = event_builder.sign_with_keys(keys)
         profile = await Profile.from_event(event)
 
-        # Should have namespace-specific profile types
-        assert profile.get_profile_type("com.synvya.merchant") == ProfileType.RESTAURANT
-        # test-chamber is not a valid ProfileType enum, so it should be stored as string
-        # but get_profile_type should return primary if not valid enum
-        profile_type_str = profile.namespace_profile_types.get("com.synvya.chamber")
-        assert profile_type_str == "test-chamber"
+        # Should have restaurant label in both namespaces
+        assert profile.has_label("restaurant", "com.synvya.merchant")
+        assert profile.has_label("restaurant", "com.synvya.chamber")
+        # Should be able to get namespaces for the label
+        namespaces = profile.get_namespaces_for_label("restaurant")
+        assert "com.synvya.merchant" in namespaces
+        assert "com.synvya.chamber" in namespaces
 
-    async def test_profile_from_event_with_single_lowercase_l_tag(self) -> None:
-        """Test that Profile.from_event() works with single lowercase l tag without namespace"""
+    async def test_profile_from_event_with_ugc_namespace(self) -> None:
+        """Test that Profile.from_event() uses 'ugc' namespace when no L tags"""
         keys = Keys.generate()
 
         metadata_record = MetadataRecord(
@@ -80,6 +118,7 @@ class TestProfileNamespaceProfileTypes:
         )
         metadata = Metadata.from_record(metadata_record)
 
+        # Build event with l tag but no L tag
         event_builder = EventBuilder.metadata(metadata).tags(
             [
                 Tag.custom(
@@ -92,64 +131,108 @@ class TestProfileNamespaceProfileTypes:
         event = event_builder.sign_with_keys(keys)
         profile = await Profile.from_event(event)
 
-        # Should set primary profile type
-        assert profile.get_profile_type() == ProfileType.RESTAURANT
-        assert len(profile.namespace_profile_types) == 0
+        # Should use 'ugc' namespace
+        assert profile.has_label("restaurant", "ugc")
 
-    def test_profile_get_profile_type_with_namespace(
-        self, test_keys: NostrKeys
-    ) -> None:
-        """Test get_profile_type() with namespace parameter"""
+    def test_profile_add_label(self, test_keys: NostrKeys) -> None:
+        """Test add_label() method"""
         profile = Profile(public_key=test_keys.get_public_key(KeyEncoding.HEX))
-        profile.set_profile_type("restaurant", namespace="com.synvya.merchant")
-        profile.set_profile_type("retail", namespace="com.synvya.chamber")
+        profile.add_label("restaurant", "com.synvya.merchant")
+        profile.add_label("reservations", "com.synvya.merchant")
 
-        assert profile.get_profile_type("com.synvya.merchant") == ProfileType.RESTAURANT
-        assert profile.get_profile_type("com.synvya.chamber") == ProfileType.RETAIL
-        # Primary should be restaurant (first one set)
-        assert profile.get_profile_type() == ProfileType.RESTAURANT
+        assert profile.has_label("restaurant", "com.synvya.merchant")
+        assert profile.has_label("reservations", "com.synvya.merchant")
+        labels = profile.get_labels("com.synvya.merchant")
+        assert len(labels) == 2
+        assert "restaurant" in labels
+        assert "reservations" in labels
 
-    def test_profile_set_profile_type_with_namespace(
-        self, test_keys: NostrKeys
-    ) -> None:
-        """Test set_profile_type() with namespace parameter"""
+    def test_profile_add_label_deduplicates(self, test_keys: NostrKeys) -> None:
+        """Test that add_label() deduplicates labels"""
         profile = Profile(public_key=test_keys.get_public_key(KeyEncoding.HEX))
-        profile.set_profile_type("restaurant", namespace="com.synvya.merchant")
+        profile.add_label("restaurant", "com.synvya.merchant")
+        profile.add_label("restaurant", "com.synvya.merchant")  # Duplicate
 
-        assert "com.synvya.merchant" in profile.namespace_profile_types
-        assert profile.namespace_profile_types["com.synvya.merchant"] == "restaurant"
-        assert profile.get_profile_type("com.synvya.merchant") == ProfileType.RESTAURANT
+        labels = profile.get_labels("com.synvya.merchant")
+        assert len(labels) == 1
+        assert labels[0] == "restaurant"
 
-    def test_profile_to_json_with_namespace_profile_types(
-        self, test_keys: NostrKeys
-    ) -> None:
-        """Test that to_json() serializes namespace_profile_types"""
+    def test_profile_remove_label(self, test_keys: NostrKeys) -> None:
+        """Test remove_label() method"""
         profile = Profile(public_key=test_keys.get_public_key(KeyEncoding.HEX))
-        profile.set_profile_type("restaurant", namespace="com.synvya.merchant")
-        profile.set_profile_type("retail", namespace="com.synvya.chamber")
+        profile.add_label("restaurant", "com.synvya.merchant")
+        profile.add_label("reservations", "com.synvya.merchant")
+
+        profile.remove_label("restaurant", "com.synvya.merchant")
+
+        assert not profile.has_label("restaurant", "com.synvya.merchant")
+        assert profile.has_label("reservations", "com.synvya.merchant")
+        labels = profile.get_labels("com.synvya.merchant")
+        assert len(labels) == 1
+        assert labels[0] == "reservations"
+
+    def test_profile_get_labels(self, test_keys: NostrKeys) -> None:
+        """Test get_labels() method"""
+        profile = Profile(public_key=test_keys.get_public_key(KeyEncoding.HEX))
+        profile.add_label("restaurant", "com.synvya.merchant")
+        profile.add_label("reservations", "com.synvya.merchant")
+        profile.add_label("retail", "com.synvya.chamber")
+
+        # Get labels for specific namespace
+        merchant_labels = profile.get_labels("com.synvya.merchant")
+        assert len(merchant_labels) == 2
+        assert "restaurant" in merchant_labels
+        assert "reservations" in merchant_labels
+
+        # Get all labels
+        all_labels = profile.get_labels()
+        assert len(all_labels) == 3
+        assert "restaurant" in all_labels
+        assert "reservations" in all_labels
+        assert "retail" in all_labels
+
+    def test_profile_get_namespaces_for_label(self, test_keys: NostrKeys) -> None:
+        """Test get_namespaces_for_label() method"""
+        profile = Profile(public_key=test_keys.get_public_key(KeyEncoding.HEX))
+        profile.add_label("restaurant", "com.synvya.merchant")
+        profile.add_label("restaurant", "com.synvya.chamber")
+
+        namespaces = profile.get_namespaces_for_label("restaurant")
+        assert len(namespaces) == 2
+        assert "com.synvya.merchant" in namespaces
+        assert "com.synvya.chamber" in namespaces
+
+    def test_profile_to_json_with_labels(self, test_keys: NostrKeys) -> None:
+        """Test that to_json() serializes labels"""
+        profile = Profile(public_key=test_keys.get_public_key(KeyEncoding.HEX))
+        profile.add_label("restaurant", "com.synvya.merchant")
+        profile.add_label("reservations", "com.synvya.merchant")
+        profile.add_label("retail", "com.synvya.chamber")
 
         json_str = profile.to_json()
         data = json.loads(json_str)
 
-        assert "namespace_profile_types" in data
-        assert isinstance(data["namespace_profile_types"], dict)
-        assert data["namespace_profile_types"]["com.synvya.merchant"] == "restaurant"
-        assert data["namespace_profile_types"]["com.synvya.chamber"] == "retail"
+        assert "labels" in data
+        assert isinstance(data["labels"], dict)
+        assert "com.synvya.merchant" in data["labels"]
+        assert "restaurant" in data["labels"]["com.synvya.merchant"]
+        assert "reservations" in data["labels"]["com.synvya.merchant"]
+        assert "com.synvya.chamber" in data["labels"]
+        assert "retail" in data["labels"]["com.synvya.chamber"]
 
-    def test_profile_from_json_with_namespace_profile_types(
-        self, test_keys: NostrKeys
-    ) -> None:
-        """Test that from_json() deserializes namespace_profile_types"""
+    def test_profile_from_json_with_labels(self, test_keys: NostrKeys) -> None:
+        """Test that from_json() deserializes labels"""
         public_key = test_keys.get_public_key(KeyEncoding.HEX)
         json_data = {
             "public_key": public_key,
-            "namespace_profile_types": {
-                "com.synvya.merchant": "restaurant",
-                "com.synvya.chamber": "retail",
+            "labels": {
+                "com.synvya.merchant": ["restaurant", "reservations"],
+                "com.synvya.chamber": ["retail"],
             },
         }
 
         profile = Profile.from_json(json.dumps(json_data))
 
-        assert profile.get_profile_type("com.synvya.merchant") == ProfileType.RESTAURANT
-        assert profile.get_profile_type("com.synvya.chamber") == ProfileType.RETAIL
+        assert profile.has_label("restaurant", "com.synvya.merchant")
+        assert profile.has_label("reservations", "com.synvya.merchant")
+        assert profile.has_label("retail", "com.synvya.chamber")
