@@ -100,8 +100,8 @@ class Namespace(str, Enum):
 
     MERCHANT = "com.synvya.merchant"
     GAMER = "com.synvya.gamer"
-    OTHER = "com.synvya.other"
     BUSINESS_TYPE = "business.type"
+    SCHEMA_ORG = "https://schema.org"
 
     """Configuration for Pydantic models to use enum values directly."""
     model_config = ConfigDict(use_enum_values=True)
@@ -113,13 +113,27 @@ class Label(str, Enum):
     """
 
     RETAIL = "retail"
-    RESTAURANT = "restaurant"
-    SERVICE = "service"
-    BUSINESS = "business"
-    ENTERTAINMENT = "entertainment"
     OTHER = "other"
     GAMER_DADJOKE = "dad-joke-game"
-    OTHER_OTHER = "other"
+
+    ## Schemas.org types
+    ### Thing > Organization > LocalBusiness
+    #### Food Establishment
+    BAKERY = "Bakery"  # https://schema.org/Bakery
+    BARORPUB = "BarOrPub"  # https://schema.org/BarOrPub
+    BREWERY = "Brewery"  # https://schema.org/Brewery
+    CAFEORCOFFEESHOP = "CafeOrCoffeeShop"  # https://schema.org/CafeOrCoffeeShop
+    DISTILLERY = "Distillery"  # https://schema.org/Distillery
+    FASTFOODRESTAURANT = "FastFoodRestaurant"  # https://schema.org/FastFoodRestaurant
+    ICECREAMSHOP = "IceCreamShop"  # https://schema.org/IceCreamShop
+    RESTAURANT = "Restaurant"  # https://schema.org/Restaurant
+    WINERY = "Winery"  # https://schema.org/Winery
+
+    #### Lodging Business
+    HOTEL = "Hotel"  # https://schema.org/Hotel
+
+    ### Thing > Place > Civic Structure
+    MUSEUM = "Museum"  # https://schema.org/Museum
 
     """Configuration for Pydantic models to use enum values directly."""
     model_config = ConfigDict(use_enum_values=True)

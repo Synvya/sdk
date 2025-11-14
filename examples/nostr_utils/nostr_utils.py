@@ -97,8 +97,8 @@ async def main() -> None:
     NIP05 = "nrm@synvya.com"
     PICTURE = "https://i.nostr.build/eZvrJNK9kFni5QR3.jpg"
     WEBSITE = "https://trainmuseum.org"
-    CATEGORY = Label.ENTERTAINMENT
-    NAMESPACE = Namespace.MERCHANT
+    CATEGORY = Label.MUSEUM
+    NAMESPACE = Namespace.SCHEMA_ORG
     HASHTAGS = ["railway", "museum", "history"]
 
     profile = Profile(keys.get_public_key(encoding=KeyEncoding.BECH32))
