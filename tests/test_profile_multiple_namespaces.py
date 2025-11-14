@@ -19,11 +19,11 @@ from nostr_sdk import (
 
 from synvya_sdk import (
     KeyEncoding,
+    Label,
     Namespace,
     NostrKeys,
     Profile,
     ProfileFilter,
-    ProfileType,
 )
 
 
@@ -155,26 +155,27 @@ class TestProfileMultipleNamespaces:
         """Test that matches_filter() works with multiple namespaces"""
         profile = Profile(public_key=test_keys.get_public_key(KeyEncoding.HEX))
         profile.set_namespace(["com.synvya.merchant", "com.synvya.chamber"])
-        profile.set_profile_type(ProfileType.RESTAURANT)
+        profile.add_label(Label.RESTAURANT.value, "com.synvya.merchant")
+        profile.add_label(Label.RESTAURANT.value, "com.synvya.chamber")
 
-        # Filter should match if any namespace matches
+        # Filter should match if namespace and label match
         filter1 = ProfileFilter(
             namespace="com.synvya.merchant",
-            profile_type=ProfileType.RESTAURANT,
+            label=Label.RESTAURANT.value,
             hashtags=[],
         )
         assert profile.matches_filter(filter1) is True
 
         filter2 = ProfileFilter(
             namespace="com.synvya.chamber",
-            profile_type=ProfileType.RESTAURANT,
+            label=Label.RESTAURANT.value,
             hashtags=[],
         )
         assert profile.matches_filter(filter2) is True
 
         filter3 = ProfileFilter(
             namespace="com.synvya.other",
-            profile_type=ProfileType.RESTAURANT,
+            label=Label.RESTAURANT.value,
             hashtags=[],
         )
         assert profile.matches_filter(filter3) is False
