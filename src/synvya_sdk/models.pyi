@@ -58,16 +58,17 @@ class Label(str, Enum):
 class ProfileFilter(BaseModel):
     """
     Represents a profile filter.
+    Filters by single label + single namespace + multiple hashtags.
     """
 
     namespace: str
-    profile_type: Label
+    label: str
     hashtags: List[str]
 
     def __init__(
         self,
         namespace: str,
-        profile_type: Label,
+        label: str,
         hashtags: Optional[List[str]] = None,
     ) -> None: ...
     def to_json(self) -> str: ...
