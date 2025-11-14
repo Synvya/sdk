@@ -140,10 +140,10 @@ class TestProfileGeohash:
     async def test_profile_geohash_from_event(
         self, test_keys: NostrKeys, test_geohash: str
     ) -> None:
-        """Test that geohash is parsed from Nostr event with g tag"""
+        """Test that geohash is parsed from Nostr event with geo: i tag (NIP-73)"""
         keys = Keys.generate()
 
-        # Create a kind:0 event with metadata and g tag for geohash
+        # Create a kind:0 event with metadata and geo: i tag for geohash
         metadata_record = MetadataRecord(
             name="Test Profile",
             about="Test about",
@@ -151,12 +151,12 @@ class TestProfileGeohash:
         )
         metadata = Metadata.from_record(metadata_record)
 
-        # Build event with g tag
+        # Build event with geo: i tag (NIP-73 format)
         event_builder = EventBuilder.metadata(metadata).tags(
             [
                 Tag.custom(
-                    TagKind.SINGLE_LETTER(SingleLetterTag.lowercase(Alphabet.G)),
-                    [test_geohash],
+                    TagKind.SINGLE_LETTER(SingleLetterTag.lowercase(Alphabet.I)),
+                    [f"geo:{test_geohash}", "https://geohash.org"],
                 ),
             ]
         )
@@ -166,7 +166,7 @@ class TestProfileGeohash:
         # Parse event to Profile
         profile = await Profile.from_event(event)
 
-        # Should parse geohash from g tag
+        # Should parse geohash from geo: i tag
         assert profile.get_geohash() == test_geohash
 
     async def test_profile_without_geohash_from_event(
